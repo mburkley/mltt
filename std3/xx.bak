@@ -1,0 +1,1066 @@
+ROM & MUNCHMN load ok
+GROM load ok
+ * invalid *
+ * invalid *
+ * invalid *
+ * invalid *
+ * invalid *
+Level set to 3
+ * invalid *
+VDP : init graphics
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+R0:00 R1:00 R2:00 R3:00 R4:00 R5:00 R6:00 R7:00 
+St:00
+R0:00 R1:20 R2:00 R3:00 R4:00 R5:00 R6:00 R7:00 
+St:00
+R0:00 R1:20 R2:F0 R3:00 R4:00 R5:00 R6:00 R7:00 
+St:00
+R0:00 R1:20 R2:F0 R3:0E R4:00 R5:00 R6:00 R7:00 
+St:00
+R0:00 R1:20 R2:F0 R3:0E R4:F9 R5:00 R6:00 R7:00 
+St:00
+R0:00 R1:20 R2:F0 R3:0E R4:F9 R5:86 R6:00 R7:00 
+St:00
+R0:00 R1:20 R2:F0 R3:0E R4:F9 R5:86 R6:F8 R7:00 
+St:00
+R0:00 R1:20 R2:F0 R3:0E R4:F9 R5:86 R6:F8 R7:F7 
+St:00
+R0:00 R1:80 R2:F0 R3:0E R4:F9 R5:86 R6:F8 R7:F7 
+St:00
+R0:00 R1:80 R2:F0 R3:0E R4:F9 R5:86 R6:F8 R7:F7 
+St:00
+R0:00 R1:80 R2:F0 R3:0E R4:F9 R5:86 R6:F8 R7:F7 
+St:00
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+R0:00 R1:E0 R2:F0 R3:0E R4:F9 R5:86 R6:F8 R7:F7 
+St:00
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+Key pressed
+Forcing key pressed...
+
+
+
+
+R0:00 R1:E0 R2:F0 R3:0E R4:F9 R5:86 R6:F8 R7:F7 
+St:00
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+R0:00 R1:80 R2:F0 R3:0E R4:F9 R5:86 R6:F8 R7:F7 
+St:00
+R0:00 R1:E0 R2:F0 R3:0E R4:F9 R5:86 R6:F8 R7:F7 
+St:00
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+Key pressed
+Forcing key pressed...
+
+
+
+
+R0:00 R1:E0 R2:F0 R3:0E R4:F9 R5:86 R6:F8 R7:F7 
+St:00
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+R0:00 R1:E0 R2:F0 R3:0E R4:F9 R5:86 R6:F8 R7:F7 
+St:00
+R0:00 R1:E0 R2:00 R3:0E R4:F9 R5:86 R6:F8 R7:F7 
+St:00
+R0:00 R1:E0 R2:00 R3:0E R4:F9 R5:86 R6:F8 R7:F7 
+St:00
+R0:00 R1:E0 R2:00 R3:0E R4:01 R5:86 R6:F8 R7:F7 
+St:00
+R0:00 R1:E0 R2:00 R3:0E R4:01 R5:06 R6:F8 R7:F7 
+St:00
+R0:00 R1:E0 R2:00 R3:0E R4:01 R5:06 R6:00 R7:F7 
+St:00
+R0:00 R1:E0 R2:00 R3:0E R4:01 R5:06 R6:00 R7:F1 
+St:00
+R0:00 R1:E0 R2:00 R3:0E R4:01 R5:06 R6:00 R7:0F 
+St:00
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+Draw sprite 0 @ 0,0 pat=0, colour=0
+Draw sprite 1 @ 0,0 pat=0, colour=0
+Draw sprite 2 @ 0,0 pat=0, colour=0
+Draw sprite 3 @ 0,0 pat=0, colour=0
+Draw sprite 4 @ 0,0 pat=0, colour=0
+Draw sprite 5 @ 0,0 pat=0, colour=0
+Draw sprite 6 @ 0,0 pat=0, colour=0
+Draw sprite 7 @ 0,0 pat=0, colour=0
+Draw sprite 8 @ 0,0 pat=0, colour=0
+Draw sprite 9 @ 0,0 pat=0, colour=0
+Draw sprite 10 @ 0,0 pat=0, colour=0
+Draw sprite 11 @ 0,0 pat=0, colour=0
+Draw sprite 12 @ 0,0 pat=0, colour=0
+Draw sprite 13 @ 0,0 pat=0, colour=0
+Draw sprite 14 @ 0,0 pat=0, colour=0
+Draw sprite 15 @ 0,0 pat=0, colour=0
+Draw sprite 16 @ 0,0 pat=0, colour=0
+Draw sprite 17 @ 0,0 pat=0, colour=0
+Draw sprite 18 @ 0,0 pat=0, colour=0
+Draw sprite 19 @ 0,0 pat=0, colour=0
+Draw sprite 20 @ 0,0 pat=0, colour=0
+Draw sprite 21 @ 0,0 pat=0, colour=0
+Draw sprite 22 @ 0,0 pat=0, colour=0
+Draw sprite 23 @ 0,0 pat=0, colour=0
+Draw sprite 24 @ 0,0 pat=0, colour=0
+Draw sprite 25 @ 0,0 pat=0, colour=0
+Draw sprite 26 @ 0,0 pat=0, colour=0
+Draw sprite 27 @ 0,0 pat=0, colour=0
+Draw sprite 28 @ 0,0 pat=0, colour=0
+Draw sprite 29 @ 0,0 pat=0, colour=0
+Draw sprite 30 @ 0,0 pat=0, colour=0
+Draw sprite 31 @ 0,0 pat=0, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 64,127 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=4
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=4
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=4
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=4
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Key pressed
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Key pressed
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Draw sprite 0 @ 133,42 pat=128, colour=0
+Draw sprite 1 @ 0,240 pat=132, colour=0
+Key pressed
+Break pressed

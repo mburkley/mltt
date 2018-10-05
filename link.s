@@ -1,0 +1,16 @@
+e:\APPS\BC4\LIB\c0h.obj+
+cpu.obj+
+vdp.obj+
+break.obj+
+watch.obj+
+cond.obj+
+cru.obj+
+grom.obj+
+cover.obj+
+unasm.obj+
+mem.obj
+cpu.exe
+/c/m
+e:\APPS\BC4\LIB\emu.lib+
+e:\APPS\BC4\LIB\mathh.lib+
+e:\APPS\BC4\LIB\ch.lib
