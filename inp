@@ -1,0 +1,51 @@
+# Load console ROM
+load roms/994arom.bin 0x0000 0x2000
+# Load console GROM
+grom roms/994agrom.bin 0x0000 0x6000
+#
+#  Load this?
+#
+# load ../../ti99-x/module-c.bin 0x6000 0x2000
+#
+#  The Attack
+#
+# grom roms/attackg.bin  0x6000 0x2000
+#
+#  Munchman
+#
+# load roms/munchmnc.bin 0x6000 0x2000
+# grom roms/munchmng.bin  0x6000 0x2000
+#
+#  Invaders
+#
+# load roms/ti-invac.bin 0x6000 0x2000
+# grom roms/ti-invag.bin 0x6000 0x2000
+#
+#  Parsec
+#
+# load roms/parsec-c.bin 0x6000 0x2000
+# grom roms/parsec-g.bin 0x6000 0x2000
+#
+#  Tombstone City
+#
+load roms/TombCitC.Bin 0x6000 0x2000
+grom roms/TombCitG.Bin 0x6000 0x2000
+keyboard /dev/input/event22
+# 001=console
+# 002=cpu
+# 004=vdp
+# 008=grom
+# 010=unasm
+# 020=cru
+# 040=kbd
+# 080=sound
+# 100=gpl
+# 200=gpl debug
+level 0x00
+boot
+una
+# una cov
+comments unasm.txt
+video
+sound
+go

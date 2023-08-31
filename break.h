@@ -3,10 +3,10 @@
 
 #include "cpu.h"
 
-void breakPointAdd (char *s);
+void breakPointAdd (WORD addr);
 void breakPointList (void);
-void breakPointRemove (char *s);
-void breakPointCondition (char *s);
+void breakPointRemove (WORD addr);
+void breakPointCondition (WORD addr);
 int breakPointHit (WORD addr);
 
 #endif

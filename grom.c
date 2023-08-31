@@ -3,10 +3,7 @@
 
 #include "grom.h"
 #include "trace.h"
-
-#define DBG_LVL 1
-
-#define GROM_DEBUG 1
+#include "gpl.h"
 
 struct
 {
@@ -16,9 +13,7 @@ struct
 
     union
     {
-        // WORD w[32768];
-        // BYTE b[65536];
-        WORD w[0x4000];
+        // WORD w[0x4000];
         BYTE b[0x8000];
     }
     rom;
@@ -31,77 +26,95 @@ void gromIntegrity (void)
     {
         halt ("GROM corruption\n");
     }
-
 }
 
-BYTE gromRead (void)
+int gromRead (int addr, int size)
 {
-    BYTE result;
-
-    // gromIntegrity();
-    gRom.lowByteGet = 0;
-    gRom.lowByteSet = 0;
-
-    if (gRom.addr > 0x7FFF)
+    #if 0
+    if (size != 1)
     {
-        result = 0;
+        halt ("GROM can only read bytes\n");
     }
-    else
+    #endif
+
+    switch (addr)
     {
-        result = gRom.rom.b[gRom.addr];
-    }
-
-#ifdef __GROM_DEBUG
-    mprintf (LVL_GROM, "GROMRead: %04X : %02X\n",
-             (unsigned) gRom.addr,
-             (unsigned) result);
-#endif
-
-    gRom.addr++;
-
-    return result;
-}
-
-void gromSetAddr (WORD addr)
-{
-    if (gRom.lowByteSet)
-    {
-        gRom.addr = gRom.addr & 0xFF00 | addr;
+    case 0:
+        gRom.lowByteGet = 0;
         gRom.lowByteSet = 0;
-        gRom.lowByteGet = 0;
-#ifdef __GROM_DEBUG
-        mprintf (LVL_GROM, "GROMAD addr set to %04X\n", gRom.addr);
-#endif
+
+        BYTE result;
+
+        if (gRom.addr > 0x7FFF)
+        {
+            result = 0;
+        }
+        else
+        {
+            result = gRom.rom.b[gRom.addr];
+        }
+
+        mprintf (LVL_GROM, "GROMRead: %04X : %02X\n",
+                 (unsigned) gRom.addr,
+                 (unsigned) result);
+
+        gplDisassemble (gRom.addr, result);
+        gRom.addr++;
+
+        return result;
+    case 2:
+        if (gRom.lowByteGet)
+        {
+            gRom.lowByteGet = 0;
+            mprintf (LVL_GROM, "GROMAD addr get as %04X\n", gRom.addr+1);
+            return (gRom.addr+1) & 0xFF;
+        }
+
+        gRom.lowByteGet = 1;
+        mprintf (LVL_GROM, "GROMAD lo byte Get\n");
+        return (gRom.addr+1) >> 8;
+    default:
+        halt ("Strange GROM CPU addr\n");
+        break;
     }
-    else
-    {
-        gRom.addr = addr << 8;
-        gRom.lowByteSet = 1;
-#ifdef __GROM_DEBUG
-        mprintf (LVL_GROM, "GROMAD lo byte Set\n");
-#endif
-    }
+
+    return 0;
 }
 
-BYTE gromGetAddr (void)
+void gromWrite (int addr, int data, int size)
 {
-    if (gRom.lowByteGet)
+    if (size != 1)
     {
-        gRom.lowByteGet = 0;
-#ifdef __GROM_DEBUG
-        mprintf (LVL_GROM, "GROMAD addr get as %04X\n", gRom.addr);
-#endif
-        return (gRom.addr) & 0xFF;
+        halt ("GROM can only read bytes\n");
     }
 
-    gRom.lowByteGet = 1;
-#ifdef __GROM_DEBUG
-    mprintf (LVL_GROM, "GROMAD lo byte Get\n");
-#endif
-    return (gRom.addr) >> 8;
+    switch (addr)
+    {
+    case 2:
+        mprintf (LVL_GROM, "GROMAD BYTE write to 9C02\n");
+        if (gRom.lowByteSet)
+        {
+            gRom.addr = (gRom.addr & 0xFF00) | data;
+            gRom.lowByteSet = 0;
+            gRom.lowByteGet = 0;
+            mprintf (LVL_GROM, "GROMAD addr set to %04X\n", gRom.addr);
+        }
+        else
+        {
+            gRom.addr = data << 8;
+            gRom.lowByteSet = 1;
+            mprintf (LVL_GROM, "GROMAD lo byte Set to %x\n", data);
+        }
+        break;
+    default:
+        printf ("%s addr=%x data=%x\n", __func__, addr, data);
+        // halt ("invalid GROM write operation");
+        printf ("GROM write data ignored\n");
+        break;
+    }
 }
 
-void showGromStatus (void)
+void gromShowStatus (void)
 {
     mprintf (LVL_GROM, "GROM\n");
     mprintf (LVL_GROM, "====\n");
@@ -111,36 +124,25 @@ void showGromStatus (void)
     mprintf (LVL_GROM, "half-ad-get : %d\n", gRom.lowByteGet);
 }
 
-void loadGRom (void)
+void gromLoad (char *name, int start, int len)
 {
     FILE *fp;
 
-    if ((fp = fopen ("../994agrom.bin", "rb")) == NULL)
+    printf("%s %s %x %x\n", __func__, name, start, len);
+
+    if ((fp = fopen (name, "rb")) == NULL)
     {
-        printf ("can't open grom.hex\n");
+        printf ("can't open %s\n", name);
         exit (1);
     }
 
-    if (fread (gRom.rom.b, sizeof (BYTE), 0x6000, fp) != 0x6000)
+    if (fread (gRom.rom.b + start, sizeof (BYTE), len, fp) != len)
     {
         halt ("GROM file read failure");
     }
 
     fclose (fp);
 
-    if ((fp = fopen ("../module-g.bin", "rb")) == NULL)
-    {
-        printf ("can't open munchmng\n");
-        exit (1);
-    }
-
-    if (fread (gRom.rom.b + 0x6000, sizeof (BYTE), 0x2000, fp) != 0x2000)
-    {
-        halt ("GROM file read failure");
-    }
-
-    fclose (fp);
     printf ("GROM load ok\n");
 }
-
 

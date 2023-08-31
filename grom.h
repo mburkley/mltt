@@ -3,11 +3,10 @@
 
 #include "cpu.h"
 
-BYTE gromRead (void);
-void gromSetAddr (WORD addr);
-BYTE gromGetAddr (void);
-void showGromStatus (void);
-void loadGRom (void);
+int gromRead (int addr, int size);
+void gromWrite (int addr, int data, int size);
+void gromShowStatus (void);
+void gromLoad (char *name, int start, int len);
 
 #endif
 

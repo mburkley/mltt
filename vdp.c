@@ -1,13 +1,23 @@
 #include <stdio.h>
 #include <time.h>
-// #include <dos.h>
-// #include <graphics.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <time.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <unistd.h>
+#include <stdbool.h>
+#include <GL/glut.h>
+#include <GL/gl.h>
 
 #include "vdp.h"
 #include "trace.h"
 
 #define VDP_READ 1
 #define VDP_WRITE 2
+#define SCALE   4
 
 #define VDP_BITMAP_MODE     (vdp.reg[0] & 0x02)
 #define VDP_EXTERNAL        (vdp.reg[0] & 0x01)
@@ -34,6 +44,35 @@
 
 #define MAX_ADDR 0x4000
 
+#define VDP_XSIZE 256
+#define VDP_YSIZE 192
+
+static struct
+{
+   int r;
+   int g;
+   int b;
+}
+colours[16] =
+{
+    {0x00, 0x00, 0x00},
+    {0x00, 0x00, 0x00},
+    {0x00, 0x30, 0x00},
+    {0x10, 0x3f, 0x10},
+    {0x00, 0x00, 0x20},
+    {0x10, 0x10, 0x3F},
+    {0x20, 0x00, 0x00},
+    {0x00, 0x3f, 0x3f},
+    {0x30, 0x00, 0x00},
+    {0x3f, 0x10, 0x10},
+    {0x20, 0x20, 0x00},
+    {0x3f, 0x3f, 0x10},
+    {0x00, 0x20, 0x00},
+    {0x3f, 0x10, 0x3f},
+    {0x30, 0x30, 0x30},
+    {0x3f, 0x3f, 0x3f}
+};
+
 struct
 {
     WORD addr;
@@ -46,8 +85,19 @@ struct
     BOOL graphics;
 }
 vdp;
+static int plots;
+static unsigned char frameBuffer[VDP_YSIZE*SCALE][VDP_XSIZE*SCALE][4];
+static int vdpInitialised = 0;
+static int vdpRefreshNeeded = false;
 
-static void vdpStatus (void)
+static void vdpScreenUpdate (void)
+{
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glDrawPixels (VDP_XSIZE*SCALE, VDP_YSIZE*SCALE, GL_RGBA, GL_UNSIGNED_BYTE, frameBuffer);
+    glutSwapBuffers();
+}
+
+void vdpStatus (void)
 {
     int i;
 
@@ -55,148 +105,157 @@ static void vdpStatus (void)
     {
         printf ("R%d:%02X ", i, vdp.reg[i]);
     }
+
     printf ("\nSt:%02X\n", vdp.st);
 }
 
-BYTE vdpReadData (void)
+int vdpRead (int addr, int size)
 {
-    if (vdp.addr >= MAX_ADDR)
+    // mprintf(LVL_VDP, "%s %x\n", __func__, addr);
+    if (size != 1)
     {
-        halt ("VDP read out of range");
+        halt ("VDP can only read bytes\n");
     }
 
-    vdp.cmdInProg = 0;
-    // printf ("VDP : [%04X] -> %02X\n", vdp.addr, vdp.ram[vdp.addr]);
-    return vdp.ram[vdp.addr++];
-}
-
-BYTE vdpReadStatus (void)
-{
-    // printf ("VDP : status -> %02X\n", vdp.st);
-    vdp.cmdInProg = 0;
-    return vdp.st;
-}
-
-void vdpWriteData (BYTE data)
-{
-    int i;
-
-    if (vdp.addr >= MAX_ADDR)
+    switch (addr)
     {
-        halt ("VDP write out of range");
-    }
-
-    vdp.cmdInProg = 0;
-
-    if (vdp.addr > 0x3FFF)
-    {
-        halt ("VDP memory out of range");
-    }
-
-    mprintf (LVL_VDP, "VDP : %02X -> [%04X] ", data, vdp.addr);
-
-    vdp.ram[vdp.addr++] = data;
-
-    for (i = 0; i < 8; i++)
-    {
-        mprintf (LVL_VDP, "%s", (data & 0x80) ? "*" : " ");
-        data <<= 1;
-    }
-    mprintf (LVL_VDP, "\n");
-}
-
-void vdpWriteCommand (BYTE data)
-{
-    if (vdp.cmdInProg)
-    {
-        // printf ("\n** VDP **  command -> %02X/%02X\n", vdp.cmd, data);
-
-        switch (data >> 6)
+    case 0:
+        // tms9900.ram->b[0x8801] = vdpReadData ();
+        if (vdp.addr >= MAX_ADDR)
         {
-        case 0:
-            vdp.mode = VDP_READ;
-            vdp.addr = ((data & 0x3F) << 8) | vdp.cmd;
-            // printf ("\n** VDP **  read addr -> %04X\n", vdp.addr);
-            break;
-
-        case 1:
-            vdp.mode = VDP_WRITE;
-            vdp.addr = ((data & 0x3F) << 8) | vdp.cmd;
-            // printf ("\n** VDP **  write addr -> %04X\n", vdp.addr);
-            break;
-
-        case 2:
-            vdp.mode = 0;
-            vdp.reg[data&7] = vdp.cmd;
-            // vdpStatus ();
-            break;
+            halt ("VDP read out of range");
         }
-    }
-    else
-    {
-        vdp.cmd = data;
+
+        vdp.cmdInProg = 0;
+        // mprintf (LVL_VDP, "VDP : [%04X] -> %02X\n", vdp.addr, vdp.ram[vdp.addr]);
+        return vdp.ram[vdp.addr++];
+    case 2:
+        // tms9900.ram->b[0x8803] =
+        // mprintf (LVL_VDP, "VDP : status -> %02X\n", vdp.st);
+        vdp.cmdInProg = 0;
+        return vdp.st;
+    default:
+        halt ("VDP invalid address");
+        break;
     }
 
-    vdp.cmdInProg = !vdp.cmdInProg;
+    return 0;
 }
 
-#ifndef _WIN32
-
-static void setrgbpalette (int c, int r, int g, int b)
+void vdpWrite (int addr, int data, int size)
 {
-    union REGS regs;
+    // mprintf(LVL_VDP, "%s %x=%x\n", __func__, addr, data);
+    if (size != 1)
+    {
+        halt ("VDP can only write bytes\n");
+    }
 
-    regs.h.ah = 0x10;
-    regs.h.al = 0x10;
-    regs.x.bx = c;
-    regs.h.dh = r;
-    regs.h.ch = g;
-    regs.h.cl = b;
-    int86 (0x10, &regs, &regs);
+    switch (addr)
+    {
+    case 0:
+        if (vdp.addr >= MAX_ADDR)
+        {
+            halt ("VDP write out of range");
+        }
+
+        vdp.cmdInProg = 0;
+
+        if (vdp.addr > 0x3FFF)
+        {
+            halt ("VDP memory out of range");
+        }
+
+        mprintf (LVL_VDP, "VDP : %02X -> [%04X] ", data, vdp.addr);
+
+        vdp.ram[vdp.addr++] = data;
+        vdpRefreshNeeded = true;
+
+        int i;
+
+        for (i = 0; i < 8; i++)
+        {
+            mprintf (LVL_VDP, "%s", (data & 0x80) ? "*" : " ");
+            data <<= 1;
+        }
+        mprintf (LVL_VDP, "\n");
+        break;
+    case 2:
+        if (vdp.cmdInProg)
+        {
+            // mprintf (LVL_VDP, "\n** VDP **  command -> %02X/%02X\n", vdp.cmd, data);
+
+            switch (data >> 6)
+            {
+            case 0:
+                vdp.mode = VDP_READ;
+                vdp.addr = ((data & 0x3F) << 8) | vdp.cmd;
+                // mprintf (LVL_VDP, "\n** VDP **  read addr -> %04X\n", vdp.addr);
+                break;
+
+            case 1:
+                vdp.mode = VDP_WRITE;
+                vdp.addr = ((data & 0x3F) << 8) | vdp.cmd;
+                // mprintf (LVL_VDP, "\n** VDP **  write addr -> %04X\n", vdp.addr);
+                break;
+
+            case 2:
+                // mprintf (LVL_VDP, "\n** VDP **  cmd? -> %04X\n", vdp.addr);
+                vdp.mode = 0;
+                vdp.reg[data&7] = vdp.cmd;
+                // vdpStatus ();
+                break;
+            }
+        }
+        else
+        {
+            // mprintf (LVL_VDP, "\n** VDP ** interim -> %02X\n", data);
+            vdp.cmd = data;
+        }
+
+        vdp.cmdInProg = !vdp.cmdInProg;
+        break;
+    default:
+        halt ("VDP invalid address");
+        break;
+    }
 }
-
-#endif
 
 void vdpInitGraphics (void)
 {
-#ifndef _WIN32
-    union REGS regs;
-
-    mprintf (LVL_VDP, "VDP : init graphics\n");
-    // return;
-
-    vdp.graphics = 1;
-    regs.h.ah = 0;
-    regs.h.al = 0x13;
-    int86 (0x10, &regs, &regs);
-
-    setrgbpalette (0x10, 0x00, 0x00, 0x00);
-    setrgbpalette (0x11, 0x00, 0x00, 0x00);
-    setrgbpalette (0x12, 0x00, 0x30, 0x00);
-    setrgbpalette (0x13, 0x10, 0x3f, 0x10);
-    setrgbpalette (0x14, 0x00, 0x00, 0x20);
-    setrgbpalette (0x15, 0x10, 0x10, 0x3F);
-    setrgbpalette (0x16, 0x20, 0x00, 0x00);
-    setrgbpalette (0x17, 0x00, 0x3f, 0x3f);
-    setrgbpalette (0x18, 0x30, 0x00, 0x00);
-    setrgbpalette (0x19, 0x3f, 0x10, 0x10);
-    setrgbpalette (0x1A, 0x20, 0x20, 0x00);
-    setrgbpalette (0x1B, 0x3f, 0x3f, 0x10);
-    setrgbpalette (0x1C, 0x00, 0x20, 0x00);
-    setrgbpalette (0x1D, 0x3f, 0x10, 0x3f);
-    setrgbpalette (0x1E, 0x30, 0x30, 0x30);
-    setrgbpalette (0x1F, 0x3f, 0x3f, 0x3f);
-#endif
+    int argc=1;
+    char *argv[] = { "foo" };
+    glutInit(&argc, argv);
+    glutInitWindowPosition(10,10);
+    glutInitWindowSize(VDP_XSIZE*SCALE, VDP_YSIZE*SCALE);
+    glutCreateWindow("TI-99 emulator");
+    // fill(XSIZE, YSIZE);
+    // glutMainLoop();
+    vdpInitialised = 1;
 }
 
 static void vdpPlot (int x, int y, int col)
 {
-    if (!vdp.graphics)
+    // if (!vdp.graphics)
+    //     return;
+
+    // int offset = ((y * VDP_XSIZE) + x) * 4;
+
+    int i, j;
+
+    if (x < 0 || y < 0 || x >= VDP_XSIZE || y >= VDP_YSIZE)
         return;
 
-#ifndef _WIN32
-    pokeb (0xA000, (y * 320) + x, col + 16);
-#endif
+    y = VDP_YSIZE - y - 1;
+
+    for (i = 0; i < SCALE; i++)
+        for (j = 0; j < SCALE; j++)
+        {
+            frameBuffer[y*SCALE+i][x*SCALE+j][0] = colours[col].r * 4;
+            frameBuffer[y*SCALE+i][x*SCALE+j][1] = colours[col].g * 4;
+            frameBuffer[y*SCALE+i][x*SCALE+j][2] = colours[col].b * 4;
+            frameBuffer[y*SCALE+i][x*SCALE+j][3] = 0;
+            plots++;
+        }
 }
 
 static void vdpDrawChar (int cx, int cy, int ch)
@@ -205,7 +264,7 @@ static void vdpDrawChar (int cx, int cy, int ch)
     int data;
     int charpat = VDP_CHARPAT_TAB + (ch << 3);
     int col = vdp.ram[VDP_GR_COLTAB_ADDR + (ch >> 3)];
-
+// mprintf(LVL_VDP, "%d",ch);
     for (y = 0; y < 8; y++)
     {
         data = vdp.ram[charpat + y];
@@ -223,15 +282,9 @@ static void vdpDrawByte (int data, int x, int y, int col)
 {
     int x1;
 
-    // far char *addr = MK_FP (0xA000, y * 320 + x);
-    //
-    // switch (data >> 4)
-    // {
-    //     case 0: *addr++ = 0;
-
     for (x1 = x; x1 < (x + 8); x1++)
     {
-        // printf ("SPLOT : %d,%d (col %d) \n", x1, y1, col);
+        // mprintf (LVL_VDP, "SPLOT : %d,%d (col %d) \n", x1, y1, col);
 
         if (data & 0x80)
         {
@@ -253,7 +306,7 @@ static void vdpDrawSprites8x8 (int x, int y, int p, int c)
 
     for (y1 = 0; y1 < 8; y1++)
     {
-        // printf ("Draw byte y=%d\n", y1);
+        // mprintf (LVL_VDP, "Draw byte y=%d\n", y1);
 
         // if (count++ > 256)
         // {
@@ -262,14 +315,14 @@ static void vdpDrawSprites8x8 (int x, int y, int p, int c)
 
         vdpDrawByte (vdp.ram[p+y1], x, y + y1, c & 0x0F);
 
-        // printf ("Drawn byte y=%d\n", y1);
+        // mprintf (LVL_VDP, "Drawn byte y=%d\n", y1);
     }
 }
 
 static void vdpDrawSprites16x16 (int x, int y, int p, int c)
 {
     // int pat = VDP_SPRITEPAT_TAB + p * 8; // 32;
-    int x1, y1, col;
+    int y1, col;
     // int count = 0;
 
     mprintf (LVL_VDP, "Draw sprite pat %d at %d,%d\n", p, x, y);
@@ -278,7 +331,7 @@ static void vdpDrawSprites16x16 (int x, int y, int p, int c)
     {
         for (y1 = 0; y1 < 16; y1++)
         {
-            // printf ("Draw byte y=%d\n", y1);
+            // mprintf (LVL_VDP, "Draw byte y=%d\n", y1);
 
             // if (count++ > 256)
             // {
@@ -287,11 +340,10 @@ static void vdpDrawSprites16x16 (int x, int y, int p, int c)
 
             vdpDrawByte (vdp.ram[p+y1+col*2], x + col, y + y1, c & 0x0F);
 
-            // printf ("Drawn byte y=%d\n", y1);
+            // mprintf (LVL_VDP, "Drawn byte y=%d\n", y1);
         }
     }
 }
-
 
 static void vdpDrawSprites (void)
 {
@@ -305,19 +357,19 @@ static void vdpDrawSprites (void)
 
     for (i = 0; i < 32; i++)
     {
-        // printf (">> i is %d\n", i);
+        // mprintf (LVL_VDP, ">> i is %d\n", i);
         y = vdp.ram[attr + i*4] + 1;
         x = vdp.ram[attr + i*4 + 1];
         p = vdp.ram[attr + i*4 + 2] * 8 + VDP_SPRITEPAT_TAB;
         c = vdp.ram[attr + i*4 + 3];
 
-        if (y == 0xD0)
+        if (y == 0xD0 || y == 0xD1)
         {
-            // printf ("Sprite %d switched off\n", y);
+            mprintf (LVL_VDP, "Sprite %d switched off\n", y);
             return;
         }
 
-        // printf ("Draw sprite %d @ %d,%d pat=%d, colour=%d\n", i, x, y, p, c);
+        mprintf (LVL_VDP, "Draw sprite %d @ %d,%d pat=%d, colour=%d\n", i, x, y, p, c);
 
         switch (size)
         {
@@ -332,40 +384,47 @@ static void vdpDrawSprites (void)
 void vdpRefresh (int force)
 {
     // static time_t lastTime;
-    static int count;
-    static unsigned long lastTime;
+    // static int count;
+    // static unsigned long lastTime;
     // static int count;
     // time_t t;
-    unsigned long t;
+    // unsigned long t;
     int sc;
 
-    // t = time(NULL);
+    // t = *(long*)0x46C;
 
-    t = *(long*)0x46C;
+    #if 0
+    t = time(NULL);
 
     if (!force && t == lastTime)
         return;
 
     lastTime = t;
 
-    count++;
+    #else
+    // count++;
 
-    if (count < 6)
+    // if (count < 6)
+    //     return;
+
+    if (!vdpRefreshNeeded)
         return;
 
-    count = 0;
+    vdpRefreshNeeded = false;
+    // count = 0;
+    #endif
 
     // gromIntegrity();
-    // printf ("VDP : refresh %d start\n", count);
+    // mprintf (LVL_VDP, "VDP : refresh %d start\n", count);
 
-    // printf ("VDP : refresh %d check mode\n", count);
+    // mprintf (LVL_VDP, "VDP : refresh %d check mode\n", count);
 
     if (VDP_BITMAP_MODE || VDP_TEXT_MODE || VDP_MULTI_MODE)
     {
         halt ("unsupported VDP mode");
     }
 
-    // printf ("VDP : refresh %d draw sc\n", count);
+    // mprintf (LVL_VDP, "VDP : refresh %d draw sc\n", count);
 
     for (sc = 0; sc < 0x300; sc++)
     {
@@ -374,7 +433,10 @@ void vdpRefresh (int force)
 
     vdpDrawSprites ();
 
-    // printf ("VDP : refresh %d done\n", count++);
+     // mprintf (LVL_VDP, "VDP : refresh %d done, plots=%d\n", count++, plots);
     // gromIntegrity();
+
+    if (vdpInitialised)
+        vdpScreenUpdate();
 }
 

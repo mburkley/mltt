@@ -11,33 +11,27 @@ struct
 }
 w;
 
-void watchAdd (char *s)
+void watchAdd (WORD addr)
 {
     int         i;
-    int         a;
-
-    if (sscanf (s, "%X", &a) != 1)
-    {
-        printf ("*** Can't parse '%s'\n", s);
-        return;
-    }
+    // int         a;
 
     for (i = 0; i < w.count; i++)
     {
-        if (w.addr[i] == a)
+        if (w.addr[i] == addr)
         {
-            printf ("*** Duplicate '%s'\n", s);
+            printf ("*** Duplicate '%04X'\n", addr);
             return;
         }
     }
 
     if (w.count == 20)
     {
-        printf ("*** Can't add '%s'\n", s);
+        printf ("*** Can't add '%04X'\n", addr);
         return;
     }
 
-    w.addr[w.count] = a;
+    w.addr[w.count] = addr;
     w.count++;
 }
 
@@ -54,20 +48,14 @@ void watchList (void)
     }
 }
 
-void watchRemove (char *s)
+void watchRemove (WORD addr)
 {
     int         i;
-    int         a;
-
-    if (sscanf (s, "%X", &a) != 1)
-    {
-        printf ("*** Can't parse '%s'\n", s);
-        return;
-    }
+    // int         a;
 
     for (i = 0; i < w.count; i++)
     {
-        if (w.addr[i] == a)
+        if (w.addr[i] == addr)
         {
             break;
         }
@@ -75,7 +63,7 @@ void watchRemove (char *s)
 
     if (i == w.count)
     {
-        printf ("*** Not found '%s'\n", s);
+        printf ("*** Not found '%04X'\n", addr);
         return;
     }
 
@@ -94,7 +82,7 @@ void watchShow (void)
 
     for (i = 0; i < w.count; i++)
     {
-        data = memRead (w.addr[i]);
+        data = memReadW (w.addr[i]);
 
         if (w.last[i] != data)
         {

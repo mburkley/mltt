@@ -7,18 +7,53 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "cover.h"
 #include "cpu.h"
 #include "mem.h"
+#include "trace.h"
 
-#define DBG_LVL 4
+static const char *unasmText[65536];
+static const char *currText;
 
-void (*unasmPreExecHook)(WORD,WORD);
-void (*unasmPostExecHook)(WORD,WORD);
+void (*unasmPreExecHook)(WORD pc, WORD data, WORD opMask, int type,
+                     WORD sMode, WORD sReg, WORD sArg,
+                     WORD dMode, WORD dReg, WORD dArg,
+                     WORD count, WORD offset);
+void (*unasmPostExecHook)(WORD pc, int type, BOOL isByte, BOOL store, WORD sMode,
+                          WORD sAddr, WORD dMode, WORD dReg, WORD addr,
+                          WORD data, WORD wp);
 
 extern int outputLevel;
+
+static const char *parseComment (char type, int *len)
+{
+    const char *next;
+    const char *ret;
+
+    if (currText == NULL)
+        return NULL;
+
+    if (*currText != '@')
+        halt ("invalid comment");
+
+    if (*(currText+1) != type)
+        return NULL;
+
+    next = strchr ((char*)currText+2, '@');
+
+    if (next)
+        *len = next - currText - 2;
+    else
+        *len = strlen (currText) - 2;
+
+    ret = currText + 2;
+
+    currText = next;
+    return ret;
+}
 
 static char * printOper (WORD mode, WORD reg, WORD arg)
 {
@@ -67,8 +102,6 @@ static void unasmTwoOp (WORD opCode, WORD pc, WORD sMode, WORD sReg,
     if (outputCovered && covered[pc >> 1])
         return;
 
-    covered[pc >> 1] = 1;
-
     switch (opCode)
     {
     case OP_SZC:  name = "SZC ";  break;
@@ -87,17 +120,25 @@ static void unasmTwoOp (WORD opCode, WORD pc, WORD sMode, WORD sReg,
     case OP_SRC:  name = "SRC ";  break;
     case OP_SRL:  name = "SRL ";  break;
     case OP_SLA:  name = "SLA ";  break;
+    case OP_COC:  name = "COC ";  break;
+    case OP_CZC:  name = "CZC ";  break;
+    case OP_XOR:  name = "XOR ";  break;
+    case OP_XOP:  name = "XOP ";  break;
+    case OP_LDCR: name = "LDCR ";  break;
+    case OP_STCR: name = "STCR ";  break;
+    case OP_MPY:  name = "MPY ";  break;
+    case OP_DIV:  name = "DIV ";  break;
 
     }
 
     strcpy (op, printOper (sMode, sReg, sAddr));
 
-    sprintf (out, "%-4s\t%s,%s",
+    sprintf (out, "%-4s  %s,%s",
              name,
              op,
              printOper (dMode, dReg, dAddr));
 
-    mprintf (4, "%-30.30s", out);
+    mprintf (LVL_UNASM, "%-30.30s", out);
 }
 
 static void unasmOneOp (WORD opCode, WORD pc, WORD sMode, WORD sReg,
@@ -111,8 +152,6 @@ static void unasmOneOp (WORD opCode, WORD pc, WORD sMode, WORD sReg,
 
     if (outputCovered && covered[pc >> 1])
         return;
-
-    covered[pc >> 1] = 1;
 
     switch (opCode)
     {
@@ -131,26 +170,26 @@ static void unasmOneOp (WORD opCode, WORD pc, WORD sMode, WORD sReg,
     case OP_SETO: name = "SETO";    break;
     case OP_ABS:  name = "ABS"; break;
     }
-            
-    sprintf (out, "%-4s\t%s",
+
+    sprintf (out, "%-4s  %s",
              name,
              printOper (sMode, sReg, sAddr));
 
-    mprintf (4, "%-30.30s", out);
+    mprintf (LVL_UNASM, "%-30.30s", out);
 }
 
 static void unasmImmed (WORD opCode, WORD pc, WORD sReg)
 {
     char out[31];
     char *name = "****";
+    int showOper = 1;
+    int showData = 1;
 
     if (outputLevel < 2)
         return;
 
     if (outputCovered && covered[pc >> 1])
         return;
-
-    covered[pc >> 1] = 1;
 
     switch (opCode)
     {
@@ -159,33 +198,48 @@ static void unasmImmed (WORD opCode, WORD pc, WORD sReg)
     case OP_ANDI: name="ANDI"; break;
     case OP_ORI: name="ORI"; break;
     case OP_CI: name="CI"; break;
-    case OP_STWP: name="STWP"; break;
-    case OP_STST: name="STST"; break;
+    case OP_STWP: name="STWP"; showData = 0; break;
+    case OP_STST: name="STST"; showData = 0; break;
     case OP_LWPI: name="LWPI"; break;
     case OP_LIMI: name="LIMI"; break;
-    case OP_RTWP: name="RTWP"; break;
+    case OP_RTWP: name="RTWP"; showOper = 0; break;
     }
 
-    sprintf (out, "%-4s\t%s,>%04X",
-             name,
-             printOper (0, sReg, 0),
-             memRead(pc));
 
-    mprintf (4, "%-30.30s", out);
+    if (showOper)
+    {
+        if (showData)
+        {
+            sprintf (out, "%-4s  %s,>%04X",
+                     name,
+                     printOper (0, sReg, 0),
+                     memReadW(pc));
+        }
+        else
+        {
+            sprintf (out, "%-4s  %s",
+                     name,
+                     printOper (0, sReg, 0));
+        }
+    }
+    else
+        sprintf (out, "%-4s",
+                 name);
+
+    mprintf (LVL_UNASM, "%-30.30s", out);
 }
 
 static void unasmJump (WORD opCode, WORD pc, I8 offset, BOOL cond)
 {
-    char out[31];
+    // char out[31];
     char *name = "****";
+    int pcOffset = 1;
 
     if (outputLevel < 2)
         return;
 
     if (outputCovered && covered[pc >> 1])
         return;
-
-    covered[pc >> 1] = 1;
 
     switch (opCode)
     {
@@ -202,41 +256,27 @@ static void unasmJump (WORD opCode, WORD pc, I8 offset, BOOL cond)
     case OP_JL: name="JL"; break;
     case OP_JH: name="JH"; break;
     case OP_JOP: name="JOP"; break;
+    case OP_SBO: name="SBO"; pcOffset = 0; break;
+    case OP_SBZ: name="SBZ"; pcOffset = 0; break;
+    case OP_TB: name="TB"; pcOffset = 0; break;
     }
 
-    sprintf (out, "%-4s\t>%04X\t\t%s",
-            name,
-            pc + (offset << 1),
-            cond ? "****" : "");
-
-    mprintf (4, "%-30.30s", out);
-}
-
-static void unasmCRU (WORD opCode, WORD pc, I8 offset)
-{
-    char out[31];
-    char *name = "****";
-
-    if (outputLevel < 2)
-        return;
-
-    if (outputCovered && covered[pc >> 1])
-        return;
-
-    covered[pc >> 1] = 1;
-
-    switch (opCode)
+    if (pcOffset)
     {
-    case OP_SBO: name="SBO"; break;
-    case OP_SBZ: name="SBZ"; break;
-    case OP_TB: name="TB"; break;
+        mprintf (LVL_UNASM, "%-4s  >%04X                    %s",
+                name,
+                pc + (offset << 1),
+                cond ? "****" : "");
+    }
+    else
+    {
+        mprintf (LVL_UNASM, "%-4s  %d                    %s",
+                name,
+                offset,
+                cond ? "****" : "");
     }
 
-    sprintf (out, "%-4s\t%d",
-            name,
-            offset);
-
-    mprintf (4, "%-30.30s", out);
+    // mprintf (LVL_UNASM, "%-30.30s", out);
 }
 
 static void preExecHook (WORD pc, WORD data, WORD opMask, int type,
@@ -244,9 +284,19 @@ static void preExecHook (WORD pc, WORD data, WORD opMask, int type,
                      WORD dMode, WORD dReg, WORD dArg,
                      WORD count, WORD offset)
 {
+    const char *comment;
+    int len;
+
+    currText = unasmText[pc-2];
+
+    while ((comment = parseComment ('-', &len)) != NULL)
+    {
+        mprintf (LVL_UNASM, ";%.*s\n", len, comment);
+    }
+
     if (!outputCovered || !covered[pc >> 1])
     {
-        mprintf (4, "%04X:%04X ", pc - 2, data);
+        mprintf (LVL_UNASM, "%04X:%04X ", pc - 2, data);
 
         switch (type)
         {
@@ -263,10 +313,15 @@ static void preExecHook (WORD pc, WORD data, WORD opMask, int type,
             break;
 
         case OPTYPE_JUMP:
+            // TODO pass jump condition as a param, remove hardcoded 1
             unasmJump (data & opMask, pc, offset, 1);
             break;
 
         case OPTYPE_DUAL1:
+            unasmTwoOp (data & 0xFC00, pc, sMode, sReg,
+                        sArg, dMode, dReg, dArg);
+            break;
+
         case OPTYPE_DUAL2:
             unasmTwoOp (data & 0xF000, pc, sMode, sReg,
                         sArg, dMode, dReg, dArg);
@@ -275,37 +330,120 @@ static void preExecHook (WORD pc, WORD data, WORD opMask, int type,
     }
 }
 
-static void postExecHook (BOOL isByte, BOOL store, WORD dMode, WORD dReg, WORD addr,
-                          WORD data, WORD wp)
+static void postExecHook (WORD pc, int type, BOOL isByte, BOOL store, WORD sMode,
+                          WORD sAddr, WORD dMode, WORD dReg, WORD addr,
+                          WORD data, WORD regData)
 {
+    char text[30] = "";
+
+    if (outputCovered && covered[pc >> 1])
+        return;
+
+    covered[pc >> 1] = 1;
+
     if (store)
     {
-        if (dMode)
+        if (sMode)
         {
             if (isByte)
             {
-                mprintf (4, "B:[%04X] = %02X",
-                        (unsigned) addr, (unsigned) data >> 8);
+                sprintf (text, "B:[%04X] -> ", (unsigned) sAddr);
             }
             else
             {
-                mprintf (4, "W:[%04X] = %04X",
-                        (unsigned) addr, (unsigned) data);
+                sprintf (text, "W:[%04X] -> ", (unsigned) sAddr);
+            }
+        }
+
+        if (type == OPTYPE_SINGLE)
+        {
+            if (isByte)
+            {
+                sprintf (text+strlen(text), "%02X",
+                         (unsigned) data >> 8);
+            }
+            else
+            {
+                sprintf (text+strlen(text), "%04X",
+                         (unsigned) regData);
+            }
+        }
+        else if (dMode)
+        {
+            if (isByte)
+            {
+                sprintf (text+strlen(text), "%02X -> B:[%04X]",
+                         (unsigned) data >> 8,
+                         (unsigned) addr);
+            }
+            else
+            {
+                sprintf (text+strlen(text), "%04X -> W:[%04X]",
+                         (unsigned) regData,
+                         (unsigned) addr);
             }
         }
         else
         {
-            mprintf (4, " (R%d -> %04X)",
-                     dReg, data);
+            sprintf (text+strlen(text), "(R%d -> %04X)",
+                     dReg, regData);
         }
     }
 
-    mprintf (4, "\n");
+    mprintf (LVL_UNASM, "%-26.26s", text);
+
+    int len;
+    const char *comment;
+    int anyComment = 0;
+
+    while ((comment = parseComment ('+', &len)) != NULL)
+    {
+        anyComment = 1;
+        mprintf (LVL_UNASM, ";%.*s\n", len, comment);
+    }
+
+    if (!anyComment)
+        mprintf (LVL_UNASM, "\n");
 }
 
 void unasmRunTimeHookAdd (void)
 {
     unasmPreExecHook = preExecHook;
     unasmPostExecHook = postExecHook;
+}
+
+void unasmReadText (const char *textFile)
+{
+    FILE *fp;
+    char s[2048];
+
+    if ((fp = fopen (textFile, "r")) == NULL)
+    {
+        printf ("** Failed to open %s\n", textFile);
+        return;
+    }
+
+    while (!feof (fp))
+    {
+        if (!fgets (s, sizeof s, fp))
+            continue;
+
+        int ix = strtoul (s, NULL, 16);
+        ix %= 4096;
+        if (unasmText[ix])
+        {
+            printf ("Already have text for %x\n", ix);
+        }
+        else
+        {
+            if (s[strlen(s)-1]=='\n')
+                s[strlen(s)-1] = 0;
+
+            unasmText[ix] = strdup (&s[5]);
+            // printf ("Text added for %x\n", ix);
+        }
+    }
+
+    fclose (fp);
 }
 

@@ -3,10 +3,8 @@
 
 #include "cpu.h"
 
-BYTE vdpReadData (void);
-BYTE vdpReadStatus (void);
-void vdpWriteData (BYTE data);
-void vdpWriteCommand (BYTE data);
+int vdpRead (int addr, int size);
+void vdpWrite (int addr, int data, int size);
 void vdpInitGraphics (void);
 void vdpRefresh (int force);
 

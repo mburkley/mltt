@@ -1,0 +1,127 @@
+0024 @-@- Reset vector entry point @-@+ Load GROM read data address
+0028 @+ Initialise system flags
+002C @+ Load VDP write address
+005C @+ Fetch GROM data into R4
+0060 @-@- GPL interpreter, R6=GROM address@-
+006A @+ Clear GPL status condition bit
+0070 @-@- GPL Interpreter@-@; Enable VDP interrupt
+0074 @+ Disable interrupts
+0078 @+ Fetch byte from GPL
+0086 @-@- Negative interpreter code@-
+00CC @-@-GPL CGE:@-
+00D6 @-@-GPL CH:@-
+00DA @-@-GPL CHA:@-
+00DE @-@-GPL CGT:@-
+00E2 @-@-GPL CLOG:@-
+00EA @-@-GPL CZ:@-
+0104 @-@-GPL B:@-
+010E @-@-GPL BS:@-
+0252 @+ Return @+
+011A @-@- GPL BR@-@; Fetch GPL status
+0136 @-@-GPL ABS:@-
+013A @-@-GPL NEG:@-
+013E @-@-GPL CLR:@-
+0140 @-@-GPL INV:@-
+0144 @-@-GPL FETCH:@-
+0162 @-@-GPL CASE:@-
+016E @-@-GPL PUSH:@-
+0182 @-@-GPL DECT:@-
+0184 @-@-GPL INCT:@-
+0186 @-@-GPL SUB:@-
+0188 @-@-GPL ADD:@-
+0190 @-@-GPL AND:@-
+0196 @-@-GPL OR:@-
+019A @-@-GPL XOR:@-
+019E @-@-GPL ST:@-
+01A2 @-@-GPL EX:@-
+01B0 @-@-GPL SRA:@-
+01B4 @-@-GPL SLL:@-
+01B8 @-@-GPL SRL:@-
+01C2 @-@-GPL SRC:@-
+01CE @-@-GPL MUL:@-
+01EA @-@-GPL DIV:@-
+0270 @-@-GPL subinterpreter 0x00 to 0x1f:@-
+027A @-@-GPL RAND:@-
+029E @-@-GPL BACK:@-
+02B2 @-@- Keyboard scan@-
+02B6 @+ Save GROM address
+02BC @+ Write alpha lock
+02BE @+ Get keyboard scan mode
+02DA @+ Compare to >0002
+02E0 @+ Keyboard mode 0
+02E6 @+ Debounce (3,4,5=0,1,2)
+032E @+ Load scan key value
+0336 @+ CRU base to keyboard column select
+033C @+ Write keyboard column address
+0346 @+ Read keyboard row values
+0356 @+ Jump if no key
+0380 @+ Key pressed?
+03F2 @+ GROM table CNTRL
+03FA @+ GROM table FCTN
+0402 @+ GROM table SHIFT
+040A @+ GROM table small letters
+040E @+ Key value
+041C @+ Read (key?) value from GROM
+042E @+ Small letter?
+044E @+ Is R0 between >10 and >1F ?
+0450 @+ Is R0 >5F ?
+0478 @+ Write ASCII of key detected code (>FF = no key)
+0492 @+ Retrieve return address saved earlier
+0498 @-@-Time delay:@-
+04A2 @-@-Compare R0 with EQU?:@-
+04B0 @+ Return@+
+04DE @-@-GPL FMT:@-
+05A2 @-@-GPL ALL:@-
+05C8 @-@-GPL I/O:@-
+05D6 @-@-GPL I/O sound:@-
+05E8 @-@- CRU input@-
+05EA @-@- CRU output@-
+05F0 @+ Number of bits into R2
+05F2 @+ left one nybble
+05F8 @+ Or bit count with command LDCR *R2
+0608 @-@-GPL XML:@-
+061E @-@- GPL MOVE@-
+065E @+0456 B *6 Execute source
+0660 @-Source ROM or RAM:@+ Fetch
+0662 @+0457 B *7 Execute destination
+0664 @-Source VDP RAM:@+ Write address
+066C @+ Fetch data
+0670 @+ Execute destination
+0672 @-@- Fetch bytes from GROM@-
+06BA @-@- Store to VDP RAM@-
+06BE @+ Writing
+06C4 @+ Next address
+06C6 @+ Write data
+06CA @+ End ?
+06CC @+ No, go on
+06CE @+ Return GPL interpreter, set condition bit and
+06D0 @+ GROM address from substack
+06D2 @-@- GPL COINC@-
+077A @-@- GPL addressing modes@-
+0842 @-@- Pop GROM address from sub stack@-
+0858 @+ Return@+
+0864 @-@- Push GROM address to sub stack@-@+ Inc stack ptr
+087E @+ Return@+
+0900 @-@- Interrupt Level 1 Service Routine@-
+090A @+ Cassette interrupt?
+090E @+ Not cassette, jump
+0914 @+ Test if VDP interrupt
+0916 @+ If low, then VDP interrupt, so jump
+094A @+ Clear VDP interrupt
+0A6A @+ Set KBD col select CRU addr
+0A6E @+ Write keyboard column select bits to CRU
+0A72 @+ WHY?
+0A74 @+ Set KBD row value CRU addr
+0A78 @+ Read keyboard row bits from CRU
+0A7A @+ Check if value is >1100 (quit key)
+094C @+ Get interrupt flag
+095C @+ Get # of sprites
+09EC @+ Get # of sounds bytes
+0A84 @+ Get VDP status
+0A8E @+ Screen timeout counter
+0A8A @+ Switch to interrupt WS
+0A92 @-@- Interrupt Level 2 Service Routine@-
+0AA8 @+ Switch to GPL WS
+0AAC @+ Increment(?) VDP interrupt timer
+0AB0 @+ User defined interrupt
+0ABE @+ ISR Return@+

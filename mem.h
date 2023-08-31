@@ -3,8 +3,8 @@
 
 #include "cpu.h"
 
-WORD memRead(WORD addr);
-void memWrite(WORD addr, WORD data);
+WORD memReadW(WORD addr);
+void memWriteW(WORD addr, WORD data);
 WORD memReadB(WORD addr);
 void memWriteB(WORD addr, BYTE data);
 WORD * memWordAddr (WORD addr);

@@ -1,41 +1,55 @@
 #include <stdio.h>
 #include <time.h>
-#include <dos.h>
 
+#include "trace.h"
 #include "cru.h"
 
-#define MAX_BIT 4096
+#define MAX_CRU_BIT 4096
 
 struct
 {
-    BYTE state[MAX_BIT];
+    BYTE state;
+    void (*callback) (int index, BYTE state);
+    int isInput;
+    int modified;
 }
-cru;
+cru[MAX_CRU_BIT];
 
-#ifdef __UNIT_TEST
-
-#include <stdarg.h>
-
-static int cruPrintf (char *s, ...)
+static void bitSet (int index, BYTE state)
 {
-    va_list ap;
+    if (index != 2)
+        mprintf (LVL_CRU, "CRU: bit %04X set to %s\n", index<<1, state ? "ON" : "OFF");
 
-    va_start (ap, s);
-    vprintf (s, ap);
-    va_end (ap);
+    mprintf (LVL_CRU, "CRU: bit %04X set to %s\n", index<<1, state ? "ON" : "OFF");
 
-    return 0;
+    if (index >= MAX_CRU_BIT)
+    {
+        printf ("Attempt to set bit %d\n", index);
+        halt ("out of range CRU");
+    }
+
+    cru[index].state = state;
+    cru[index].modified = 1;
+
+    if (cru[index].callback)
+    {
+        mprintf (LVL_CRU, "CRU: callback for bit %d\n", index);
+        cru[index].callback (index, state);
+        mprintf (LVL_CRU, "CRU: callback return for bit %d\n", index);
+    }
 }
 
-#else
+void cruBitInput (WORD base, I8 bitOffset, BYTE state)
 
-static int cruPrintf (char *s, ...)
 {
-    s=s;
-    return 0;
-}
+    WORD index;
 
-#endif
+    index = base / 2;
+    index += bitOffset;
+
+    cru[index].isInput = 1;
+    bitSet (index, state);
+}
 
 /*
  *  Used by SBO and SBZ.  Base is R12
@@ -48,17 +62,22 @@ void cruBitSet (WORD base, I8 bitOffset, BYTE state)
     index = base / 2;
     index += bitOffset;
 
-    // printf ("CRU: bit %04X set to %s\n", index, state ? "ON" : "OFF");
+    #if 0
+    if (cru[index].state == state)
+        return;
+    #endif
 
-    if (index >= MAX_BIT)
+    #if 1
+    if (cru[index].isInput)
     {
-        printf ("Attempt to set bit %d\n", index);
-        halt ("out of range CRU");
+        mprintf (LVL_CRU, "CRU set input bit ignored\n");
+        return;
     }
+    #endif
 
-    cru.state[index] = state;
+    bitSet (index, state);
 }
- 
+
 /*
  *  Used by TB.  Base is R12
  */
@@ -70,24 +89,20 @@ BYTE cruBitGet (WORD base, I8 bitOffset)
     index = base / 2;
     index += bitOffset;
 
-    if (index >= MAX_BIT)
+    if (index >= MAX_CRU_BIT)
     {
         printf ("Attempt to get bit %d\n", index);
         halt ("out of range CRU");
     }
 
-    if (index >= 3 && index <= 18)
-    {
-        // printf ("CRU: bit %04X get as ON (keyboard fudge)\n", index);
-        return 1;
-    }
+    if (cru[index].modified)
+        mprintf (LVL_CRU, "CRU: bit %04X get as %s\n", index<<1,
+                     cru[index].state ? "ON" : "OFF");
 
-    // printf ("CRU: bit %04X get as %s\n", index,
-    //             cru.state[index] ? "ON" : "OFF");
-
-    return cru.state[index];
+    cru[index].modified = 0;
+    return cru[index].state;
 }
- 
+
 /*
  *  Used by LDCR.  Base is R12
  */
@@ -96,16 +111,27 @@ void cruMultiBitSet (WORD base, WORD data, int nBits)
 {
     int i;
 
+    /* "if nbits is 1 through 8, then bits are taken from the most significant
+     * byte of the register. If nbits is 0, it is understood as 16 and the whole
+     * register is transfered."
+    */
     if (!nBits)
         nBits = 16;
 
+    #if 0
+    if (nBits <= 8)
+        data >>= 8;
+    #endif
+
+    mprintf(LVL_CRU, "CRU multi set base=%04X data=%04X n=%d\n", base, data, nBits);
     for (i = 0; i < nBits; i++)
     {
-        cruBitSet (base, i, (data & 0x8000) ? 1 : 0);
-        data <<= 1;
+        // printf("loop ... ");
+        cruBitSet (base, i, (data & (1<<i)) ? 1 : 0);
     }
+    mprintf(LVL_CRU, "CRU multi set done\n");
 }
- 
+
 /*
  *  Used by STCR.  Base is R12
  */
@@ -118,59 +144,26 @@ WORD cruMultiBitGet (WORD base, int nBits)
     if (!nBits)
         nBits = 16;
 
+    mprintf(LVL_CRU, "CRU start multi get b=%x n=%d\n", base, nBits);
     for (i = 0; i < nBits; i++)
     {
         if (cruBitGet (base, i))
         {
-            data |= (0x8000 >> i);
+            data |= (1 << i);
         }
     }
 
+    #if 0
+    if (nBits <= 8)
+        data <<= 8;
+    #endif
+
+    mprintf(LVL_CRU, "CRU multi get b=%x d=%x n=%d\n", base, data, nBits);
     return data;
 }
 
-/*
-updateKeyBoard ()
+void cruCallbackSet (int index, void (*callback) (int index, BYTE state))
 {
-    if (!kbhit())
-        return;
-
-    switch (getch())
-    {
-        case '=':
-        case
-
-*/
-
-#ifdef __UNIT_TEST
-
-int main (void)
-{
-    printf ("Set bit 0 to 1\n");
-    cruBitSet (0, 0, 1);
-
-    printf ("Set bit 0x104 to 1\n");
-    cruBitSet (0x200, 0x4, 1);
-
-    printf ("Set bit 0xFC to 1\n");
-    cruBitSet (0x200, -0x4, 1);
-
-    printf ("Get bit 0xFC\n");
-    if (!cruBitGet (0x1F8, 0))
-        printf ("ERROR: bit not set\n");
-
-    printf ("Get bit 0x100\n");
-    if (cruBitGet (0x200, 0))
-        printf ("ERROR: bit set\n");
-
-    printf ("Get bit 0x104 positive rel\n");
-    if (!cruBitGet (0x200, 4))
-        printf ("ERROR: bit not set\n");
-
-    printf ("Get bit 0x104 negative rel\n");
-    if (!cruBitGet (0x210, -4))
-        printf ("ERROR: bit not set\n");
+    cru[index].callback = callback;
 }
-
-#endif
 

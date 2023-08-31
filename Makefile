@@ -1,6 +1,39 @@
-test: mem.c vdp.c grom.c
-	gcc -o test -D__UNIT_TEST mem.c vdp.c grom.c
 
-grom: cpu.c vdp.c break.c watch.c cond.c cru.c grom.c cover.c unasm.c mem.c
-	gcc -o grom -D__GROM_DEBUG cpu.c vdp.c break.c watch.c cond.c cru.c grom.c cover.c unasm.c mem.c
+SRCS=cpu.c \
+vdp.c \
+break.c \
+watch.c \
+cond.c \
+cru.c \
+grom.c \
+cover.c \
+unasm.c \
+kbd.c \
+timer.c \
+trace.c \
+speech.c \
+sound.c \
+interrupt.c \
+gpl.c
 
+LIBS=\
+-l glut\
+-l GL\
+-lpulse-simple\
+-lpulse\
+-lreadline \
+-lm
+
+all:  grom tests
+
+grom: $(SRCS) console.c ti994a.c
+	gcc -Wall -ggdb3 -o grom -D__GROM_DEBUG console.c ti994a.c $(SRCS) $(LIBS)
+
+tests: $(SRCS) tests.c
+	gcc -Wall -ggdb3 -o tests -D__GROM_DEBUG tests.c $(SRCS) $(LIBS)
+
+testkbd: $(SRCS) kbd.c trace.c
+	gcc -Wall -ggdb3 -o testkbd -D__UNIT_TEST kbd.c trace.c $(LIBS)
+
+testpa: testpa.c
+	gcc -o testpa testpa.c $(LIBS)

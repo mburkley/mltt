@@ -1,3 +1,7 @@
+/*
+ *  Manage breakpoints in the execution of the machine code
+ */
+
 #include <stdio.h>
 
 #include "cond.h"
@@ -12,33 +16,26 @@ struct
 }
 bp;
 
-void breakPointAdd (char *s)
+void breakPointAdd (WORD addr)
 {
     int         i;
-    int         a;
-
-    if (sscanf (s, "%X", &a) != 1)
-    {
-        printf ("*** Can't parse '%s'\n", s);
-        return;
-    }
 
     for (i = 0; i < bp.count; i++)
     {
-        if (bp.breaks[i] == a)
+        if (bp.breaks[i] == addr)
         {
-            printf ("*** Duplicate '%s'\n", s);
+            printf ("*** Duplicate '%04X'\n", addr);
             return;
         }
     }
 
     if (bp.count == 20)
     {
-        printf ("*** Can't add '%s'\n", s);
+        printf ("*** Can't add '%04X'\n", addr);
         return;
     }
 
-    bp.breaks[bp.count] = a;
+    bp.breaks[bp.count] = addr;
     bp.count++;
 }
 
@@ -61,20 +58,13 @@ void breakPointList (void)
     }
 }
 
-void breakPointRemove (char *s)
+void breakPointRemove (WORD addr)
 {
     int         i;
-    int         a;
-
-    if (sscanf (s, "%X", &a) != 1)
-    {
-        printf ("*** Can't parse '%s'\n", s);
-        return;
-    }
 
     for (i = 0; i < bp.count; i++)
     {
-        if (bp.breaks[i] == a)
+        if (bp.breaks[i] == addr)
         {
             break;
         }
@@ -82,7 +72,7 @@ void breakPointRemove (char *s)
 
     if (i == bp.count)
     {
-        printf ("*** Not found '%s'\n", s);
+        printf ("*** Not found '%04X'\n", addr);
         return;
     }
 
@@ -94,7 +84,8 @@ void breakPointRemove (char *s)
     bp.count--;
 }
 
-void breakPointCondition (char *s)
+#if 0
+void breakPointCondition (WORD addr
 {
     int b, c;
     int i;
@@ -124,21 +115,16 @@ void breakPointCondition (char *s)
     bp.condCount[b]++;
 
 }
+#endif
 
 int breakPointHit (WORD addr)
 {
-    int         i, j;
+    int         i; // , j;
 
     for (i = 0; i < bp.count; i++)
     {
         if (bp.breaks[i] == addr)
         {
-            for (j = 0; j < bp.condCount[i]; j++)
-            {
-                if (!conditionTrue (bp.conditions[i][j]))
-                    return 0;
-            }
-
             return 1;
         }
     }

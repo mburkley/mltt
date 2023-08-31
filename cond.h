@@ -3,10 +3,10 @@
 
 #include "cpu.h"
 
-void conditionAdd (char *s);
+void conditionAdd (WORD addr, char *comp, WORD value);
 void conditionList (void);
-void conditionRemove (char *s);
-int conditionTrue (int i);
+void conditionRemove (WORD addr);
+int conditionTrue (void);
 
 #endif
 

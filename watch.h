@@ -3,9 +3,9 @@
 
 #include "cpu.h"
 
-void watchAdd (char *s);
+void watchAdd (WORD addr);
 void watchList (void);
-void watchRemove (char *s);
+void watchRemove (WORD addr);
 void watchShow (void);
 
 #endif

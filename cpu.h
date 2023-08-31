@@ -6,16 +6,16 @@
  *  that short is 16 bit in either and long is 32 bit in either.
  */
 
-typedef unsigned long   DWORD;
+typedef unsigned int    DWORD;
 typedef unsigned short  WORD;
 typedef unsigned char   BYTE;
 typedef int             BOOL;
 
-typedef long            I32;
+typedef int             I32;
 typedef short           I16;
 typedef char            I8;
 
-typedef unsigned long   U32;
+typedef unsigned int    U32;
 typedef unsigned short  U16;
 typedef unsigned char   U8;
 
@@ -113,9 +113,15 @@ typedef unsigned char   U8;
 #define FLAG_XOP 0x0200
 #define FLAG_MSK 0x000F
 
-void halt (char *s);
+// void halt (char *s);
 WORD cpuRead(WORD addr);
-int mprintf (int level, char *s, ...);
+void cpuShowStatus(void);
+void cpuShowStWord(void);
+void cpuExecute (int data);
+WORD cpuFetch (void);
+WORD cpuGetPC (void);
+void cpuInterrupt (int level);
+void cpuBoot (void);
 
 #define SWAP(w)  ((w >> 8) | ((w & 0xFF) << 8))
 

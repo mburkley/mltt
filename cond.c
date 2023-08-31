@@ -1,46 +1,87 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "cond.h"
 #include "mem.h"
 
+#define MAX 100
+
+#define COND_EQUAL      1
+#define COND_NEQUAL     2
+#define COND_CHANGE     3
+
 struct
 {
-    WORD    addr[20];
-    WORD    value[20];
-    int     count;
+    WORD    addr;
+    WORD    value;
+    int cond;
 }
-c;
+c[MAX];
 
-void conditionAdd (char *s)
+static int condCount;
+
+static int conditionEval (int i)
 {
-    int         i;
-    int         a;
-    int         v;
+    int val = memReadW(c[i].addr);
 
-    if (sscanf (s, " %X %X", &a, &v) != 2)
+    switch (c[i].cond)
     {
-        printf ("*** Can't parse '%s'\n", s);
-        return;
+    case COND_EQUAL:
+        if (val == c[i].value)
+            return 1;
+        break;
+
+    case COND_NEQUAL:
+        if (val != c[i].value)
+            return 1;
+        break;
+
+    case COND_CHANGE:
+        if (val != c[i].value)
+        {
+            c[i].value = val;
+            return 1;
+        }
+        break;
     }
 
-    for (i = 0; i < c.count; i++)
+    return 0;
+}
+
+void conditionAdd (WORD addr, char *comp, WORD value)
+{
+    int         i;
+
+    for (i = 0; i < condCount; i++)
     {
-        if (c.addr[i] == a)
+        if (c[i].addr == addr)
         {
-            printf ("*** Duplicate '%s'\n", s);
+            printf ("*** Duplicate '%04X'\n", addr);
             return;
         }
     }
 
-    if (c.count == 20)
+    if (condCount == MAX)
     {
-        printf ("*** Can't add '%s'\n", s);
+        printf ("*** Can't add '%04X'\n", addr);
         return;
     }
 
-    c.addr[c.count] = a;
-    c.value[c.count] = v;
-    c.count++;
+    if (!strcasecmp (comp, "eq"))
+        c[i].cond = COND_EQUAL;
+    else if (!strcasecmp (comp, "ne"))
+        c[i].cond = COND_NEQUAL;
+    else if (!strcasecmp (comp, "ch"))
+        c[i].cond = COND_CHANGE;
+    else
+    {
+        printf ("*** must be CH, EQ or NE '%s'\n", comp);
+        return;
+    }
+
+    c[i].addr = addr;
+    c[i].value = value;
+    condCount++;
 }
 
 void conditionList (void)
@@ -50,50 +91,50 @@ void conditionList (void)
     printf ("Conditions\n");
     printf ("==========\n");
 
-    for (i = 0; i < c.count; i++)
+    for (i = 0; i < condCount; i++)
     {
-        printf ("#%2d : %04X = %04X\n", i, c.addr[i], c.value[i]);
+        printf ("#%2d : %04X %s %04X %s\n", i, c[i].addr,
+        c[i].cond==COND_EQUAL?"==":"!=",c[i].value,
+        conditionEval (i) ? "TRUE":"");
     }
 }
 
-void conditionRemove (char *s)
+void conditionRemove (WORD addr)
 {
     int         i;
-    int         a;
+    // int         a;
 
-    if (sscanf (s, "%X", &a) != 1)
+    for (i = 0; i < condCount; i++)
     {
-        printf ("*** Can't parse '%s'\n", s);
-        return;
-    }
-
-    for (i = 0; i < c.count; i++)
-    {
-        if (c.addr[i] == a)
+        if (c[i].addr == addr)
         {
             break;
         }
     }
 
-    if (i == c.count)
+    if (i == condCount)
     {
-        printf ("*** Not found '%s'\n", s);
+        printf ("*** Not found '%04X'\n", addr);
         return;
     }
 
-    for (; i < c.count - 1; i++)
+    for (; i < condCount - 1; i++)
     {
-        c.addr[i] = c.addr[i+1];
-        c.value[i] = c.value[i+1];
+        c[i].addr = c[i+1].addr;
+        c[i].cond = c[i+1].cond;
+        c[i].value = c[i+1].value;
     }
 
-    c.count--;
+    condCount--;
 }
 
-int conditionTrue (int i)
+int conditionTrue (void)
 {
-    if (memRead(c.addr[i]) == c.value[i])
-        return 1;
+    int i;
+
+    for (i = 0; i < condCount; i++)
+        if (conditionEval (i))
+            return 1;
 
     return 0;
 }
