@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2004-2023 Mark Burkley.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #include <stdio.h>
 #include <time.h>
 #include <stdlib.h>
@@ -82,7 +104,7 @@ struct
     BYTE cmd;
     BYTE st;
     BYTE ram[MAX_ADDR];
-    BOOL graphics;
+    bool graphics;
 }
 vdp;
 static int plots;
@@ -111,7 +133,6 @@ void vdpStatus (void)
 
 int vdpRead (int addr, int size)
 {
-    // mprintf(LVL_VDP, "%s %x\n", __func__, addr);
     if (size != 1)
     {
         halt ("VDP can only read bytes\n");
@@ -120,18 +141,14 @@ int vdpRead (int addr, int size)
     switch (addr)
     {
     case 0:
-        // tms9900.ram->b[0x8801] = vdpReadData ();
         if (vdp.addr >= MAX_ADDR)
         {
             halt ("VDP read out of range");
         }
 
         vdp.cmdInProg = 0;
-        // mprintf (LVL_VDP, "VDP : [%04X] -> %02X\n", vdp.addr, vdp.ram[vdp.addr]);
         return vdp.ram[vdp.addr++];
     case 2:
-        // tms9900.ram->b[0x8803] =
-        // mprintf (LVL_VDP, "VDP : status -> %02X\n", vdp.st);
         vdp.cmdInProg = 0;
         return vdp.st;
     default:
@@ -144,7 +161,6 @@ int vdpRead (int addr, int size)
 
 void vdpWrite (int addr, int data, int size)
 {
-    // mprintf(LVL_VDP, "%s %x=%x\n", __func__, addr, data);
     if (size != 1)
     {
         halt ("VDP can only write bytes\n");
@@ -182,33 +198,26 @@ void vdpWrite (int addr, int data, int size)
     case 2:
         if (vdp.cmdInProg)
         {
-            // mprintf (LVL_VDP, "\n** VDP **  command -> %02X/%02X\n", vdp.cmd, data);
-
             switch (data >> 6)
             {
             case 0:
                 vdp.mode = VDP_READ;
                 vdp.addr = ((data & 0x3F) << 8) | vdp.cmd;
-                // mprintf (LVL_VDP, "\n** VDP **  read addr -> %04X\n", vdp.addr);
                 break;
 
             case 1:
                 vdp.mode = VDP_WRITE;
                 vdp.addr = ((data & 0x3F) << 8) | vdp.cmd;
-                // mprintf (LVL_VDP, "\n** VDP **  write addr -> %04X\n", vdp.addr);
                 break;
 
             case 2:
-                // mprintf (LVL_VDP, "\n** VDP **  cmd? -> %04X\n", vdp.addr);
                 vdp.mode = 0;
                 vdp.reg[data&7] = vdp.cmd;
-                // vdpStatus ();
                 break;
             }
         }
         else
         {
-            // mprintf (LVL_VDP, "\n** VDP ** interim -> %02X\n", data);
             vdp.cmd = data;
         }
 
@@ -228,18 +237,11 @@ void vdpInitGraphics (void)
     glutInitWindowPosition(10,10);
     glutInitWindowSize(VDP_XSIZE*SCALE, VDP_YSIZE*SCALE);
     glutCreateWindow("TI-99 emulator");
-    // fill(XSIZE, YSIZE);
-    // glutMainLoop();
     vdpInitialised = 1;
 }
 
 static void vdpPlot (int x, int y, int col)
 {
-    // if (!vdp.graphics)
-    //     return;
-
-    // int offset = ((y * VDP_XSIZE) + x) * 4;
-
     int i, j;
 
     if (x < 0 || y < 0 || x >= VDP_XSIZE || y >= VDP_YSIZE)
@@ -264,7 +266,6 @@ static void vdpDrawChar (int cx, int cy, int ch)
     int data;
     int charpat = VDP_CHARPAT_TAB + (ch << 3);
     int col = vdp.ram[VDP_GR_COLTAB_ADDR + (ch >> 3)];
-// mprintf(LVL_VDP, "%d",ch);
     for (y = 0; y < 8; y++)
     {
         data = vdp.ram[charpat + y];
@@ -284,8 +285,6 @@ static void vdpDrawByte (int data, int x, int y, int col)
 
     for (x1 = x; x1 < (x + 8); x1++)
     {
-        // mprintf (LVL_VDP, "SPLOT : %d,%d (col %d) \n", x1, y1, col);
-
         if (data & 0x80)
         {
             vdpPlot (x1, y, col);
@@ -293,37 +292,21 @@ static void vdpDrawByte (int data, int x, int y, int col)
 
         data <<= 1;
     }
-
-    // VDP_SPRITEMAG
-    // VDP_SPRITESIZE)
 }
 
 static void vdpDrawSprites8x8 (int x, int y, int p, int c)
 {
-    // int pat = VDP_SPRITEPAT_TAB + p * 8;
     int y1;
-    // int count = 0;
 
     for (y1 = 0; y1 < 8; y1++)
     {
-        // mprintf (LVL_VDP, "Draw byte y=%d\n", y1);
-
-        // if (count++ > 256)
-        // {
-        //     halt ("Sprites taking too long\n");
-        // }
-
         vdpDrawByte (vdp.ram[p+y1], x, y + y1, c & 0x0F);
-
-        // mprintf (LVL_VDP, "Drawn byte y=%d\n", y1);
     }
 }
 
 static void vdpDrawSprites16x16 (int x, int y, int p, int c)
 {
-    // int pat = VDP_SPRITEPAT_TAB + p * 8; // 32;
     int y1, col;
-    // int count = 0;
 
     mprintf (LVL_VDP, "Draw sprite pat %d at %d,%d\n", p, x, y);
 
@@ -331,16 +314,7 @@ static void vdpDrawSprites16x16 (int x, int y, int p, int c)
     {
         for (y1 = 0; y1 < 16; y1++)
         {
-            // mprintf (LVL_VDP, "Draw byte y=%d\n", y1);
-
-            // if (count++ > 256)
-            // {
-            //     halt ("Sprites taking too long\n");
-            // }
-
             vdpDrawByte (vdp.ram[p+y1+col*2], x + col, y + y1, c & 0x0F);
-
-            // mprintf (LVL_VDP, "Drawn byte y=%d\n", y1);
         }
     }
 }
@@ -357,7 +331,6 @@ static void vdpDrawSprites (void)
 
     for (i = 0; i < 32; i++)
     {
-        // mprintf (LVL_VDP, ">> i is %d\n", i);
         y = vdp.ram[attr + i*4] + 1;
         x = vdp.ram[attr + i*4 + 1];
         p = vdp.ram[attr + i*4 + 2] * 8 + VDP_SPRITEPAT_TAB;
@@ -375,56 +348,23 @@ static void vdpDrawSprites (void)
         {
         case 0: vdpDrawSprites8x8 (x, y, p, c); break;
         case 1: vdpDrawSprites16x16 (x, y, p, c); break;
-        // case 2: vdpDrawSprites8x8Mag (x, y, p, c); break;
-        // case 3: vdpDrawSprites16x16Mag (x, y, p, c); break;
         }
     }
 }
 
 void vdpRefresh (int force)
 {
-    // static time_t lastTime;
-    // static int count;
-    // static unsigned long lastTime;
-    // static int count;
-    // time_t t;
-    // unsigned long t;
     int sc;
-
-    // t = *(long*)0x46C;
-
-    #if 0
-    t = time(NULL);
-
-    if (!force && t == lastTime)
-        return;
-
-    lastTime = t;
-
-    #else
-    // count++;
-
-    // if (count < 6)
-    //     return;
 
     if (!vdpRefreshNeeded)
         return;
 
     vdpRefreshNeeded = false;
-    // count = 0;
-    #endif
-
-    // gromIntegrity();
-    // mprintf (LVL_VDP, "VDP : refresh %d start\n", count);
-
-    // mprintf (LVL_VDP, "VDP : refresh %d check mode\n", count);
 
     if (VDP_BITMAP_MODE || VDP_TEXT_MODE || VDP_MULTI_MODE)
     {
         halt ("unsupported VDP mode");
     }
-
-    // mprintf (LVL_VDP, "VDP : refresh %d draw sc\n", count);
 
     for (sc = 0; sc < 0x300; sc++)
     {
@@ -432,9 +372,6 @@ void vdpRefresh (int force)
     }
 
     vdpDrawSprites ();
-
-     // mprintf (LVL_VDP, "VDP : refresh %d done, plots=%d\n", count++, plots);
-    // gromIntegrity();
 
     if (vdpInitialised)
         vdpScreenUpdate();

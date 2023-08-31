@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2004-2023 Mark Burkley.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -130,10 +152,8 @@ void kbdPoll (void)
 {
     struct input_event ev;
     struct pollfd pfds[2];
-    // struct pollfd pfds[2];
     int n;
     int ret;
-    // char val[2];
 
     pfds[0].fd = 0;
     pfds[0].events = POLLIN;
@@ -144,20 +164,9 @@ void kbdPoll (void)
     if (ret < 1)
         return;
 
-    #if 0
-    if (pfds[0].revents & POLLIN)
-    {
-        /*  If key pressed, read and discard a char from stdin*/
-        printf ("reading a key...\n");
-        fgetc(stdin);
-    }
-    #endif
-
     if (!(pfds[1].revents & POLLIN))
         return;
 
-    // mprintf(LVL_KBD, "KBD Data available\n");
-    // printf ("Read from fd %d\n", fd);
     n = read (kbdFd, &ev, sizeof (ev));
 
     if (n < 0)
@@ -181,7 +190,7 @@ void kbdPoll (void)
 
 int kbdGet (int row, int col)
 {
-    static int lastState[8][8];    // if (keyState[row][col])
+    static int lastState[8][8];
 
     if (keyState[row][col] != lastState[row][col])
     {
@@ -200,9 +209,6 @@ void kbdClose (void)
         close (kbdFd);
         kbdFd = -1;
     }
-
-    /* restore terminal attributes */
-    // tcsetattr(0, TCSANOW, &oldtio);
 }
 
 void kbdOpen (const char *device)
@@ -210,13 +216,7 @@ void kbdOpen (const char *device)
     kbdDevice = device;
     kbdFd = -1;
     kbdReopen ();
-    #if 0
-    struct termios tio;
-    tcgetattr(0, &tio);
-    tio.c_lflag &= ~(ICANON | ECHO);
-    tcsetattr(0, TCSANOW, &tio);
 
-    #endif
     mprintf (LVL_KBD, "%s dev %s opened as fd %d\n", __func__, kbdDevice, kbdFd);
 }
 

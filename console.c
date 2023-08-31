@@ -1,7 +1,41 @@
+/*
+ * Copyright (c) 2004-2023 Mark Burkley.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+/*
+ *  Implement a command line console for executing the TI99/4A environment.  By
+ *  default, running ti994a enters console mode where commands can be given, the
+ *  ROM can be stepped through, registers examined, etc.  If a script is given
+ *  as a parameter, it is used for input instead of the comamnd line.  While
+ *  running, pressing  CTRL-C will return to the command line.
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <execinfo.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <errno.h>
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -63,10 +97,6 @@ bool consoleBreak (int argc, char *argv[])
             breakPointAdd (addr);
         else if (!strncmp (argv[1], "remove", strlen(argv[1])))
             breakPointRemove (addr);
-        #if 0
-        else if (!strncmp (argv[1], "condition", strlen(argv[1])))
-            breakPointCondition (addr);
-        #endif
         else
             return false;
     }
@@ -191,9 +221,7 @@ bool consoleShow (int argc, char *argv[])
 bool consoleGo (int argc, char *argv[])
 {
     printf ("Running\n");
-    // cpuBoot ();
-         ti994aRun ();
-    // run = 1;
+    ti994aRun ();
 
     return true;
 }
@@ -313,30 +341,56 @@ struct _commands
     char *cmd;
     int paramCount;
     bool (*func)(int argc, char *argv[]);
+    char *usage;
     char *help;
 }
 commands[] =
 {
-    { "break", 2, consoleBreak, "break [ add <addr> | list | remove <addr> | condition <addr> ]\n" },
-    { "watch", 2, consoleWatch, "watch [ add <addr> | list | remove <addr> ]\n" },
-    { "condition", 2, consoleCondition, "condition [ add <addr> | list | remove <addr> ]\n" },
-    { "show", 2, consoleShow, "show [ cpu | pad | padgpl | (mem|grom|vdp) <addr> [ <size> ]]\n" },
-    { "@", 2, consoleReadInput, "@ <file>\n" },
-    { "go", 1, consoleGo, "go\n" },
-    { "boot", 1, consoleBoot, "boot\n" },
-    { "unassemble", 1, consoleUnassemble, "unassemble [ covered ]\n" },
-    { "level", 2, consoleLevel, "level <dbg-level>\n" },
-    { "quit", 1, consoleQuit, "quit\n" },
-    { "video", 1, consoleVideo, "video\n" },
-    { "sound", 1, consoleSound, "sound\n" },
-    { "comments", 2, consoleComments, "comments <file>\n" },
-    { "load", 2, consoleLoadRom, "load <file>\n" },
-    { "grom", 2, consoleLoadGrom, "grom <file>\n" },
-    { "keyboard", 2, consoleKeyboard, "keyboard <file>\n" }
+    { "break", 2, consoleBreak, "break [ add <addr> | list | remove <addr> ]",
+            "Add, list or remove breakpoints from addresses in ROM" },
+    { "watch", 2, consoleWatch, "watch [ add <addr> | list | remove <addr> ]",
+            "Add, list or remove a watched memory location" },
+    { "condition", 2, consoleCondition, "condition [ add <addr> <cond> <value> | list | remove <addr> ]",
+            "Add, list or remove a conditional break on a memory location. "
+            "<cond> can be EQ, NE, or CH for equal, not equal and change "
+            "respectively" },
+    { "show", 2, consoleShow, "show [ cpu | pad | padgpl | (mem|grom|vdp) <addr> [ <size> ]]",
+            "Show various things.  Show cpu shows CPU registers, internal and "
+            "workspace.  Show pad dumps the scratchpad memory.  Show padgpl shows "
+            "the scratchpad memory with GPL annotations.  Show mem, grom and vdp "
+            "reads a number of bytes from CPU memory, GROM memory and VDP memory "
+            "respectively" },
+    { "@", 2, consoleReadInput, "@ <file>",
+            "Reads input commands from a file" },
+    { "go", 1, consoleGo, "go",
+            "Begin running from the current program counter" },
+    { "boot", 1, consoleBoot, "boot",
+            "Boot the CPU.  Initialise WP, PC and ST registers" },
+    { "unassemble", 1, consoleUnassemble, "unassemble [ covered ]",
+            "Begin disassembly of each instruction as it is executed.  If the "
+            "optional \"covered\" keyword is given, then only disassemble an "
+            "instruction the first time it is executed." },
+    { "level", 2, consoleLevel, "level <dbg-level>",
+            "Set the debug level.  See trace.h for description of levels" },
+    { "quit", 1, consoleQuit, "quit", "Exit the program" },
+    { "video", 1, consoleVideo, "video", "Enable video output" },
+    { "sound", 1, consoleSound, "sound", "Enable audio output" },
+    { "comments", 2, consoleComments, "comments <file>",
+            "Load disassembly comments from a file" },
+    { "load", 2, consoleLoadRom, "load <file> <addr> <length>",
+            "Load a ROM binary file to the specified CPU memory address" },
+    { "grom", 2, consoleLoadGrom, "grom <file>",
+            "Load a GROM binary file to the specified GROM memory address" },
+    { "keyboard", 2, consoleKeyboard, "keyboard <file>",
+            "Begin reading key events from the specified device file" }
 };
 
 #define NCOMMAND (sizeof (commands) / sizeof (struct _commands))
 
+/*  Break a line into word delimited by white space.  Destructive and maintains
+ *  pointers to within line.  Ensure memory is not freed until all processing of
+ *  args is finished.
+ */
 static int parse (char *line, char *argv[])
 {
     char *pos;
@@ -354,7 +408,6 @@ static int parse (char *line, char *argv[])
 static void input (FILE *fp)
 {
     char line[1024];
-    // BOOL run = 0;
     int argc;
     char *argv[100];
 
@@ -391,7 +444,6 @@ static void input (FILE *fp)
 
     if (argc == 0)
     {
-        // tms9900.ram.covered[tms9900.pc>>1] = 1;
         cpuExecute (cpuFetch());
         cpuShowStatus ();
         gromShowStatus ();
@@ -417,16 +469,63 @@ static void input (FILE *fp)
         int i;
 
         for (i = 0; i < NCOMMAND; i++)
-            printf (commands[i].help);
+            printf ("%s : %s\n\n", commands[i].usage, commands[i].help);
 
         return;
     }
 
     printf ("Unknown command, type HELP for a list\n");
-
-    // if (run)
-    //     ti994aRun ();
 }
+
+static bool ti994aQuitFlag;
+
+static void sigHandler (int signo)
+{
+    int i;
+    int n;
+    char **str;
+
+    void *bt[10];
+
+    switch (signo)
+    {
+    case SIGQUIT:
+    case SIGTERM:
+        printf ("quit seen\n");
+        ti994aQuitFlag = true;
+        break;
+
+    /*  If CTRL-C then stop running and return to console */
+    case SIGINT:
+        printf("Set run flag to zero\n");
+        extern bool ti994aRunFlag;
+        ti994aRunFlag = false;
+        break;
+
+    case SIGSEGV:
+        n = backtrace (bt, 10);
+        str = backtrace_symbols (bt, n);
+
+        if (str)
+        {
+            for (i = 0; i < n; i++)
+            {
+                printf ("%s\n", str[i]);
+            }
+        }
+        else
+            printf ("failed to get a backtrace\n");
+
+        exit (1);
+        break;
+
+    default:
+        printf ("uknown sig %d\n", signo);
+        exit (1);
+        break;
+    }
+}
+
 
 int main (int argc, char *argv[])
 {
@@ -436,24 +535,44 @@ int main (int argc, char *argv[])
     if (argc > 1)
         fileToRead = argv[1];
 
-    // Configure readline to auto-complete paths when the tab key is hit.
+    /* Configure readline to auto-complete paths when the tab key is hit.
+     */
     rl_bind_key('\t', rl_complete);
 
-    // Enable history
+    /* Enable history
+     */
     using_history();
 
-    #if 0
+    /*  Trap signals.  Mainly to allow control to be handed back to the CLI
+     *  when CTRL-C is pressed and also to generate a backtrace if a segfault
+     *  occurs.
+     */
+    if (signal(SIGSEGV, sigHandler) == SIG_ERR)
     {
-        if ((fp = fopen (argv[1], "r")) == NULL)
-        {
-            printf ("Can't open '%s'\n", argv[1]);
-        }
+        printf ("Failed to register SEGV handler\n");
+        exit (1);
     }
-    #endif
+
+    if (signal(SIGQUIT, sigHandler) == SIG_ERR)
+    {
+        printf ("Failed to register QUIT handler\n");
+        exit (1);
+    }
+
+    if (signal(SIGTERM, sigHandler) == SIG_ERR)
+    {
+        printf ("Failed to register TERM handler\n");
+        exit (1);
+    }
+
+    if (signal(SIGINT, sigHandler) == SIG_ERR)
+    {
+        printf ("Failed to register INT handler\n");
+        exit (1);
+    }
+
 
     ti994aInit ();
-
-    extern int ti994aQuitFlag;
 
     while (!ti994aQuitFlag)
     {

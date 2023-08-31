@@ -1,5 +1,27 @@
 /*
- *  Manage breakpoints in the execution of the machine code
+ * Copyright (c) 2004-2023 Mark Burkley.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+/*
+ *  Manage breakpoints in the execution of the machine code.
  */
 
 #include <stdio.h>
@@ -7,11 +29,12 @@
 #include "cond.h"
 #include "break.h"
 
+#define MAX_BREAKPOINTS 20
+#define MAX_CONDITIONS   5
+
 struct
 {
-    WORD    breaks[20];
-    int     conditions[20][5];
-    int     condCount[20];
+    WORD    addr[MAX_BREAKPOINTS];
     int     count;
 }
 bp;
@@ -22,39 +45,32 @@ void breakPointAdd (WORD addr)
 
     for (i = 0; i < bp.count; i++)
     {
-        if (bp.breaks[i] == addr)
+        if (bp.addr[i] == addr)
         {
             printf ("*** Duplicate '%04X'\n", addr);
             return;
         }
     }
 
-    if (bp.count == 20)
+    if (bp.count == MAX_BREAKPOINTS)
     {
         printf ("*** Can't add '%04X'\n", addr);
         return;
     }
 
-    bp.breaks[bp.count] = addr;
-    bp.count++;
+    bp.addr[bp.count++] = addr;
 }
 
 void breakPointList (void)
 {
-    int         i, j;
+    int         i;
 
     printf ("Break Points\n");
     printf ("============\n");
 
     for (i = 0; i < bp.count; i++)
     {
-        printf ("#%2d (PC = %04X)", i, bp.breaks[i]);
-
-        for (j = 0; j < bp.condCount[i]; j++)
-            printf (" && (cond # %d)",
-                    bp.conditions[i][j]);
-
-        printf ("\n");
+        printf ("#%2d (PC = %04X)\n", i, bp.addr[i]);
     }
 }
 
@@ -64,7 +80,7 @@ void breakPointRemove (WORD addr)
 
     for (i = 0; i < bp.count; i++)
     {
-        if (bp.breaks[i] == addr)
+        if (bp.addr[i] == addr)
         {
             break;
         }
@@ -78,52 +94,19 @@ void breakPointRemove (WORD addr)
 
     for (; i < bp.count - 1; i++)
     {
-        bp.breaks[i] = bp.breaks[i+1];
+        bp.addr[i] = bp.addr[i+1];
     }
 
     bp.count--;
 }
 
-#if 0
-void breakPointCondition (WORD addr
-{
-    int b, c;
-    int i;
-
-    if (sscanf (s, "%d %d", &b, &c) != 2)
-    {
-        printf ("*** Can't parse '%s'\n", s);
-        return;
-    }
-
-    for (i = 0; i < bp.condCount[b]; i++)
-    {
-        if (bp.conditions[b][i] == c)
-        {
-            printf ("*** Duplicate '%s'\n", s);
-            return;
-        }
-    }
-
-    if (bp.condCount[b] == 5)
-    {
-        printf ("*** Can't add '%s'\n", s);
-        return;
-    }
-
-    bp.conditions[b][bp.condCount[b]] = c;
-    bp.condCount[b]++;
-
-}
-#endif
-
 int breakPointHit (WORD addr)
 {
-    int         i; // , j;
+    int         i;
 
     for (i = 0; i < bp.count; i++)
     {
-        if (bp.breaks[i] == addr)
+        if (bp.addr[i] == addr)
         {
             return 1;
         }

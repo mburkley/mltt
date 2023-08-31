@@ -24,10 +24,10 @@ LIBS=\
 -lreadline \
 -lm
 
-all:  grom tests
+all:  ti994a tests
 
-grom: $(SRCS) console.c ti994a.c
-	gcc -Wall -ggdb3 -o grom -D__GROM_DEBUG console.c ti994a.c $(SRCS) $(LIBS)
+ti994a: $(SRCS) console.c ti994a.c
+	gcc -Wall -ggdb3 -o ti994a -D__GROM_DEBUG console.c ti994a.c $(SRCS) $(LIBS)
 
 tests: $(SRCS) tests.c
 	gcc -Wall -ggdb3 -o tests -D__GROM_DEBUG tests.c $(SRCS) $(LIBS)
@@ -35,5 +35,3 @@ tests: $(SRCS) tests.c
 testkbd: $(SRCS) kbd.c trace.c
 	gcc -Wall -ggdb3 -o testkbd -D__UNIT_TEST kbd.c trace.c $(LIBS)
 
-testpa: testpa.c
-	gcc -o testpa testpa.c $(LIBS)

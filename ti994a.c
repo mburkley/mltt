@@ -1,4 +1,26 @@
 /*
+ * Copyright (c) 2004-2023 Mark Burkley.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+/*
  *  Implements the console specifics, I/O, etc, of the 99-4a
  */
 
@@ -6,10 +28,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <execinfo.h>
-#include <signal.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
 #include <poll.h>
@@ -43,8 +61,8 @@ memPage;
 
 typedef struct
 {
-    BOOL    rom;
-    BOOL    mapped;
+    bool    rom;
+    bool    mapped;
     int addr;
     int mask;
     memPage *m;
@@ -81,54 +99,7 @@ memMap mmio[] =
     { 0, 1, 0x9C00, 0x0003, NULL   , NULL, gromWrite }, // GROM Write
 };
 
-int ti994aQuitFlag;
-int ti994aRunFlag;
-
-static void sigHandler (int signo)
-{
-    int i;
-    int n;
-    char **str;
-
-    void *bt[10];
-
-    switch (signo)
-    {
-    case SIGQUIT:
-    case SIGTERM:
-        printf ("quit seen\n");
-        ti994aQuitFlag = 1;
-        break;
-
-    /*  If CTRL-C then stop running and return to console */
-    case SIGINT:
-        printf("Set run flag to zero\n");
-        ti994aRunFlag = 0;
-        break;
-
-    case SIGSEGV:
-        n = backtrace (bt, 10);
-        str = backtrace_symbols (bt, n);
-
-        if (str)
-        {
-            for (i = 0; i < n; i++)
-            {
-                printf ("%s\n", str[i]);
-            }
-        }
-        else
-            printf ("failed to get a backtrace\n");
-
-        exit (1);
-        break;
-
-    default:
-        printf ("uknown sig %d\n", signo);
-        exit (1);
-        break;
-    }
-}
+bool ti994aRunFlag;
 
 static void ti994aPrintScratchMemory (WORD addr, int len)
 {
@@ -329,7 +300,6 @@ void ti994aKeyboardScan (int index, BYTE state)
 {
     int row;
     int col = (cruBitGet(0, 20)<<2)|(cruBitGet(0, 19)<<1)|cruBitGet(0, 18);
-    // int col = (cruBitGet(0, 18)<<2)|(cruBitGet(0, 19)<<1)|cruBitGet(0, 20);
 
     mprintf (LVL_CONSOLE, "KBD scan col %d (%d,%d,%d)\n", col, cruBitGet(0,18),
     cruBitGet(0,19),cruBitGet(0,20));
@@ -350,17 +320,20 @@ void ti994aInterrupt (int index, BYTE state)
      *  that is set.
      */
     int i;
+    bool raise = false;
+
+    /*  Interrupts to the TMS9900 are hardwired to always generate interrupt
+     *  level 1 regardless of what device generated the interrupt.  So if any
+     *  bit is low, we raise interrupt level 1, otherwise lower it.
+     */
     for (i = 1; i < 16; i++)
         if (!cruBitGet (0, i))
-        {
-            // printf("interrupt %d\n", i);
-            /*  Interrupts to the TMS9900 are hardwired to always generate
-             *  interrupt level 1 regardless of what device generated the
-             *  interrupt */
-            // TODO - interrupts are level triggered, so we should raise and
-            // lower using an OR of all CRU inputs
-            interruptRequest (1);
-        }
+            raise = true;
+
+    if (raise)
+        interruptRaise (1);
+    else
+        interruptLower (1);
 }
 
 void ti994aVideoInterrupt (void)
@@ -375,14 +348,12 @@ void ti994aVideoInterrupt (void)
 
     if (cruBitGet (0, 2))
     {
-            // printf("video interrupt\n");
         cruBitSet (0, 2, 0);
     }
 
     if (++count == 50)
     {
         printf (".");
-        // cpuShowStatus();
         count = 0;
     }
 }
@@ -391,16 +362,13 @@ void ti994aRun (void)
 {
     static int count;
 
-    ti994aRunFlag = 1;
-
+    ti994aRunFlag = true;
     printf("enter run loop\n");
+
     while (ti994aRunFlag &&
            !breakPointHit (cpuGetPC()) &&
            !conditionTrue ())
     {
-        // tms9900.ram.covered[tms9900.pc>>1] = 1;
-
-// gromIntegrity();
         kbdPoll ();
         timerPoll ();
         cpuExecute (cpuFetch());
@@ -410,47 +378,19 @@ void ti994aRun (void)
          */
         if (count++ == 100)
         {
-        usleep (333);
-        count = 0;
+            usleep (333);
+            count = 0;
         }
-// gromIntegrity();
-
 
         watchShow();
-        // showGromStatus();
     }
 }
 
 void ti994aInit (void)
 {
-    if (signal(SIGSEGV, sigHandler) == SIG_ERR)
-    {
-        printf ("Failed to register SEGV handler\n");
-        exit (1);
-    }
-
-    if (signal(SIGQUIT, sigHandler) == SIG_ERR)
-    {
-        printf ("Failed to register QUIT handler\n");
-        exit (1);
-    }
-
-    if (signal(SIGTERM, sigHandler) == SIG_ERR)
-    {
-        printf ("Failed to register TERM handler\n");
-        exit (1);
-    }
-
-    if (signal(SIGINT, sigHandler) == SIG_ERR)
-    {
-        printf ("Failed to register INT handler\n");
-        exit (1);
-    }
-
     /*  Start a 20-msec (50Hz) recurring timer to generate video interrupts */
     timerStart (20, ti994aVideoInterrupt);
 
-    printf ("** set initial CRU states\n");
     cruBitSet (0, 0, 0); // control
     cruBitSet (0, 1, 1); // externl irq
     cruBitSet (0, 2, 1); // /VDP irq
@@ -489,9 +429,11 @@ void ti994aInit (void)
     for (i = 1; i <= 2; i++)
         cruCallbackSet (i, ti994aInterrupt);
 
-    /*  Attach handlers to CRU bits that are for keyboard input */
+    /*  Attach handlers to CRU bits that are for keyboard input.  Note to avoid
+     *  evaluating the column every time a bit is written, we only set a call on
+     *  the most significant bit as it will be the last bit to be written
+     */
     for (i = 20; i <= 20; i++)
-    // for (i = 18; i <= 21; i++)
         cruCallbackSet (i, ti994aKeyboardScan);
 }
 

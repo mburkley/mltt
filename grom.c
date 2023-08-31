@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2004-2023 Mark Burkley.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -10,19 +32,13 @@ struct
     WORD addr;
     BYTE lowByteGet;
     BYTE lowByteSet;
-
-    union
-    {
-        // WORD w[0x4000];
-        BYTE b[0x8000];
-    }
-    rom;
+    BYTE b[0x8000];
 }
 gRom;
 
 void gromIntegrity (void)
 {
-    if (gRom.rom.b[0x1bc] != 0xbe)
+    if (gRom.b[0x1bc] != 0xbe)
     {
         halt ("GROM corruption\n");
     }
@@ -30,13 +46,6 @@ void gromIntegrity (void)
 
 int gromRead (int addr, int size)
 {
-    #if 0
-    if (size != 1)
-    {
-        halt ("GROM can only read bytes\n");
-    }
-    #endif
-
     switch (addr)
     {
     case 0:
@@ -51,7 +60,7 @@ int gromRead (int addr, int size)
         }
         else
         {
-            result = gRom.rom.b[gRom.addr];
+            result = gRom.b[gRom.addr];
         }
 
         mprintf (LVL_GROM, "GROMRead: %04X : %02X\n",
@@ -108,7 +117,6 @@ void gromWrite (int addr, int data, int size)
         break;
     default:
         printf ("%s addr=%x data=%x\n", __func__, addr, data);
-        // halt ("invalid GROM write operation");
         printf ("GROM write data ignored\n");
         break;
     }
@@ -136,7 +144,7 @@ void gromLoad (char *name, int start, int len)
         exit (1);
     }
 
-    if (fread (gRom.rom.b + start, sizeof (BYTE), len, fp) != len)
+    if (fread (gRom.b + start, sizeof (BYTE), len, fp) != len)
     {
         halt ("GROM file read failure");
     }

@@ -1,4 +1,26 @@
 /*
+ * Copyright (c) 2004-2023 Mark Burkley.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+/*
  *  Implements TMS9900 CPU
  */
 
@@ -6,6 +28,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 #include "vdp.h"
 #include "cpu.h"
@@ -33,10 +56,10 @@ typedef struct
     WORD index;
     WORD type;
     WORD opMask;
-    BOOL store;
-    BOOL hasDest;
-    BOOL isByte;
-    BOOL cmpZero;
+    bool store;
+    bool hasDest;
+    bool isByte;
+    bool cmpZero;
 }
 OpGroup;
 
@@ -177,28 +200,23 @@ static void compare (WORD sData, WORD dData)
 
     tms9900.st &= (FLAG_MSK | FLAG_C);
 
-    // printf("[comp %04X to %04X", sData, dData);
     if (sData == dData)
     {
-        // printf (" EQ");
         tms9900.st |= FLAG_EQ;
     }
 
     if (sData > dData)
     {
-        // printf (" LGT");
         tms9900.st |= FLAG_LGT;
     }
 
     if ((signed short) sData > (signed short) dData)
     {
-        // printf (" AGT");
         tms9900.st |= FLAG_AGT;
     }
-    // printf ("]");
 }
 
-static void operand (WORD mode, WORD reg, WORD *arg, WORD *addr, BOOL isByte)
+static void operand (WORD mode, WORD reg, WORD *arg, WORD *addr, bool isByte)
 {
     switch (mode)
     {
@@ -240,8 +258,8 @@ void cpuExecute (int data)
     WORD dMode = 0, sMode = 0;
     WORD sArg = 0, dArg = 0;
     WORD pc = tms9900.pc;
-    BOOL doStore = 0;
-    BOOL doCmpZ = 0;
+    bool doStore = 0;
+    bool doCmpZ = 0;
     I8 offset = 0;
     WORD count = 0;
     U32 u32 = 0;
@@ -264,7 +282,6 @@ void cpuExecute (int data)
         count  = (data & 0x00F0) >> 4;
 
         if (count == 0)
-            // count = REGR(0) >> 12;
             count = REGR(0) & 0x000F;
 
         if (count == 0)
@@ -304,17 +321,6 @@ void cpuExecute (int data)
     }
             
     operand (sMode, sReg, &sArg, &sAddr, isByte);
-
-    /*  Was curious to see if ops like DECT @>8373 were causing side effects
-     *  since DECT is always a word operation.  But this code made no difference
-     */
-    #if 0
-    if ((sAddr & 1) != 0 && !isByte && o->type == OPTYPE_SINGLE)
-    {
-        printf ("*** WARN word op on odd address, forcing byte op\n");
-        isByte = 1;
-    }
-    #endif
 
     if (isByte)
         sData = memReadB (sAddr) << 8;
@@ -413,75 +419,42 @@ void cpuExecute (int data)
      */
 
     case OP_LI:
-        #if 1
         memWriteW(sAddr, cpuFetch());
-        #else
-        sData = cpuFetch();
-        doStore = 1;
-        #endif
         break;
     case OP_AI:
         u32 = sData + cpuFetch();
         carrySet (u32 > 0x10000);
         u32 &= 0xffff;
-        #if 1
         memWriteW(sAddr, u32);
-        #else
-        sData = u32;
-        doStore = 1;
-        #endif
         doCmpZ = 1;
         break;
     case OP_ANDI:
-        #if 0
         memWriteW(sAddr, sData & cpuFetch());
-        #else
-        sData &= cpuFetch();
-        doStore = 1;
-        #endif
         doCmpZ = 1;
         break;
     case OP_ORI:
-        #if 1
         memWriteW(sAddr, sData | cpuFetch());
-        #else
-        sData |= cpuFetch();
-        doStore = 1;
-        #endif
         doCmpZ = 1;
         break;
     case OP_CI:
         compare (sData, cpuFetch());
         break;
     case OP_STST:
-        #if 1
         memWriteW(sAddr, tms9900.st);
-        #else
-        sData = tms9900.st;
-        doStore = 1;
-        #endif
         break;
     case OP_STWP:
-        #if 1
         memWriteW(sAddr, tms9900.wp);
-        #else
-        sData = tms9900.wp;
-        doStore = 1;
-        #endif
         break;
     case OP_LWPI:
         tms9900.wp = cpuFetch();
         break;
-
     case OP_LIMI:
         tms9900.st = (tms9900.st & ~FLAG_MSK) | cpuFetch();
-        // printf("LIMI mask=%d\n", tms9900.st&FLAG_MSK);
         break;
 
     /*
      *  J U M P
      */
-
     case OP_JMP: jumpAnd (0,        0,                  offset);    break;
     case OP_JLT: jumpAnd (0,        FLAG_AGT | FLAG_EQ, offset);    break;
     case OP_JGT: jumpAnd (FLAG_AGT, FLAG_EQ,                  offset);    break;
@@ -505,16 +478,10 @@ void cpuExecute (int data)
     /*
      *  C R U
      */
-
     case OP_LDCR:
         if (isByte)
         {
-            // printf("LDCR byte op\n");
             sData >>= 8;
-        }
-        else
-        {
-            // printf("LDCR word op\n");
         }
 
         cruMultiBitSet (REGR(12), sData, dReg);
@@ -523,12 +490,10 @@ void cpuExecute (int data)
     case OP_STCR:
         if (isByte)
         {
-            // printf("STCR byte op\n");
             memWriteB(sAddr, cruMultiBitGet (REGR(12), dReg));
         }
         else
         {
-            // printf("STCR word op\n");
             memWriteW(sAddr, cruMultiBitGet (REGR(12), dReg));
         }
         break;
@@ -587,84 +552,32 @@ void cpuExecute (int data)
     case OP_B:      tms9900.pc = sAddr;                                 break;
     case OP_X:
         mprintf (LVL_CPU, "X : recurse\n");
-        // printf("sd=%4X\n", sData);
         cpuExecute (sData);
         break;
     case OP_CLR:    sData = 0;         doStore=1;                                 break;
     case OP_NEG:    sData = -sData;    doStore=1;   doCmpZ = 1;         break;
     case OP_INV:    sData = ~sData;    doStore=1;   doCmpZ = 1;         break;
     case OP_INC:
-        #if 0
-        if (isByte)
-        {
-            // TODO tify this up
-            carrySet ((sData & 0xFF00) == 0xFF00);
-            sData += 0x100;
-        }
-        else
-        {
-        #endif
-            carrySet (sData == 0xFFFF);
-            sData += 1;
-        #if 0
-        }
-        #endif
+        carrySet (sData == 0xFFFF);
+        sData += 1;
         doStore=1;
         doCmpZ = 1;
         break;
     case OP_INCT:
-        #if 0
-        if (isByte)
-        {
-            carrySet (sData == 0xFFFF || sData == 0xFFFE);
-            sData += 0x200;
-        }
-        else
-        {
-        #endif
-            carrySet ((sData & 0xFF00) == 0xFF00 || (sData & 0xFF00) == 0xFE00);
-            sData += 2;
-        #if 0
-        }
-        #endif
+        carrySet ((sData & 0xFF00) == 0xFF00 || (sData & 0xFF00) == 0xFE00);
+        sData += 2;
         doStore=1;
         doCmpZ = 1;
         break;
     case OP_DEC:
-        // carrySet (sData == 0);
-        #if 0
-        if (isByte)
-        {
-            carrySet ((sData & 0xFF00) != 0);
-            sData -= 0x100;
-        }
-        else
-        {
-        #endif
-            carrySet (sData != 0);
-            sData -= 1;
-        #if 0
-        }
-        #endif
+        carrySet (sData != 0);
+        sData -= 1;
         doStore=1;
         doCmpZ = 1;
         break;
     case OP_DECT:
-        // carrySet (sData == 0 || sData == 1);
-        #if 0
-        if (isByte)
-        {
-            carrySet ((sData & 0xFF00) != 0 && (sData & 0xFF00) != 0x100);
-            sData -= 0x200;
-        }
-        else
-        {
-        #endif
-            carrySet (sData != 0 && sData != 1);
-            sData -= 2;
-        #if 0
-        }
-        #endif
+        carrySet (sData != 0 && sData != 1);
+        sData -= 2;
         doStore=1;
         doCmpZ = 1;
         break;
@@ -705,7 +618,6 @@ void cpuExecute (int data)
     }
 
     int mask = tms9900.st & FLAG_MSK;
-    // if (mask) printf ("check ints for mask %d\n", mask);
     int level = interruptLevel (mask);
 
     if (level >= 0)
@@ -760,93 +672,6 @@ void cpuShowStWord(void)
 void cpuBoot (void)
 {
     tms9900.st = 0;
-    blwp (0x0);  // BLWP @>0
+    blwp (0x0);
 }
 
-/*
-        0x3C00: div
-        0x3000: ldcr
-        0x2000: coc
-        0x2400: czc
-        0x3800: mul
-        0x0700: abs
-
-
-|SZC  s,d|4000|-----***|1|Y|Set Zeros Corresponding            |
-|SZCB s,d|5000|-----***|1|Y|Set Zeros Corresponding Bytes      |
-|S    s,d|6000|---*****|1|N|Subtract                           |
-|SB   s,d|7000|--******|1|N|Subtract Bytes                     |
-|C    s,d|8000|-----***|1|N|Compare                            |
-|CB   s,d|9000|--*--***|1|N|Compare Bytes                      |
-|A    s,d|A000|---*****|1|Y|Add                                |
-|AB   s,d|B000|--******|1|Y|Add Bytes                          |
-|MOV  s,d|C000|-----***|1|Y|Move                               |
-|MOVB s,d|D000|--*--***|1|Y|Move Bytes                         |
-|SOC  s,d|E000|-----***|1|Y|Set Ones Corresponding             |
-|SOCB s,d|F000|-----***|1|Y|Set Ones Corresponding Bytes       |
-
-|LI   r,i|0200|-----***|8|N|Load Immediate                     |
-|AI   r,i|0220|---*****|8|Y|Add Immediate                      |
-|ANDI r,i|0240|-----***|8|Y|AND Immediate                      |
-|ORI  r,i|0260|-----***|8|Y|OR Immediate                       |
-|CI   r,i|0280|-----***|8|N|Compare Immediate                  |
-|STST r  |02C0|--------|8|N|Store Status Register              |
-|STWP r  |02A0|--------|8|N|Store Workspace Pointer            |
-|LWPI i  |02E0|--------|8|N|Load Workspace Pointer Immediate   |
-|LIMI i  |0300|*-------|8|N|Load Interrupt Mask Immediate      |
-
-|IDLE    |0340|--------|7|N|Computer Idle                      |
-|RSET    |0360|*-------|7|N|Reset                              |
-|RTWP    |0380|????????|7|N|Return Workspace Pointer (4)       |
-|CKON    |03A0|--------|7|N|Clock On                           |
-|CKOF    |03C0|--------|7|N|Clock Off                          |
-|LREX    |03E0|*-------|7|N|Load or Restart Execution          |
-
-|BLWP s  |0400|--------|6|N|Branch & Load Workspace Ptr (3) (2)|
-|B    s  |0440|--------|6|N|Branch (PC=d)                      |
-|X    s  |0480|--------|6|N|Execute the instruction at s       |
-|CLR  d  |04C0|--------|6|N|Clear                              |
-|NEG  d  |0500|---*****|6|Y|Negate                             |
-|INV  d  |0540|-----***|6|Y|Invert                             |
-|INC  d  |0580|---*****|6|Y|Increment                          |
-|INCT d  |05C0|---*****|6|Y|Increment by Two                   |
-|DEC  d  |0600|---*****|6|Y|Decrement                          |
-|DECT d  |0640|---*****|6|Y|Decrement by Two                   |
-|BL   s  |0680|--------|6|N|Branch and Link (R11=PC,PC=s)      |
-|SWPB d  |06C0|--------|6|N|Swap Bytes                         |
-|SETO d  |0700|--------|6|N|Set to Ones                        |
-|ABS  d  |0740|---*****|6|Y|Absolute value                     |
-
-|SRA  r,c|0800|----****|5|Y|Shift Right Arithmetic (1)         |
-|SRC  r,c|0800|----****|5|Y|Shift Right Circular (1)           |
-|SRL  r,c|0900|----****|5|Y|Shift Right Logical (1)            |
-|SLA  r,c|0A00|----****|5|Y|Shift Left Arithmetic (1)          |
-
-|JMP  a  |1000|--------|2|N|Jump unconditionally               |
-|JLT  a  |1100|--------|2|N|Jump if Less Than                  |
-|JLE  a  |1200|--------|2|N|Jump if Low or Equal               |
-|JEQ  a  |1300|--------|2|N|Jump if Equal                      |
-|JHE  a  |1400|--------|2|N|Jump if High or Equal              |
-|JGT  a  |1500|--------|2|N|Jump if Greater Than               |
-|JNE  a  |1600|--------|2|N|Jump if Not Equal                  |
-|JNC  a  |1700|--------|2|N|Jump if No Carry                   |
-|JOC  a  |1800|--------|2|N|Jump On Carry                      |
-|JNO  a  |1900|--------|2|N|Jump if No Overflow                |
-|JL   a  |1A00|--------|2|N|Jump if Low                        |
-|JH   a  |1B00|--------|2|N|Jump if High                       |
-|JOP  a  |1C00|--------|2|N|Jump if Odd Parity                 |
-|SBO  a  |1D00|--------|2|N|Set Bit to One                     |
-|SBZ  a  |1E00|--------|2|N|Set Bit to Zero                    |
-|TB   a  |1F00|-----*--|2|N|Test Bit                           |
-
-|COC  s,r|2000|-----*--|3|N|Compare Ones Corresponding         |
-|CZC  s,r|2400|-----*--|3|N|Compare Zeros Corresponding        |
-|XOR  s,r|2800|-----***|3|N|Exclusive OR                       |
-
-|XOP  s,c|2C00|-1------|9|N|Extended Operation (5) (2)         |
-
-|LDCR s,c|3000|--*--***|4|Y|Load Communication Register        |
-|STCR s,c|3400|--*--***|4|Y|Store Communication Register       |
-|MPY  d,r|3800|--------|9|N|Multiply                           |
-|DIV  d,r|3C00|---*----|9|N|Divide                             |
-*/

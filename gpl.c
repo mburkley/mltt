@@ -1,6 +1,29 @@
 /*
+ * Copyright (c) 2004-2023 Mark Burkley.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+/*
  *  GPL disassembler.  Maintains a state machine that interprets GPL bytes as
- *  they are fed in.
+ *  they are fed in.  This is incomplete and frequently gets misaligned on where
+ *  instructions begin.
  *
  *  Interpreted using http://aa-ti994a.oratronik.de/gpl_programmers_guide.pdf
  */
@@ -60,8 +83,6 @@ static MME mnemonics[] =
     { 0xAC, "DIV" },
     { 0xB0, "AND" },
     { 0xB4, "OR" },
-    // { 0xB0, "RB" },
-    // { 0xB4, "OR/SB" },
     { 0xB8, "XOR " },
     { 0xBC, "ST" },
     { 0xC0, "EX" },
@@ -70,7 +91,6 @@ static MME mnemonics[] =
     { 0xCC, "CGT" },
     { 0xD0, "CGE" },
     { 0xD4, "CEQ" },
-    // { 0xD8, "TER" },
     { 0xD8, "CLOG" },
     { 0xDC, "SRA" },
     { 0xE0, "SLL" },
@@ -177,7 +197,6 @@ static struct
     int bytesNeeded;
     int bytesStored;
     int opCode;
-    // int operandAddress;
     int length;
     int lengthNeeded;
     int lengthStored;
@@ -208,12 +227,6 @@ static void interpret (void)
     for (i = 0; i < sizeof (mnemonics) / sizeof (MME); i++)
         if (mnemonics[i].value == gplState.opCode)
             m = mnemonics[i].mme;
-
-    #if 0
-    sprintf(s,"%s%s%s%s%s%s%s%s", m, (fl&1)?"":"-B", (fl&2)?"":"-I",
-            (move&16)?"":"-ROM",(move&8)?"":"-VDP",(move&4)?"":"-RAM",
-            (move&2)?"":"-IXCPU",(move&1)?"":"-IMM");
-    #endif
 
     mprintf (LVL_GPL, "PC:%04X GR:%04X :",
              cpuGetPC(),
@@ -249,7 +262,6 @@ static void interpret (void)
 /*  Returns 1 byte was consumed or 0 if don't want it */
 static int decodeOperand (operand *op, BYTE data)
 {
-    // if (op->state = OPERAND_STATE_SHORT)
     mprintf(LVL_GPLDBG, "Process operand %s\n", op==&gplState.src ? "SRC" : "DST");
     /*  We don't do bitwise interpretation of values if they are immediate, they
      *  are always fixed length.  Otherwise we figure out how long the address
@@ -305,11 +317,7 @@ static int decodeOperand (operand *op, BYTE data)
         mprintf(LVL_GPLDBG, "storing byte %02X, remain=%d\n", data, op->bytesNeeded - op->bytesStored);
         op->addr = (op->addr << 8) | data;
         op->bytesStored++;
-
-        // if (op->bytesNeeded - op->bytesStored > 0)
-            return 1;
-
-        // return 0;
+        return 1;
     }
     else if (op->indexNeeded && !op->indexStored)
     {
@@ -344,21 +352,10 @@ static void decodeNextByte (BYTE data)
         gplState.immedStored = 1;
         return;
     }
-
-    /* No more action needed for dst or src so begin interpretation and
-     * reset byte needed count to start new instruction */
-    // interpret();
 }
 
 static void decodeFirstByte (WORD addr, BYTE data)
 {
-    // int i;
-    // int fl = 3;
-    // int move = 31;
-    // char *m;
-    // static char s[20];
-    // int S, D; // TODO
-
     /*  Decoding first byte of an instruction, reset the state and store the
      *  first byte
      */
@@ -367,17 +364,6 @@ static void decodeFirstByte (WORD addr, BYTE data)
     gplState.operation[0] = data;
     gplState.bytesStored = 1;
 
-    #if 0
-    // TODO decode I/O instructions
-    if (data >= 0xf4 && data <= 0xf7)
-    {
-        /* I/O opcode.  Number of bytes depends on operation in src */
-        gplState.opCode = data & 0xf4;
-        gplState.src.bytesNeeded = 1;  // Assume one byte for now
-        gplState.bytesNeeded = 3;    // Need at least 3 bytes to decode
-    }
-    else
-    #endif
     if (data >= 0xa0)
     {
         /*  Opcodes >= 0xA0 have src and a dst operands.  Bit 0 is dst
@@ -406,24 +392,16 @@ static void decodeFirstByte (WORD addr, BYTE data)
         gplState.src.bytesNeeded = 1;  // Assume one byte for now
         gplState.bytesNeeded = 2;    // Need at least 3 bytes to decode
         gplState.multiByte = data & 0x01;
-        // fl = (x&1) | 2;
     }
     else if (data >= 0x40)
     {
         gplState.opCode = data & 0xe0;
-        // gplState.src.addr = data & 0x1f;
-        #if 0
-        /* Followed by GS */
-        gplState.src.bytesNeeded = 1;  // Assume one byte for now
-        gplState.bytesNeeded = 2;    // Need at least 2 bytes to decode
-        #endif
         gplState.immed = data & 0x1f;
 
-
-            /* TODO 0x40 0xDC is a valid isntrcution???  BR 0xDC ?? */
-            /* Single byte instruction with an immediate */
-            gplState.bytesNeeded = 2;
-            gplState.immedNeeded = 1;
+        /* TODO 0x40 0xDC is a valid isntrcution???  BR 0xDC ?? */
+        /* Single byte instruction with an immediate */
+        gplState.bytesNeeded = 2;
+        gplState.immedNeeded = 1;
     }
     else if (data >= 0x20)
     {
@@ -437,14 +415,12 @@ static void decodeFirstByte (WORD addr, BYTE data)
         gplState.dst.cpu = !(data & 0x10);
         gplState.dst.vdp = data & 0x08;
         gplState.src.cpu = data & 0x04; // src is CPU RAM
-        #if 1
         if (gplState.src.cpu == 0)
         {
             mprintf(LVL_GPLDBG, "src!=cpu ram, assume long src\n");
             gplState.src.bytesNeeded++;
             gplState.bytesNeeded++;
         }
-        #endif
         gplState.src.romIndexed = data & 0x02;
         gplState.src.bytesMovedImmed = data & 0x01;
         if (gplState.dst.bytesMovedImmed) mprintf(LVL_GPLDBG, "move immed\n");
@@ -487,7 +463,7 @@ void gplDisassemble (WORD addr, BYTE data)
     if (cpuGetPC() == 0x680) // Fetcing bytes fro MOVE, not an instruction
         return;
 
-    if (cpuGetPC() == 0x041E) // TODO unknonw fetch
+    if (cpuGetPC() == 0x041E) // TODO unknown fetch
         return;
 
     if (cpuGetPC() == 0x0A26) // Sound data

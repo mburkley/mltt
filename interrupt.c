@@ -1,4 +1,26 @@
 /*
+ * Copyright (c) 2004-2023 Mark Burkley.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+/*
  *  Implements TMS9901 interrupt generation.  Even though the TI994/A is
  *  hardwired to generate only one interrupt level, we implement 16 for
  *  completeness.
@@ -15,12 +37,15 @@ static struct
 tms9901;
 
 /*  Set an interrupt request level */
-void interruptRequest (int level)
+void interruptRaise (int level)
 {
-    // if (!tms9901.intActive[level])
-    //     printf("Interrupt level %d\n", level);
-
     tms9901.intActive[level] = 1;
+}
+
+/*  Lower an interrupt request level */
+void interruptLower (int level)
+{
+    tms9901.intActive[level] = 0;
 }
 
 /*  Return the highest priority interrupt pending */
@@ -32,8 +57,7 @@ int interruptLevel (int mask)
     {
         if (tms9901.intActive[i])
         {
-            // printf("int reset level %d\n", i);
-            tms9901.intActive[i] = 0; // TODO ?
+            // tms9901.intActive[i] = 0; // TODO ?
             return i;
         }
     }
@@ -41,20 +65,6 @@ int interruptLevel (int mask)
     return -1;
 }
     
-
-    #if 0
-    if (tms9900.irq <= mask)
-    {
-        // mprintf (LVL_CPU, "interrupt pending %d<%d\n", tms9900.irq, mask);
-        printf ("interrupt pending %d<%d\n", tms9900.irq, mask);
-        mask--;
-        tms9900.st = (tms9900.st & ~FLAG_MSK) | mask;
-        else
-            mprintf (LVL_CPU, "unknown?\n");
-    }
-    #endif
-
-
 void interruptInit(void)
 {
     int i;

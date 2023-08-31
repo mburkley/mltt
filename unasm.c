@@ -1,4 +1,26 @@
 /*
+ * Copyright (c) 2004-2023 Mark Burkley.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+/*
  *  unasm.c  - TMS9900 disassembler.
  *
  *  Contains hooks for pre and post operation execution for disassembly
@@ -9,6 +31,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "cover.h"
 #include "cpu.h"
@@ -22,7 +45,7 @@ void (*unasmPreExecHook)(WORD pc, WORD data, WORD opMask, int type,
                      WORD sMode, WORD sReg, WORD sArg,
                      WORD dMode, WORD dReg, WORD dArg,
                      WORD count, WORD offset);
-void (*unasmPostExecHook)(WORD pc, int type, BOOL isByte, BOOL store, WORD sMode,
+void (*unasmPostExecHook)(WORD pc, int type, bool isByte, bool store, WORD sMode,
                           WORD sAddr, WORD dMode, WORD dReg, WORD addr,
                           WORD data, WORD wp);
 
@@ -229,7 +252,7 @@ static void unasmImmed (WORD opCode, WORD pc, WORD sReg)
     mprintf (LVL_UNASM, "%-30.30s", out);
 }
 
-static void unasmJump (WORD opCode, WORD pc, I8 offset, BOOL cond)
+static void unasmJump (WORD opCode, WORD pc, I8 offset, bool cond)
 {
     // char out[31];
     char *name = "****";
@@ -275,8 +298,6 @@ static void unasmJump (WORD opCode, WORD pc, I8 offset, BOOL cond)
                 offset,
                 cond ? "****" : "");
     }
-
-    // mprintf (LVL_UNASM, "%-30.30s", out);
 }
 
 static void preExecHook (WORD pc, WORD data, WORD opMask, int type,
@@ -330,7 +351,7 @@ static void preExecHook (WORD pc, WORD data, WORD opMask, int type,
     }
 }
 
-static void postExecHook (WORD pc, int type, BOOL isByte, BOOL store, WORD sMode,
+static void postExecHook (WORD pc, int type, bool isByte, bool store, WORD sMode,
                           WORD sAddr, WORD dMode, WORD dReg, WORD addr,
                           WORD data, WORD regData)
 {
@@ -440,7 +461,6 @@ void unasmReadText (const char *textFile)
                 s[strlen(s)-1] = 0;
 
             unasmText[ix] = strdup (&s[5]);
-            // printf ("Text added for %x\n", ix);
         }
     }
 

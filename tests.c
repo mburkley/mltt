@@ -1,3 +1,30 @@
+/*
+ * Copyright (c) 2004-2023 Mark Burkley.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+/*
+ *  Some basic CPU unit tests to check operations especially if behaviour is
+ *  unclear
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -73,14 +100,14 @@ static unsigned char testmem[0x200] =
 
 WORD memReadB(WORD addr)
 {
-    printf("[%s %x=%x]", __func__, addr, testmem[addr]);
+    printf("# [%s %x=%x]\n", __func__, addr, testmem[addr]);
     return testmem[addr];
 }
 
 void memWriteB(WORD addr, BYTE data)
 {
     testmem[addr] = data;
-    printf("[%s %x=%x]", __func__, addr, data);
+    printf("# [%s %x=%x]\n", __func__, addr, data);
 }
 
 WORD memReadW(WORD addr)
@@ -94,27 +121,32 @@ void memWriteW(WORD addr, WORD data)
     testmem[addr+1] = data & 0xff;
 }
 
+static int testsRun;
+
 static void result (int a, int b)
 {
+    if (testsRun++ == 0)
+        printf ("1..18\n");
+
     if (a==b)
-        printf ("[OK]\n");
+        printf ("ok %d\n", testsRun);
     else
     {
-        printf ("[FAIL] %x != %x\n", a, b);
-        exit(1);
+        printf ("# %x != %x\n", a, b);
+        printf ("not ok %d\n", testsRun);
     }
 }
 int main(void)
 {
-    outputLevel = 63;
+    // outputLevel = 63;
     // cruInit ();
     // gromLoad ();
         unasmRunTimeHookAdd();
      // vdpInitGraphics();
-    printf ("1<<0 is %d\n", 1 << 0);
+    printf ("# 1<<0 is %d\n", 1 << 0);
     result (sizeof (unsigned), 4);
     unsigned x=0xf000000;
-    printf ("0xf000000>>8 is %x\n", x>>8);
+    printf ("# 0xf000000>>8 is %x\n", x>>8);
     cpuBoot ();
 
     cpuExecute (cpuFetch());
@@ -141,7 +173,7 @@ int main(void)
     result (memReadW (0x102), 0xAA00);
     cpuExecute (cpuFetch());
     cpuExecute (cpuFetch());
-    printf("\nDo last\n");
+
     cpuExecute (cpuFetch());
     result (memReadW (0x102), 0x02FF);
 

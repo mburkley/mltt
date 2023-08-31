@@ -1,3 +1,32 @@
+/*
+ * Copyright (c) 2004-2023 Mark Burkley.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+/*
+ *  Emulate audio from the TMS9919 chip by generating samples and playing them
+ *  through pulse audio.  Audio tones 1 thru 3 are straightforward but periodic
+ *  and white noise are not as easy.  This guide has some useful info, but noise
+ *  implementation is sitll not quite there : https://www.smspower.org/Development/SN76489
+ */
+
 #include <stdio.h>
 #include <math.h>
 #include <unistd.h>
@@ -35,7 +64,6 @@
 
 typedef struct
 {
-    // int freq;
     int period;
     int shift;
     double angle;
@@ -79,7 +107,6 @@ static short generateTone (toneInfo *tone, bool noise)
 
     if (noise)
     {
-        // tone->counter += 16; // inc by 16 to account for shift reg
         tone->counter++;
 
         if (tone->counter >= tone->period)
@@ -91,34 +118,10 @@ static short generateTone (toneInfo *tone, bool noise)
             if (tone->whiteNoise)
             {
                 tone->shift |= xnor[tone->shift & 0x03] << 15;
-                #if 0
-                sample = rand() % (SAMPLE_AMPLITUDE*2) - SAMPLE_AMPLITUDE;
-                sample *= tone->currentAmplitude;
-                // printf ("WN:%d ", sample);
-                #endif
             }
             else
             {
                 tone->shift |= bit << 15;
-                #if 0
-                /* Periodic noise.  Not completely sure what that is so just
-                 * assuming it is noise that repeats at a given frequency.
-                 *
-                 * TODO it isn't.  Read this sometime https://www.smspower.org/Development/SN76489
-                 */
-                int freq;
-
-                if (tone->useTone3Freq)
-                    freq = tones[2].freq;
-                else
-                    freq = tone->freq;
-
-                if (++tone->counter >= freq)
-                    tone->counter = 0;
-
-                sample = tone->currentAmplitude * noiseData[tone->counter];
-                // printf ("PN:%d ", sample);
-                #endif
             }
 
             tone->counter %= tone->period;
@@ -129,26 +132,9 @@ static short generateTone (toneInfo *tone, bool noise)
     {
         tone->counter++;
         tone->counter %= tone->period;
-        // tone->angle += (2 * pi * (double)tone->freq) / (double) pulseAudioSpec.rate;
         tone->angle = (2 * pi * tone->counter) / tone->period;
-        // printf("%d/%d,ang=%.2f ", tone->counter, tone->period, tone->angle);
-        #if 0
-        if (tone->angle > 2 * pi)
-            tone->angle -= 2 * pi;
-        #endif
-
-        #if 1
         // sine wave
         sample = tone->currentAmplitude * sin (tone->angle);
-        #else
-        // Testing a square wave
-        if (tone->counter < (tone->period / 2))
-            sample = -tone->currentAmplitude;
-        else
-            sample = tone->currentAmplitude;
-        // printf("%d,",sample);
-        noise = true; // force case below to update curent
-        #endif
     }
 
     /*  If a change in amplitude has been requested, do this during a quiet time
@@ -188,12 +174,9 @@ static short generateSample (void)
     short sample = 0;
 
     /*  Generate data for each tone generator, index 3 is the noise generator */
-    // TODO noise generation turned off for now
-     for (i = 0; i < 4; i++)
-    // for (i = 0; i < 3; i++)
+    for (i = 0; i < 4; i++)
         sample += generateTone (&tones[i], i == 3);
 
-    // printf("\n");
     return sample;
 }
 
@@ -245,15 +228,11 @@ void soundInit (void)
 }
 int soundRead (int addr, int size)
 {
-    // mprintf (LVL_SOUND, "%s addr=%4X sz=%d return\n", __func__, addr, size);
     return 0;
 }
 
 void soundWrite (int addr, int data, int size)
 {
-    // static int expectSecondByte = 0;
-    // static int toneToUpdate = 0;
-    // static int partialFreq = 0;
     static int latchedData = -1;
     int channel;
 
@@ -274,14 +253,10 @@ void soundWrite (int addr, int data, int size)
         return;
     }
 
-    // mprintf (LVL_SOUND, "%s %4X=%4X sz=%d return\n", __func__, addr, data, size);
     if (latchedData == -1)
         printf ("SOUND data=%02X", data);
     else
         printf ("SOUND data=%02X,%02X", latchedData, data);
-
-    // int function = (latchedData & 0xf0) >> 4;
-    // int value = (latchedData & 0x0f);
 
     if ((data & 0xF0) == 0xE0)
     {
@@ -293,11 +268,9 @@ void soundWrite (int addr, int data, int size)
         else
         {
             tones[3].useTone3Freq = 0;
-            // tones[3].freq = 1748 * (3 - (data & 0x03));
             tones[3].period = AUDIO_FREQUENCY / (1748 * (3 - (data & 0x03)));
         }
 
-        // printf (" noise freq=%d\n", tones[3].freq);
         printf (" noise period=%d\n", tones[3].period);
         return;
     }
@@ -308,15 +281,12 @@ void soundWrite (int addr, int data, int size)
     data = (data << 4) | (latchedData & 0x0f);
     latchedData = -1;
     printf(" freqdata=%d\n", data);
-    // tone->freq = CLOCK_FREQUENCY / data;
     tone->period = data * AUDIO_FREQUENCY / CLOCK_FREQUENCY;
     mprintf (LVL_SOUND, "tone %d set to [freq %%d], period %d\n", channel,
-   // tone->freq, 
     tone->period);
 
     if (channel == 2 && tones[3].useTone3Freq)
     {
-        // tones[3].freq = tone->freq;
         tones[3].period = tone->period;
     }
 }

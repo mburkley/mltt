@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2004-2023 Mark Burkley.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #include <stdio.h>
 #include <time.h>
 
@@ -40,7 +62,6 @@ static void bitSet (int index, BYTE state)
 }
 
 void cruBitInput (WORD base, I8 bitOffset, BYTE state)
-
 {
     WORD index;
 
@@ -54,7 +75,6 @@ void cruBitInput (WORD base, I8 bitOffset, BYTE state)
 /*
  *  Used by SBO and SBZ.  Base is R12
  */
-
 void cruBitSet (WORD base, I8 bitOffset, BYTE state)
 {
     WORD index;
@@ -62,18 +82,11 @@ void cruBitSet (WORD base, I8 bitOffset, BYTE state)
     index = base / 2;
     index += bitOffset;
 
-    #if 0
-    if (cru[index].state == state)
-        return;
-    #endif
-
-    #if 1
     if (cru[index].isInput)
     {
         mprintf (LVL_CRU, "CRU set input bit ignored\n");
         return;
     }
-    #endif
 
     bitSet (index, state);
 }
@@ -81,7 +94,6 @@ void cruBitSet (WORD base, I8 bitOffset, BYTE state)
 /*
  *  Used by TB.  Base is R12
  */
-
 BYTE cruBitGet (WORD base, I8 bitOffset)
 {
     WORD index;
@@ -106,7 +118,6 @@ BYTE cruBitGet (WORD base, I8 bitOffset)
 /*
  *  Used by LDCR.  Base is R12
  */
-
 void cruMultiBitSet (WORD base, WORD data, int nBits)
 {
     int i;
@@ -118,15 +129,9 @@ void cruMultiBitSet (WORD base, WORD data, int nBits)
     if (!nBits)
         nBits = 16;
 
-    #if 0
-    if (nBits <= 8)
-        data >>= 8;
-    #endif
-
     mprintf(LVL_CRU, "CRU multi set base=%04X data=%04X n=%d\n", base, data, nBits);
     for (i = 0; i < nBits; i++)
     {
-        // printf("loop ... ");
         cruBitSet (base, i, (data & (1<<i)) ? 1 : 0);
     }
     mprintf(LVL_CRU, "CRU multi set done\n");
@@ -135,7 +140,6 @@ void cruMultiBitSet (WORD base, WORD data, int nBits)
 /*
  *  Used by STCR.  Base is R12
  */
-
 WORD cruMultiBitGet (WORD base, int nBits)
 {
     int i;
@@ -152,11 +156,6 @@ WORD cruMultiBitGet (WORD base, int nBits)
             data |= (1 << i);
         }
     }
-
-    #if 0
-    if (nBits <= 8)
-        data <<= 8;
-    #endif
 
     mprintf(LVL_CRU, "CRU multi get b=%x d=%x n=%d\n", base, data, nBits);
     return data;
