@@ -41,23 +41,24 @@ static int kbdFd;
 static const char *kbdDevice;
 
 /*
- *  *=unused
- *  F=function
- *  S=shift
- *  C=control
+ *  This table is just used to create debug output.  It contains a string
+ *  representation of the keys being pressed.
  */
-static char keyMap[KBD_ROW][KBD_COL] =
+static char *keyMap[KBD_ROW][KBD_COL] =
 {
-    { '=',  '.', ',', 'm', 'n', '/', 0, 0 }, // JS fire
-    { ' ',  'l', 'k', 'j', 'h', ';', 0, 0 }, // JS left
-    { '\n', 'o', 'i', 'u', 'y', 'p', 0, 0 }, // JS right
-    { '*',  '9', '8', '7', '6', '0', 0, 0 }, // JS down
-    { 'F',  '2', '3', '4', '5', '1', 0, 0 }, // JS up / alpha lock
-    { 'S',  's', 'd', 'f', 'g', 'a', 0, 0 },
-    { 'C',  'w', 'e', 'r', 't', 'q', 0, 0 },
-    { '*',  'x', 'c', 'v', 'b', 'z', 0, 0 }
+    { "=",    ".", ",", "m", "n", "/", 0, 0 }, // JS fire
+    { " ",    "l", "k", "j", "h", ";", 0, 0 }, // JS left
+    { "CR",   "o", "i", "u", "y", "p", 0, 0 }, // JS right
+    { "",     "9", "8", "7", "6", "0", 0, 0 }, // JS down
+    { "FNCT", "2", "3", "4", "5", "1", 0, 0 }, // JS up / alpha lock
+    { "SHFT", "s", "d", "f", "g", "a", 0, 0 },
+    { "CTRL", "w", "e", "r", "t", "q", 0, 0 },
+    { "",     "x", "c", "v", "b", "z", 0, 0 }
 };
 
+/*
+ *  This table maps key up/down events to the row/col matrix in the TI99/4a
+ */
 static int keyCode[KBD_ROW][KBD_COL] = 
 {
     { 13, 52, 51, 50, 49, 53, 0, 0 },
@@ -89,7 +90,11 @@ keyExtended[] =
     101010101010101010101010
 
 #endif
+/*  Maintain a current and previous table of key states.  The lastState table is
+ *  only used to reduce debug output.
+ */
 static int keyState[KBD_ROW][KBD_COL];
+static int lastState[KBD_ROW][KBD_COL];
 
 #if 0
 static int digitMap[] =
@@ -133,7 +138,7 @@ static void decodeEvent (struct input_event ev)
             for (j = 0; j < KBD_COL; j++)
                 if (keyCode[i][j] == ev.code)
                 {
-                    mprintf (LVL_KBD, "%s KEY %s -> '%c' (%d,%d)\n",
+                    mprintf (LVL_KBD, "%s KEY %s -> '%s' (%d,%d)\n",
                              __func__,
                              ev.value == 0 ? "UP" : "DOWN",
                              keyMap[i][j], i, j);
@@ -142,7 +147,7 @@ static void decodeEvent (struct input_event ev)
                 }
 
         if (!mapped)
-            mprintf (LVL_KBD, "%s unkonwn KEY %s not mapped c=%d\n", __func__,
+            mprintf (LVL_KBD, "%s unknown KEY %s not mapped c=%d\n", __func__,
                    ev.value == 0 ? "UP" : "DOWN", ev.code);
 
     }
@@ -185,13 +190,10 @@ void kbdPoll (void)
     }
 
     decodeEvent (ev);
-
 }
 
 int kbdGet (int row, int col)
 {
-    static int lastState[8][8];
-
     if (keyState[row][col] != lastState[row][col])
     {
         mprintf (LVL_KBD, "%s scan row/col %d/%d = %d\n", __func__, row, col, keyState[row][col]);

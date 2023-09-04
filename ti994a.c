@@ -52,6 +52,7 @@
 #include "timer.h"
 #include "interrupt.h"
 #include "gpl.h"
+#include "ti994a.h"
 
 typedef union
 {
@@ -326,7 +327,7 @@ void ti994aInterrupt (int index, BYTE state)
      *  level 1 regardless of what device generated the interrupt.  So if any
      *  bit is low, we raise interrupt level 1, otherwise lower it.
      */
-    for (i = 1; i < 16; i++)
+    for (i = 1; i <= 2; i++)
         if (!cruBitGet (0, i))
             raise = true;
 
@@ -358,7 +359,7 @@ void ti994aVideoInterrupt (void)
     }
 }
 
-void ti994aRun (void)
+void ti994aRun (int instPerInterrupt)
 {
     static int count;
 
@@ -369,21 +370,24 @@ void ti994aRun (void)
            !breakPointHit (cpuGetPC()) &&
            !conditionTrue ())
     {
-        kbdPoll ();
-        timerPoll ();
         cpuExecute (cpuFetch());
 
         /*  To approximate execution speed at around 10 clock cycles per
-         *  instruction with a 3MHz clock, we sleep for 3 usec for instruction
+         *  instruction with a 3MHz clock, we expect to execute about 2000
+         *  instructions per VDP interrupt so do a blocking timer read once
+         *  count reaches this value
          */
-        if (count++ == 100)
+        if (count++ == instPerInterrupt)
         {
-            usleep (333);
+            kbdPoll ();
+            timerPoll ();
             count = 0;
         }
 
         watchShow();
     }
+
+    ti994aRunFlag = false;
 }
 
 void ti994aInit (void)

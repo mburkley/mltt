@@ -63,8 +63,9 @@ void timerStop (void)
 
 void timerPoll (void)
 {
-    struct pollfd pfds[1];
     int n;
+    #if 0
+    struct pollfd pfds[1];
     int ret;
 
     pfds[0].fd = timerFd;
@@ -76,6 +77,7 @@ void timerPoll (void)
         return;
     }
 
+    #endif
     u_int64_t data;
     n = read (timerFd, &data, sizeof (data));
 

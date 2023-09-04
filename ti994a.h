@@ -27,7 +27,7 @@
 
 WORD memRead(WORD addr, int size);
 
-void ti994aRun (void);
+void ti994aRun (int instPerInterrupt);
 void ti994aInit (void);
 void ti994aClose (void);
 void ti994aShowScratchPad (bool showGplUsage);

@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "trace.h"
 #include "gpl.h"
@@ -178,14 +179,15 @@ typedef struct
     int state;
     int bytesNeeded;
     int bytesStored;
-    int indexNeeded;
-    int indexStored;
+    bool indexNeeded;
+    bool indexStored;
     int index;
     int immed;
-    int cpu;
-    int vdp;
-    int indirect;
-    int romIndexed;
+    bool cpu;
+    bool vdp;
+    bool extended;
+    bool indirect;
+    bool romIndexed;
     int bytesMovedImmed;
     int addr;
 }
@@ -198,25 +200,41 @@ static struct
     int bytesStored;
     int opCode;
     int length;
-    int lengthNeeded;
-    int lengthStored;
+    int lengthBytesNeeded;
+    int lengthBytesStored;
     int immed;
-    int immedNeeded;
-    int immedStored;
-    int multiByte;
+    bool immedNeeded;
+    bool immedStored;
+    bool multiByte;
+    bool fmtMode;
     operand src;
     operand dst;
     BYTE operation[10];
 }
 gplState;
 
+/*  Show a src or dst address.  Could be CPU, VDP or immed
+ */
 static void showAddress (operand *op)
 {
-    if (op->cpu) mprintf (LVL_GPL, "CPU(");
-    if (op->vdp) mprintf (LVL_GPL, "VPD(");
-    if (op->bytesStored == 1) mprintf (LVL_GPL, "%02X", op->addr);
-    else mprintf (LVL_GPL, "%04X", op->addr);
-    if (op->vdp || op->cpu) mprintf (LVL_GPL, ")");
+    #if 0
+    if (op->cpu && op->vdp)
+        printf ("*** can't be CPU and VDP?");
+    #endif
+
+    // printf("move, dst cpu is %d\n", gplState.dst.cpu);
+
+    if (op->indirect && op->vdp)
+        mprintf (LVL_GPL, "*VDP(%04X)", op->addr + 0x8300);
+    else if (op->vdp)
+        mprintf (LVL_GPL, "VPD(>%04X)", op->addr);
+    else if (op->cpu) //  && !op->extended)  TODO is CPU always offset by 8300 ???
+        mprintf (LVL_GPL, ">%04X", op->addr + 0x8300);
+    else if (gplState.multiByte)
+        mprintf (LVL_GPL, ">%04X", op->addr);
+    else
+        mprintf (LVL_GPL, ">%02X", op->addr);
+
 }
 
 static void interpret (void)
@@ -238,13 +256,20 @@ static void interpret (void)
     for (; i < 6; i++)
         mprintf (LVL_GPL, "   ");
 
-    mprintf (LVL_GPL, " %-6.6s ", m);
+    if (gplState.multiByte)
+        mprintf (LVL_GPL, " D%-5.5s ", m);
+    else
+        mprintf (LVL_GPL, " %-6.6s ", m);
+
     if (gplState.immedNeeded)
-        mprintf (LVL_GPL, "%02X", gplState.immed);
+        mprintf (LVL_GPL, ">%02X", gplState.immed);
+
     else if (gplState.dst.bytesNeeded > 0)
     {
         /*  MOVE instruction */
-        if (gplState.lengthStored > 0) mprintf (LVL_GPL, "%d from ", gplState.length);
+        if (gplState.lengthBytesStored > 0)
+            mprintf (LVL_GPL, "%d from ", gplState.length);
+
         showAddress (&gplState.src);
         mprintf (LVL_GPL, ",");
         showAddress (&gplState.dst);
@@ -268,7 +293,7 @@ static int decodeOperand (operand *op, BYTE data)
      *  is based on the bit pattern of the first byte.
      *
      */
-    if (op->immed == 0 && op->bytesNeeded == 1 && op->bytesStored == 0)
+    if (op->immed == false && op->bytesNeeded == 1 && op->bytesStored == 0)
     {
         mprintf(LVL_GPLDBG, "first byte of operand %02X\n", data);
         if (data & 0x80)
@@ -278,37 +303,48 @@ static int decodeOperand (operand *op, BYTE data)
             op->bytesNeeded = 2;
 
             if (data & 0x20)
-                op->vdp = 1;
+            {
+                op->vdp = true;
+                // op->cpu = false;
+            }
             else        
-                op->cpu = 1;
+                op->cpu = true;
 
             if (data & 0x10)
-                op->indirect = 1;
+                op->indirect = true;
 
             if (data & 0x40)
             {
                 mprintf(LVL_GPLDBG, "needs index\n");
-                op->indexNeeded = 1;
+                op->indexNeeded = true;
             }
 
             if ((data & 0x0f) == 0x0f)
             {
+                /*  Extended addressing, from >0000 to >FFFF */
                 gplState.bytesNeeded++;
                 mprintf (LVL_GPLDBG, "extended, need %d bytes\n", gplState.bytesNeeded);
+                op->extended = true;
                 op->bytesNeeded = 3;
                 op->addr = 0;
             }
             else
+            {
+                /* Addressing CPU >8380 to >83FF or VDP >0000 to >0FFF */
                 op->addr = data & 0x0F;
+            }
 
             op->bytesStored = 1;
             return 1;
         }
         else
         {
+            /*  Short addressing >8300 to >837F */
             mprintf(LVL_GPLDBG, "short addr\n");
             op->addr = data & 0x7F;
             op->bytesStored = 1;
+            if (!op->vdp)
+                op->cpu = true;
             return 1;
         }
     }
@@ -322,7 +358,7 @@ static int decodeOperand (operand *op, BYTE data)
     else if (op->indexNeeded && !op->indexStored)
     {
         op->index = data;
-        op->indexStored = 1;
+        op->indexStored = true;
         return 1;
     }
 
@@ -334,12 +370,12 @@ static void decodeNextByte (BYTE data)
     /*  Decoding second and subsequent bytes of an instruction */
     gplState.operation[gplState.bytesStored++] = data;
 
-    mprintf(LVL_GPLDBG, "length is %d/%d\n", gplState.lengthStored, gplState.lengthNeeded);
-    if (gplState.lengthStored < gplState.lengthNeeded)
+    mprintf(LVL_GPLDBG, "length is %d/%d\n", gplState.lengthBytesStored, gplState.lengthBytesNeeded);
+    if (gplState.lengthBytesStored < gplState.lengthBytesNeeded)
     {
-        mprintf(LVL_GPLDBG, "store length byte %d\n", gplState.lengthStored);
+        mprintf(LVL_GPLDBG, "store length byte %d\n", gplState.lengthBytesStored);
         gplState.length = (gplState.length << 8) | data;
-        gplState.lengthStored++;
+        gplState.lengthBytesStored++;
         return;
     }
     else if (decodeOperand (&gplState.dst, data) == 1)
@@ -349,7 +385,7 @@ static void decodeNextByte (BYTE data)
     else if (gplState.immedNeeded && !gplState.immedStored)
     {
         gplState.immed = (gplState.immed << 8) | data;
-        gplState.immedStored = 1;
+        gplState.immedStored = true;
         return;
     }
 }
@@ -366,16 +402,19 @@ static void decodeFirstByte (WORD addr, BYTE data)
 
     if (data >= 0xa0)
     {
-        /*  Opcodes >= 0xA0 have src and a dst operands.  Bit 0 is dst
-         *  addressing, bit 1 is src addressing.
+        /*  Opcodes >= 0xA0 have src and a dst operands.
          */
-         
         gplState.opCode = data & 0xfc;
         gplState.dst.bytesNeeded = 1;  // Assume one byte for now
         gplState.src.bytesNeeded = 1;  // Assume one byte for now
         gplState.bytesNeeded = 3;    // Need at least 3 bytes to decode
         gplState.multiByte = data & 0x01;
         gplState.src.immed = data & 0x02;
+
+        // if (!gplState.src.immed)
+        //     gplState.src.cpu = true; // If not immed then assume src is CPU
+
+        // gplState.dst.cpu = true; // dest is always CPU
 
         /*  If this is a multi byte operation with an immediate src then the src
          *  size must be 2 bytes
@@ -401,18 +440,19 @@ static void decodeFirstByte (WORD addr, BYTE data)
         /* TODO 0x40 0xDC is a valid isntrcution???  BR 0xDC ?? */
         /* Single byte instruction with an immediate */
         gplState.bytesNeeded = 2;
-        gplState.immedNeeded = 1;
+        gplState.immedNeeded = true;
     }
     else if (data >= 0x20)
     {
         mprintf(LVL_GPLDBG, "move, len=2\n");
         gplState.opCode = data & 0xe0;
         /* Followed by length, GD and GS */
-        gplState.lengthNeeded = 2;
+        gplState.lengthBytesNeeded = 2;
         gplState.dst.bytesNeeded = 1;  // Assume one byte for now
         gplState.src.bytesNeeded = 1;  // Seems move src is asumed 2 bytes?
         gplState.bytesNeeded = 5;    // Need at least 5 bytes to decode
         gplState.dst.cpu = !(data & 0x10);
+        // printf("move, dst cpu is %d\n", gplState.dst.cpu);
         gplState.dst.vdp = data & 0x08;
         gplState.src.cpu = data & 0x04; // src is CPU RAM
         if (gplState.src.cpu == 0)
@@ -428,23 +468,30 @@ static void decodeFirstByte (WORD addr, BYTE data)
     else
     {
         gplState.opCode = data;
-        if (gplState.opCode == 0x00 || gplState.opCode == 0x03)
+        switch (gplState.opCode)
         {
+        case 0x00:
+        case 0x03:
             /* RTN,SCAN take no params */
             gplState.bytesNeeded = 1;
-        }
-        else if (gplState.opCode == 0x06 || gplState.opCode == 0x05)
-        {
+            break;
+        case 0x08:
+            /* FMT take no params, ignore more data until 0xFB is seen */
+            gplState.bytesNeeded = 1;
+            gplState.fmtMode = true;
+            break;
+        case 0x05:
+        case 0x06:
             /*  CALL and B take a 2-byte label, others take 1-byte immed */
             /* Followed by 2-byte label */
             gplState.src.bytesNeeded = 2;
             gplState.bytesNeeded = 3;
-        }
-        else
-        {
+            break;
+        default:
             /* Single byte instruction with an immediate */
             gplState.bytesNeeded = 2;
-            gplState.immedNeeded = 1;
+            gplState.immedNeeded = true;
+            break;
         }
     }
 }
@@ -474,6 +521,19 @@ void gplDisassemble (WORD addr, BYTE data)
 
     if (cpuGetPC() == 0x0A3E) // Sound data ?
         return;
+
+    if (gplState.fmtMode && data == 0xFB)
+    {
+        mprintf (LVL_GPL, "    FMT >FB end\n");
+        gplState.fmtMode = false;
+        return;
+    }
+
+    if (gplState.fmtMode)
+    {
+        mprintf (LVL_GPL, "    FMT >%02X\n", data);
+        return;
+    }
 
     mprintf (LVL_GPLDBG, "have %d/%d, decode next\n", gplState.bytesStored, gplState.bytesNeeded);
 

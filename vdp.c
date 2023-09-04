@@ -64,6 +64,9 @@
 
 #define VDP_SPRITEPAT_TAB   ((vdp.reg[6] & 0x07) << 11)
 
+#define VDP_FG_COLOUR       ((vdp.reg[7] & 0xf0) >> 4)
+#define VDP_BG_COLOUR       (vdp.reg[7] & 0x0f)
+
 #define MAX_ADDR 0x4000
 
 #define VDP_XSIZE 256
@@ -77,22 +80,22 @@ static struct
 }
 colours[16] =
 {
+    {0x00, 0x00, 0x00}, // Transparent
     {0x00, 0x00, 0x00},
-    {0x00, 0x00, 0x00},
-    {0x00, 0x30, 0x00},
-    {0x10, 0x3f, 0x10},
-    {0x00, 0x00, 0x20},
-    {0x10, 0x10, 0x3F},
-    {0x20, 0x00, 0x00},
-    {0x00, 0x3f, 0x3f},
-    {0x30, 0x00, 0x00},
-    {0x3f, 0x10, 0x10},
-    {0x20, 0x20, 0x00},
-    {0x3f, 0x3f, 0x10},
-    {0x00, 0x20, 0x00},
-    {0x3f, 0x10, 0x3f},
-    {0x30, 0x30, 0x30},
-    {0x3f, 0x3f, 0x3f}
+    {0x00, 0xc0, 0x00},
+    {0x40, 0xff, 0x40},
+    {0x00, 0x00, 0x80},
+    {0x40, 0x40, 0xfF},
+    {0x80, 0x00, 0x00},
+    {0x00, 0xff, 0xff},
+    {0xc0, 0x00, 0x00},
+    {0xff, 0x40, 0x40},
+    {0x80, 0x80, 0x00},
+    {0xff, 0xff, 0x40},
+    {0x00, 0x80, 0x00},
+    {0xff, 0x40, 0xff},
+    {0xc0, 0xc0, 0xc0},
+    {0xff, 0xff, 0xff}
 };
 
 struct
@@ -247,15 +250,19 @@ static void vdpPlot (int x, int y, int col)
     if (x < 0 || y < 0 || x >= VDP_XSIZE || y >= VDP_YSIZE)
         return;
 
+    /*  Col 0 is transparent, use global background */
+    if (col == 0)
+        col = VDP_BG_COLOUR;
+
     y = VDP_YSIZE - y - 1;
 
     for (i = 0; i < SCALE; i++)
         for (j = 0; j < SCALE; j++)
         {
-            frameBuffer[y*SCALE+i][x*SCALE+j][0] = colours[col].r * 4;
-            frameBuffer[y*SCALE+i][x*SCALE+j][1] = colours[col].g * 4;
-            frameBuffer[y*SCALE+i][x*SCALE+j][2] = colours[col].b * 4;
-            frameBuffer[y*SCALE+i][x*SCALE+j][3] = 0;
+            frameBuffer[y*SCALE+i][x*SCALE+j][0] = colours[col].r;
+            frameBuffer[y*SCALE+i][x*SCALE+j][1] = colours[col].g;
+            frameBuffer[y*SCALE+i][x*SCALE+j][2] = colours[col].b;
+            // frameBuffer[y*SCALE+i][x*SCALE+j][3] = 0;
             plots++;
         }
 }
@@ -281,13 +288,29 @@ static void vdpDrawChar (int cx, int cy, int ch)
 
 static void vdpDrawByte (int data, int x, int y, int col)
 {
-    int x1;
+    int i;
 
-    for (x1 = x; x1 < (x + 8); x1++)
+    for (i = 0; i < 8; i++)
     {
         if (data & 0x80)
         {
-            vdpPlot (x1, y, col);
+            vdpPlot (x + i, y, col);
+        }
+
+        data <<= 1;
+    }
+}
+
+static void vdpDrawByteMagnified (int data, int x, int y, int col)
+{
+    int i;
+
+    for (i = 0; i < 8; i++)
+    {
+        if (data & 0x80)
+        {
+            vdpPlot (x+i*2, y, col);
+            vdpPlot (x+i*2+1, y, col);
         }
 
         data <<= 1;
@@ -296,25 +319,55 @@ static void vdpDrawByte (int data, int x, int y, int col)
 
 static void vdpDrawSprites8x8 (int x, int y, int p, int c)
 {
-    int y1;
+    int i;
 
-    for (y1 = 0; y1 < 8; y1++)
+    mprintf (LVL_VDP, "Draw sprite pat 8x8 %d at %d,%d\n", p, x, y);
+    for (i = 0; i < 8; i++)
     {
-        vdpDrawByte (vdp.ram[p+y1], x, y + y1, c & 0x0F);
+        vdpDrawByte (vdp.ram[p+i], x, y + i, c & 0x0F);
     }
 }
 
 static void vdpDrawSprites16x16 (int x, int y, int p, int c)
 {
-    int y1, col;
+    int i, col;
 
-    mprintf (LVL_VDP, "Draw sprite pat %d at %d,%d\n", p, x, y);
+    mprintf (LVL_VDP, "Draw sprite pat 16x16 %d at %d,%d\n", p, x, y);
 
     for (col = 0; col < 16; col += 8)
     {
-        for (y1 = 0; y1 < 16; y1++)
+        for (i = 0; i < 16; i++)
         {
-            vdpDrawByte (vdp.ram[p+y1+col*2], x + col, y + y1, c & 0x0F);
+            vdpDrawByte (vdp.ram[p+i+col*2], x + col, y + i, c & 0x0F);
+        }
+    }
+}
+
+static void vdpDrawSprites8x8Mag (int x, int y, int p, int c)
+{
+    int i;
+
+    mprintf (LVL_VDP, "Draw sprite 8x8 mag pat %d at %d,%d\n", p, x, y);
+
+    for (i = 0; i < 8; i++)
+    {
+        vdpDrawByteMagnified (vdp.ram[p+i], x, y + i*2, c & 0x0F);
+        vdpDrawByteMagnified (vdp.ram[p+i], x, y + i*2+1, c & 0x0F);
+    }
+}
+
+static void vdpDrawSprites16x16Mag (int x, int y, int p, int c)
+{
+    int i, col;
+
+    mprintf (LVL_VDP, "Draw sprite 16x16 mag pat %d at %d,%d\n", p, x, y);
+
+    for (col = 0; col < 16; col += 8)
+    {
+        for (i = 0; i < 16; i++)
+        {
+            vdpDrawByteMagnified (vdp.ram[p+i+col*2], x + col, y + i*2, c & 0x0F);
+            vdpDrawByteMagnified (vdp.ram[p+i+col*2], x + col, y + i*2+1, c & 0x0F);
         }
     }
 }
@@ -325,6 +378,7 @@ static void vdpDrawSprites (void)
     int i;
     int x, y, p, c;
     int attr = VDP_SPRITEATTR_TAB;
+    int entrySize = (VDP_SPRITESIZE) ? 32 : 8;
 
     size = (VDP_SPRITESIZE ? 1 : 0);
     size |= (VDP_SPRITEMAG ? 2 : 0);
@@ -333,7 +387,7 @@ static void vdpDrawSprites (void)
     {
         y = vdp.ram[attr + i*4] + 1;
         x = vdp.ram[attr + i*4 + 1];
-        p = vdp.ram[attr + i*4 + 2] * 8 + VDP_SPRITEPAT_TAB;
+        p = vdp.ram[attr + i*4 + 2] * entrySize + VDP_SPRITEPAT_TAB;
         c = vdp.ram[attr + i*4 + 3];
 
         if (y == 0xD0 || y == 0xD1)
@@ -348,6 +402,8 @@ static void vdpDrawSprites (void)
         {
         case 0: vdpDrawSprites8x8 (x, y, p, c); break;
         case 1: vdpDrawSprites16x16 (x, y, p, c); break;
+        case 2: vdpDrawSprites8x8Mag (x, y, p, c); break;
+        case 3: vdpDrawSprites16x16Mag (x, y, p, c); break;
         }
     }
 }
