@@ -54,6 +54,10 @@
 #include "kbd.h"
 #include "sound.h"
 
+static char *fileToRead;
+static bool ti994aQuitFlag;
+static int instPerInterrupt;
+
 /*  Safely parses a value from a string.  Value can be hex, decimal, octal, etc.
  *  Returns true if parsed successfully.
  */
@@ -80,6 +84,53 @@ static bool parseValue (char *s, int *result)
 
     *result = (int) conversion;
     return true;
+}
+
+static void sigHandler (int signo)
+{
+    int i;
+    int n;
+    char **str;
+
+    void *bt[10];
+
+    switch (signo)
+    {
+    case SIGQUIT:
+    case SIGTERM:
+        printf ("quit seen\n");
+        ti994aQuitFlag = true;
+        break;
+
+    /*  If CTRL-C then stop running and return to console */
+    case SIGINT:
+        printf("Set run flag to zero\n");
+        extern bool ti994aRunFlag;
+        ti994aRunFlag = false;
+        break;
+
+    case SIGSEGV:
+        n = backtrace (bt, 10);
+        str = backtrace_symbols (bt, n);
+
+        if (str)
+        {
+            for (i = 0; i < n; i++)
+            {
+                printf ("%s\n", str[i]);
+            }
+        }
+        else
+            printf ("failed to get a backtrace\n");
+
+        exit (1);
+        break;
+
+    default:
+        printf ("uknown sig %d\n", signo);
+        exit (1);
+        break;
+    }
 }
 
 bool consoleBreak (int argc, char *argv[])
@@ -221,12 +272,10 @@ bool consoleShow (int argc, char *argv[])
 bool consoleGo (int argc, char *argv[])
 {
     printf ("Running\n");
-    ti994aRun ();
+    ti994aRun (instPerInterrupt);
 
     return true;
 }
-
-static char *fileToRead;
 
 bool consoleReadInput (int argc, char *argv[])
 {
@@ -336,6 +385,34 @@ bool consoleKeyboard (int argc, char *argv[])
     return true;
 }
 
+bool consoleCtrlC (int argc, char *argv[])
+{
+    if (signal(SIGINT, sigHandler) == SIG_ERR)
+    {
+        printf ("Failed to register INT handler\n");
+        exit (1);
+    }
+    return true;
+}
+
+bool consoleInsPerSec (int argc, char *argv[])
+{
+    int count;
+
+    if (argc < 2 || !parseValue (argv[1], &count))
+        return false;
+
+    if (count < 50)
+        return false;
+
+    instPerInterrupt = count / 50;
+
+    printf ("Running at %d instructions per second (%d per VDP interrupt)\n",
+            count, instPerInterrupt);
+
+    return true;
+}
+
 struct _commands
 {
     char *cmd;
@@ -382,7 +459,11 @@ commands[] =
     { "grom", 2, consoleLoadGrom, "grom <file>",
             "Load a GROM binary file to the specified GROM memory address" },
     { "keyboard", 2, consoleKeyboard, "keyboard <file>",
-            "Begin reading key events from the specified device file" }
+            "Begin reading key events from the specified device file" },
+    { "ctrlc", 1, consoleCtrlC, "ctrlc",
+            "Capture Ctrl-C and return to console for input" },
+    { "inspersec", 2, consoleInsPerSec, "inspersec <count>",
+            "Specify how many instructions per second to run (minimum 50)" }
 };
 
 #define NCOMMAND (sizeof (commands) / sizeof (struct _commands))
@@ -418,6 +499,9 @@ static void input (FILE *fp)
          */
         if (fgets (line, sizeof line, fp) == NULL)
             return;
+
+        if (line[strlen(line)-1] == '\n')
+            line[strlen(line)-1] = 0;
     }
     else
     {
@@ -442,7 +526,7 @@ static void input (FILE *fp)
 
     argc = parse (line, argv);
 
-    if (argc == 0)
+    if (fp == NULL && argc == 0)
     {
         cpuExecute (cpuFetch());
         cpuShowStatus ();
@@ -450,7 +534,7 @@ static void input (FILE *fp)
         return;
     }
 
-    if (argv[0][0] == '#')
+    if (strlen (line) < 1 || argv[0][0] == '#')
         return;
 
     for (int i = 0; i < NCOMMAND; i++)
@@ -474,58 +558,8 @@ static void input (FILE *fp)
         return;
     }
 
-    printf ("Unknown command, type HELP for a list\n");
+    printf ("Unknown command '%s', type HELP for a list\n", argv[0]);
 }
-
-static bool ti994aQuitFlag;
-
-static void sigHandler (int signo)
-{
-    int i;
-    int n;
-    char **str;
-
-    void *bt[10];
-
-    switch (signo)
-    {
-    case SIGQUIT:
-    case SIGTERM:
-        printf ("quit seen\n");
-        ti994aQuitFlag = true;
-        break;
-
-    /*  If CTRL-C then stop running and return to console */
-    case SIGINT:
-        printf("Set run flag to zero\n");
-        extern bool ti994aRunFlag;
-        ti994aRunFlag = false;
-        break;
-
-    case SIGSEGV:
-        n = backtrace (bt, 10);
-        str = backtrace_symbols (bt, n);
-
-        if (str)
-        {
-            for (i = 0; i < n; i++)
-            {
-                printf ("%s\n", str[i]);
-            }
-        }
-        else
-            printf ("failed to get a backtrace\n");
-
-        exit (1);
-        break;
-
-    default:
-        printf ("uknown sig %d\n", signo);
-        exit (1);
-        break;
-    }
-}
-
 
 int main (int argc, char *argv[])
 {
@@ -534,6 +568,8 @@ int main (int argc, char *argv[])
 
     if (argc > 1)
         fileToRead = argv[1];
+    else
+        fileToRead = "config.txt";
 
     /* Configure readline to auto-complete paths when the tab key is hit.
      */
@@ -564,13 +600,6 @@ int main (int argc, char *argv[])
         printf ("Failed to register TERM handler\n");
         exit (1);
     }
-
-    if (signal(SIGINT, sigHandler) == SIG_ERR)
-    {
-        printf ("Failed to register INT handler\n");
-        exit (1);
-    }
-
 
     ti994aInit ();
 

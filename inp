@@ -9,7 +9,7 @@ grom roms/994agrom.bin 0x0000 0x6000
 #
 #  The Attack
 #
-# grom roms/attackg.bin  0x6000 0x2000
+grom roms/attackg.bin  0x6000 0x2000
 #
 #  Munchman
 #
@@ -28,8 +28,8 @@ grom roms/994agrom.bin 0x0000 0x6000
 #
 #  Tombstone City
 #
-load roms/TombCitC.Bin 0x6000 0x2000
-grom roms/TombCitG.Bin 0x6000 0x2000
+# load roms/TombCitC.Bin 0x6000 0x2000
+# grom roms/TombCitG.Bin 0x6000 0x2000
 keyboard /dev/input/event22
 # 001=console
 # 002=cpu
@@ -41,7 +41,7 @@ keyboard /dev/input/event22
 # 080=sound
 # 100=gpl
 # 200=gpl debug
-level 0x00
+level 0x040
 boot
 una
 # una cov

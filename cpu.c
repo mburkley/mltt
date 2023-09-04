@@ -379,7 +379,6 @@ void cpuExecute (int data)
 
         doStore = 1;
         doCmpZ = 1;
-
         break;
 
     case OP_COC:  compare (sData & dData, sData);             break;
@@ -387,31 +386,23 @@ void cpuExecute (int data)
     case OP_XOR:  dData ^= sData;  doStore = 1; doCmpZ = 1; break;
     case OP_XOP:  halt ("Unsupported");
     case OP_MPY:
-        /*
-         *  TODO: double-check this
-         */
         u32 = dData * sData;
         REGW(dReg, u32 >> 16);
         REGW(dReg+1, u32 & 0xFFFF);
-        doCmpZ = 1;
         break;
 
     case OP_DIV:
-        /*
-         *  TODO: double-check this
-         */
-        u32 = REGR(dReg) << 16 | REGR(dReg+1);
-        if (sData == 0)
+        if (sData <= dData)
         {
             tms9900.st |= FLAG_OV;
         }
         else
         {
-            u32 /= sData;
+            u32 = REGR(dReg) << 16 | REGR(dReg+1);
+            REGW(dReg, u32 / sData);
+            REGW(dReg+1, u32 % sData);
         }
 
-        REGW(dReg, u32 >> 16);
-        REGW(dReg+1, u32 & 0xFFFF);
         break;
 
     /*

@@ -47,7 +47,7 @@
 #define AUDIO_FREQUENCY 44100
 
 /* At 44,100Hz we need to generate 882 samples per call as we are called every
- * 50msec.
+ * 20msec.
  */
 #define SAMPLE_COUNT 882 // 44,100 divided by 50
 
@@ -254,9 +254,9 @@ void soundWrite (int addr, int data, int size)
     }
 
     if (latchedData == -1)
-        printf ("SOUND data=%02X", data);
+        mprintf (LVL_SOUND, "SOUND data=%02X", data);
     else
-        printf ("SOUND data=%02X,%02X", latchedData, data);
+        mprintf (LVL_SOUND, "SOUND data=%02X,%02X", latchedData, data);
 
     if ((data & 0xF0) == 0xE0)
     {
@@ -271,7 +271,7 @@ void soundWrite (int addr, int data, int size)
             tones[3].period = AUDIO_FREQUENCY / (1748 * (3 - (data & 0x03)));
         }
 
-        printf (" noise period=%d\n", tones[3].period);
+        mprintf (LVL_SOUND, " noise period=%d\n", tones[3].period);
         return;
     }
 
@@ -280,7 +280,7 @@ void soundWrite (int addr, int data, int size)
     toneInfo *tone = &tones[channel];
     data = (data << 4) | (latchedData & 0x0f);
     latchedData = -1;
-    printf(" freqdata=%d\n", data);
+    mprintf(LVL_SOUND, " freqdata=%d\n", data);
     tone->period = data * AUDIO_FREQUENCY / CLOCK_FREQUENCY;
     mprintf (LVL_SOUND, "tone %d set to [freq %%d], period %d\n", channel,
     tone->period);
