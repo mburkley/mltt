@@ -36,6 +36,7 @@
 
 #include "sound.h"
 #include "trace.h"
+#include "status.h"
 
 /*  The TMS9919 / SN76489 is designed to be clocked at this frequency.  We need
  *  this value to translate into audio frequencies.
@@ -48,8 +49,11 @@
 
 /* At 44,100Hz we need to generate 882 samples per call as we are called every
  * 20msec.
+ *
+ * We seem to be getting underruns.  Upping to 1000 to debug.
  */
-#define SAMPLE_COUNT 882 // 44,100 divided by 50
+// #define SAMPLE_COUNT 882 // 44,100 divided by 50
+#define SAMPLE_COUNT 1000 // 44,100 divided by 50
 
 /* We are summing up to 4 sound sources to generate a value from -32768 to +32767
  * so we assume a maximum volume (minimum attenuation) of any one source to have
@@ -62,20 +66,24 @@
  */
 #define QUIET_THRESHOLD 100
 
+#define FILTER_ELEMENTS 10
+
 typedef struct
 {
+    int requestedPeriod;
     int period;
     int shift;
     double angle;
     int counter;
     int requestedAmplitude;
-    int currentAmplitude;
+    int amplitude;
     int whiteNoise;
     int useTone3Freq;
 }
 toneInfo;
 
-short noiseData[AUDIO_FREQUENCY];
+// short noiseData[AUDIO_FREQUENCY];
+int audioFilter[FILTER_ELEMENTS];
 
 toneInfo tones[4];
 
@@ -85,15 +93,59 @@ int xnor[4] = { 1, 0, 0, 1 };
 static pa_simple *pulseAudioHandle;
 static pa_sample_spec pulseAudioSpec;
 
+/*  Really basic filter that returns the average of the last 10 samples */
+static int filter (int sample)
+{
+    int i;
+
+    for (i = 0; i < FILTER_ELEMENTS - 1; i++)
+    {
+        audioFilter[i] = audioFilter[i+1];
+        // printf ("%d,", audioFilter[i]);
+    }
+
+    audioFilter[FILTER_ELEMENTS - 1] = sample;
+    sample = 0;
+
+    for (i = 0; i < FILTER_ELEMENTS; i++)
+        sample += audioFilter[i];
+
+    sample /= FILTER_ELEMENTS;
+    // printf(",avgsample=%d\n", sample);
+    return sample;
+}
+
 /*  Play a sample to pulse audio.  We are in stereo (2-channel) so play the same
  *  data to each channel.
  */
-static void sampleToPulseAudio (unsigned short data)
+static void sampleToPulseAudio (short data)
 {
     short sample[2];
+    // data = filter ((int) data);
     sample[0] = data;
     sample[1] = data;
     pa_simple_write (pulseAudioHandle, &sample, 4, NULL);
+
+    static int lastData;
+
+    // if (data - lastData > 2000 || data - lastData < -2000)
+    //     printf ("SOUND data jump %d\n", data - lastData);
+
+    lastData = data;
+
+    #if 0
+    if (data == 0)
+        return;
+    printf ("%6d ", data);
+    for (int i = -80; i < 80; i++)
+    {
+        printf (" ");
+        if (i * 400 > data)
+            break;
+    }
+
+    printf ("*\n");
+    #endif
 }
 
 static short generateTone (toneInfo *tone, bool noise)
@@ -102,17 +154,33 @@ static short generateTone (toneInfo *tone, bool noise)
     short sample;
     int bit;
 
-    if (tone->currentAmplitude == 0 || tone->period == 0)
+    /*  If a change in amplitude or frequency have been requested, do this only
+     *  when counter is zero so we don't do it in the middle of a cycle
+     */
+    if (tone->counter == 0)
+    {
+        tone->amplitude = tone->requestedAmplitude;
+        tone->period = tone->requestedPeriod;
+    }
+
+    if (tone->amplitude == 0 || tone->period == 0)
         return 0;
+
+        /*tone->*/ double angle = (2 * pi * tone->counter) / tone->period;
 
     if (noise)
     {
         tone->counter++;
 
+            bit = tone->shift & 1;
+            sample = (bit * 2 - 1) * tone->amplitude;
+            /* Add a teeny bit of sine wave on top of square wave */
+            sample += tone->amplitude / 10 * sin (angle);
+            // sample = filter (tone, sample);
+            sample = filter (sample);
+
         if (tone->counter >= tone->period)
         {
-            bit = tone->shift & 1;
-            sample = (bit * 2 - 1) * tone->currentAmplitude;
             tone->shift >>= 1;
 
             if (tone->whiteNoise)
@@ -125,25 +193,21 @@ static short generateTone (toneInfo *tone, bool noise)
             }
 
             tone->counter %= tone->period;
-            tone->shift = 0x8000;
+            // tone->shift = 0x8000;
+
         }
     }
     else
     {
         tone->counter++;
         tone->counter %= tone->period;
-        tone->angle = (2 * pi * tone->counter) / tone->period;
+        #if 1
         // sine wave
-        sample = tone->currentAmplitude * sin (tone->angle);
-    }
-
-    /*  If a change in amplitude has been requested, do this during a quiet time
-     *  in the output (unless its noise in which case it doesn't matter)
-     */
-    if (tone->requestedAmplitude != tone->currentAmplitude &&
-        (noise || (sample > -QUIET_THRESHOLD && sample < QUIET_THRESHOLD)))
-    {
-        tone->currentAmplitude = tone->requestedAmplitude;
+        sample = tone->amplitude * sin (angle);
+        #else
+        sample = tone->amplitude * (tone->counter * 2 / tone->period);
+        sample = filter (tone, sample);
+        #endif
     }
 
     return sample;
@@ -156,14 +220,8 @@ static short generateTone (toneInfo *tone, bool noise)
  */
 static bool updateActiveToneGenerators (toneInfo *tone)
 {
-    if (tone->requestedAmplitude == 0 && tone->currentAmplitude == 0)
+    if (tone->requestedAmplitude == 0 && tone->amplitude == 0)
         return false;
-
-    if (tone->requestedAmplitude > 0 && tone->currentAmplitude == 0)
-    {
-        tone->currentAmplitude = tone->requestedAmplitude;
-        tone->angle = 0.0;
-    }
 
     return true;
 }
@@ -192,10 +250,17 @@ void soundUpdate (void)
         return;
 
     for (i = 0; i < 4; i++)
+    {
         anyActive = updateActiveToneGenerators (&tones[i]) || anyActive;
+        
+        /* Max amplitude of any channel is 8191 so we divide by 82 to give a
+         * rough percentage for readibility 
+         */
+        statusSoundUpdate (i, tones[i].amplitude / 82, tones[i].period);
+    }
 
-    if (!anyActive)
-        return;
+    // if (!anyActive)
+    //     return;
 
     for (i = 0; i < SAMPLE_COUNT; i++)
     {
@@ -206,10 +271,10 @@ void soundUpdate (void)
 
 void soundInit (void)
 {
-    int i;
+    // int i;
 
-    for (i = 0; i < AUDIO_FREQUENCY; i++)
-        noiseData[i] = (rand() % (SAMPLE_AMPLITUDE * 2)) - SAMPLE_AMPLITUDE;
+    // for (i = 0; i < AUDIO_FREQUENCY; i++)
+    //     noiseData[i] = (rand() % (SAMPLE_AMPLITUDE * 2)) - SAMPLE_AMPLITUDE;
 
     pulseAudioSpec.format = PA_SAMPLE_S16NE;
     pulseAudioSpec.channels = 2;
@@ -281,13 +346,13 @@ void soundWrite (int addr, int data, int size)
     data = (data << 4) | (latchedData & 0x0f);
     latchedData = -1;
     mprintf(LVL_SOUND, " freqdata=%d\n", data);
-    tone->period = data * AUDIO_FREQUENCY / CLOCK_FREQUENCY;
+    tone->requestedPeriod = data * AUDIO_FREQUENCY / CLOCK_FREQUENCY;
     mprintf (LVL_SOUND, "tone %d set to [freq %%d], period %d\n", channel,
-    tone->period);
+    tone->requestedPeriod);
 
     if (channel == 2 && tones[3].useTone3Freq)
     {
-        tones[3].period = tone->period;
+        tones[3].requestedPeriod = tone->requestedPeriod;
     }
 }
 

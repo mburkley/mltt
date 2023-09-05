@@ -14,7 +14,8 @@ trace.c \
 speech.c \
 sound.c \
 interrupt.c \
-gpl.c
+gpl.c \
+status.c
 
 LIBS=\
 -l glut\

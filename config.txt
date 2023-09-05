@@ -1,0 +1,86 @@
+# Uncomment this to capture ctrl-c (SIGINT) and return to consol debugger
+# ctrlc
+
+# Specify the speed by setting the number of instructions per second to be
+# executed
+inspersec 200000
+
+# Load console ROM
+load roms/994arom.bin 0x0000 0x2000
+
+# Load console GROM
+grom roms/994agrom.bin 0x0000 0x6000
+#  Load this?
+# load ../../ti99-x/module-c.bin 0x6000 0x2000
+
+# Load one of the following cartridges as needed
+
+#
+#  The Attack
+#
+grom roms/attackg.bin  0x6000 0x2000
+
+#
+#  Munchman
+#
+# load roms/munchmnc.bin 0x6000 0x2000
+# grom roms/munchmng.bin  0x6000 0x2000
+
+#
+#  Invaders
+#
+# load roms/ti-invac.bin 0x6000 0x2000
+# grom roms/ti-invag.bin 0x6000 0x2000
+
+#
+#  Parsec
+#
+# load roms/parsec-c.bin 0x6000 0x2000
+# grom roms/parsec-g.bin 0x6000 0x2000
+
+#
+#  Tombstone City
+#
+# load roms/TombCitC.Bin 0x6000 0x2000
+# grom roms/TombCitG.Bin 0x6000 0x2000
+
+# Specify the keyboard input device (user read access required)
+keyboard /dev/input/event22
+
+# Set the debug output level, bitmasks:
+# 001=console           - show console debug info
+# 002=cpu               - show CPU debug info
+# 004=vdp               - show VDP debug info
+# 008=grom              - show GROM access debug info
+# 010=unasm             - Show disassembly as running
+# 020=cru               - show CRU debug infou
+# 040=kbd               - show keyboard debug info
+# 080=sound             - show sound instructions, frequencies, etc
+# 100=gpl               - dissamble GPL instructions
+# 200=gpl debug         - show debug of GPL disassembly
+level 0x000
+
+# Initialise the CPU
+boot
+
+# Disassemble while running
+unassemble
+
+# Unassamble only uncovered memory locations
+# unassemble covered
+
+# Load comments and display them beside disassembly
+comments unasm.txt
+
+# Set pixel size
+pixelsize 4
+
+# Enable video output
+status
+video
+
+# Enable audio output
+sound
+
+# Start running
+go

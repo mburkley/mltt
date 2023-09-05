@@ -140,6 +140,8 @@ void cpuShowStWord(void);
 void cpuExecute (int data);
 WORD cpuFetch (void);
 WORD cpuGetPC (void);
+WORD cpuGetWP (void);
+WORD cpuGetST (void);
 void cpuInterrupt (int level);
 void cpuBoot (void);
 

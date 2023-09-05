@@ -148,6 +148,16 @@ WORD cpuGetPC (void)
     return tms9900.pc;
 }
 
+WORD cpuGetWP (void)
+{
+    return tms9900.wp;
+}
+
+WORD cpuGetST (void)
+{
+    return tms9900.st;
+}
+
 static void blwp (int addr)
 {
     WORD owp = tms9900.wp;

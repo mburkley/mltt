@@ -53,10 +53,13 @@
 #include "cover.h"
 #include "kbd.h"
 #include "sound.h"
+#include "status.h"
 
 static char *fileToRead;
 static bool ti994aQuitFlag;
 static int instPerInterrupt;
+static bool statusPane;
+static int pixelSize = 4;
 
 /*  Safely parses a value from a string.  Value can be hex, decimal, octal, etc.
  *  Returns true if parsed successfully.
@@ -340,7 +343,7 @@ bool consoleQuit (int argc, char *argv[])
 
 bool consoleVideo (int argc, char *argv[])
 {
-    vdpInitGraphics();
+    vdpInitGraphics(statusPane, pixelSize);
 
     return true;
 }
@@ -413,6 +416,30 @@ bool consoleInsPerSec (int argc, char *argv[])
     return true;
 }
 
+bool consoleStatus (int argc, char *argv[])
+{
+    statusPane = true;
+
+    return true;
+}
+
+bool consolePixelSize (int argc, char *argv[])
+{
+    int size;
+
+    if (argc < 2 || !parseValue (argv[1], &size))
+        return false;
+
+    if (size < 1)
+        return false;
+
+    pixelSize = size;
+
+    printf ("Pixel size set to %d x %d\n", size, size);
+
+    return true;
+}
+
 struct _commands
 {
     char *cmd;
@@ -463,7 +490,11 @@ commands[] =
     { "ctrlc", 1, consoleCtrlC, "ctrlc",
             "Capture Ctrl-C and return to console for input" },
     { "inspersec", 2, consoleInsPerSec, "inspersec <count>",
-            "Specify how many instructions per second to run (minimum 50)" }
+            "Specify how many instructions per second to run (minimum 50)" },
+    { "status", 1, consoleStatus, "status",
+            "Display a status pane beside main display (call before enable video)" },
+    { "pixelsize", 2, consolePixelSize, "pixelsize <n>",
+            "Set the magnification factor for drawing pixels.  Default 4(x4)" }
 };
 
 #define NCOMMAND (sizeof (commands) / sizeof (struct _commands))
