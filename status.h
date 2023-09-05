@@ -20,17 +20,13 @@
  * SOFTWARE.
  */
 
-#ifndef __GROM_H
-#define __GROM_H
+#ifndef __STATUS_H
+#define __STATUS_H
 
-#include "cpu.h"
-
-int gromRead (int addr, int size);
-BYTE gromData (int addr);
-WORD gromAddr (void);
-void gromWrite (int addr, int data, int size);
-void gromShowStatus (void);
-void gromLoad (char *name, int start, int len);
+void statusPaneDisplay (void);
+void statusSpriteUpdate (int index, int x, int y, int pat, int colour);
+void statusSoundUpdate (int index, int amplitude, int period);
+void statusPaneInit (int width, int height, int xOffset);
 
 #endif
 

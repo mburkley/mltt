@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
@@ -35,11 +36,12 @@
 #include <GL/gl.h>
 
 #include "vdp.h"
+#include "grom.h"
 #include "trace.h"
+#include "status.h"
 
 #define VDP_READ 1
 #define VDP_WRITE 2
-#define SCALE   4
 
 #define VDP_BITMAP_MODE     (vdp.reg[0] & 0x02)
 #define VDP_EXTERNAL        (vdp.reg[0] & 0x01)
@@ -69,6 +71,11 @@
 
 #define MAX_ADDR 0x4000
 
+// #include "cpu.h"
+
+#define VDP_STATUS_PANE_WIDTH 32
+
+// #define VDP_SCALE   4
 #define VDP_XSIZE 256
 #define VDP_YSIZE 192
 
@@ -110,28 +117,40 @@ struct
     bool graphics;
 }
 vdp;
-static int plots;
-static unsigned char frameBuffer[VDP_YSIZE*SCALE][VDP_XSIZE*SCALE][4];
-static int vdpInitialised = 0;
-static int vdpRefreshNeeded = false;
+// static int plots;
+// static unsigned char frameBuffer[VDP_YSIZE*SCALE][VDP_XSIZE*SCALE][4];
+static bool vdpInitialised = false;
+static bool vdpRefreshNeeded = false;
+
+/*  The framebuffer is a 2D array of pixels with 4 bytes per pixel.  The first 3
+ *  bytes of each pixel are r, g, b respectively and the 4th is not
+ *  used.  The framebuffer is increased in size by the pixel magnification
+ *  factor and also if a status pane is displayed.  Since these are
+ *  configurable, the framebuffer is allocated at runtime.
+ */
+static struct _frameBuffer
+{
+    BYTE r;
+    BYTE g;
+    BYTE b;
+    BYTE unused;
+}
+*frameBuffer;
+
+static int frameBufferXSize;
+static int frameBufferYSize;
+static int frameBufferScale;
+
+static inline struct _frameBuffer* pixel (int x, int y)
+{
+    return &frameBuffer[y*frameBufferXSize+x];
+}
 
 static void vdpScreenUpdate (void)
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glDrawPixels (VDP_XSIZE*SCALE, VDP_YSIZE*SCALE, GL_RGBA, GL_UNSIGNED_BYTE, frameBuffer);
+    glDrawPixels (frameBufferXSize, frameBufferYSize, GL_RGBA, GL_UNSIGNED_BYTE, frameBuffer);
     glutSwapBuffers();
-}
-
-void vdpStatus (void)
-{
-    int i;
-
-    for (i = 0; i < 8; i++)
-    {
-        printf ("R%d:%02X ", i, vdp.reg[i]);
-    }
-
-    printf ("\nSt:%02X\n", vdp.st);
 }
 
 int vdpRead (int addr, int size)
@@ -184,7 +203,7 @@ void vdpWrite (int addr, int data, int size)
             halt ("VDP memory out of range");
         }
 
-        mprintf (LVL_VDP, "VDP : %02X -> [%04X] ", data, vdp.addr);
+        mprintf (LVL_VDP, "GROM: %04X VDP: %02X -> [%04X] ", gromAddr(), data, vdp.addr);
 
         vdp.ram[vdp.addr++] = data;
         vdpRefreshNeeded = true;
@@ -232,55 +251,87 @@ void vdpWrite (int addr, int data, int size)
     }
 }
 
-void vdpInitGraphics (void)
+void vdpInitGraphics (bool statusPane, int scale)
 {
     int argc=1;
     char *argv[] = { "foo" };
     glutInit(&argc, argv);
     glutInitWindowPosition(10,10);
-    glutInitWindowSize(VDP_XSIZE*SCALE, VDP_YSIZE*SCALE);
+
+    frameBufferXSize = (VDP_XSIZE * scale) + (statusPane ? VDP_STATUS_PANE_WIDTH * 8 : 0);
+    frameBufferYSize = VDP_YSIZE * scale;
+    frameBufferScale = scale;
+
+    if (statusPane)
+        statusPaneInit (VDP_STATUS_PANE_WIDTH * 8, frameBufferYSize,
+                        VDP_XSIZE * scale);
+
+    frameBuffer = calloc (frameBufferXSize * frameBufferYSize,
+                          sizeof (struct _frameBuffer));
+
+    if (frameBuffer == NULL)
+        halt ("allocated frame buffer");
+
+    printf ("FB size is %d x %d\n", frameBufferXSize, frameBufferYSize);
+    glutInitWindowSize(frameBufferXSize, frameBufferYSize);
     glutCreateWindow("TI-99 emulator");
+
     vdpInitialised = 1;
 }
 
+/*  Raw plot, doesn't do any scaling, expects absolute coords */
+void vdpPlotRaw (int x, int y, int col)
+{
+    y = frameBufferYSize - y - 1;
+
+    pixel (x, y)->r = colours[col].r;
+    pixel (x, y)->g = colours[col].g;
+    pixel (x, y)->b = colours[col].b;
+}
+
+/*  Scaling plot, scales up x and y and draws a square of pixels */
 static void vdpPlot (int x, int y, int col)
 {
     int i, j;
 
-    if (x < 0 || y < 0 || x >= VDP_XSIZE || y >= VDP_YSIZE)
-        return;
+    if (x < 0 || y < 0 || 
+        x >= frameBufferXSize * frameBufferScale || 
+        x >= frameBufferYSize * frameBufferScale)
+    {
+        halt ("VDP coords out of range\n");
+    }
 
     /*  Col 0 is transparent, use global background */
     if (col == 0)
         col = VDP_BG_COLOUR;
 
-    y = VDP_YSIZE - y - 1;
+    // y = VDP_YSIZE - y - 1;
 
-    for (i = 0; i < SCALE; i++)
-        for (j = 0; j < SCALE; j++)
-        {
-            frameBuffer[y*SCALE+i][x*SCALE+j][0] = colours[col].r;
-            frameBuffer[y*SCALE+i][x*SCALE+j][1] = colours[col].g;
-            frameBuffer[y*SCALE+i][x*SCALE+j][2] = colours[col].b;
-            // frameBuffer[y*SCALE+i][x*SCALE+j][3] = 0;
-            plots++;
-        }
+    /*  Draw a square block of pixels of size (scale x scale) */
+    for (i = 0; i < frameBufferScale; i++)
+        for (j = 0; j < frameBufferScale; j++)
+            vdpPlotRaw (x*frameBufferScale+i, y*frameBufferScale+j, col);
 }
 
+/*  Draw an 8x8 character on screen.  cx and cy are the column (0 to 31) and row
+ *  (0 to 23).  ch is the character index (0 to 255).  Values are multiplied by
+ *  8 (<< 3) to convert to pixel coords.
+ */
 static void vdpDrawChar (int cx, int cy, int ch)
 {
     int x, y;
     int data;
     int charpat = VDP_CHARPAT_TAB + (ch << 3);
-    int col = vdp.ram[VDP_GR_COLTAB_ADDR + (ch >> 3)];
+    int colour = vdp.ram[VDP_GR_COLTAB_ADDR + (ch >> 3)];
+
     for (y = 0; y < 8; y++)
     {
-        data = vdp.ram[charpat + y];
+        data = vdp.ram[charpat+y];
 
         for (x = 0; x < 8; x++)
         {
             vdpPlot ((cx << 3) + x, (cy << 3) + y,
-                     (data & 0x80) ? (col >> 4) : (col & 0x0F));
+                     (data & 0x80) ? (colour >> 4) : (colour & 0x0F));
             data <<= 1;
         }
     }
@@ -321,7 +372,7 @@ static void vdpDrawSprites8x8 (int x, int y, int p, int c)
 {
     int i;
 
-    mprintf (LVL_VDP, "Draw sprite pat 8x8 %d at %d,%d\n", p, x, y);
+    // mprintf (LVL_VDP, "Draw sprite pat 8x8 %d at %d,%d\n", p, x, y);
     for (i = 0; i < 8; i++)
     {
         vdpDrawByte (vdp.ram[p+i], x, y + i, c & 0x0F);
@@ -332,7 +383,7 @@ static void vdpDrawSprites16x16 (int x, int y, int p, int c)
 {
     int i, col;
 
-    mprintf (LVL_VDP, "Draw sprite pat 16x16 %d at %d,%d\n", p, x, y);
+    // mprintf (LVL_VDP, "Draw sprite pat 16x16 %d at %d,%d\n", p, x, y);
 
     for (col = 0; col < 16; col += 8)
     {
@@ -378,7 +429,8 @@ static void vdpDrawSprites (void)
     int i;
     int x, y, p, c;
     int attr = VDP_SPRITEATTR_TAB;
-    int entrySize = (VDP_SPRITESIZE) ? 32 : 8;
+    // int entrySize = (VDP_SPRITESIZE) ? 32 : 8;
+    int entrySize = 8;
 
     size = (VDP_SPRITESIZE ? 1 : 0);
     size |= (VDP_SPRITEMAG ? 2 : 0);
@@ -390,13 +442,19 @@ static void vdpDrawSprites (void)
         p = vdp.ram[attr + i*4 + 2] * entrySize + VDP_SPRITEPAT_TAB;
         c = vdp.ram[attr + i*4 + 3];
 
-        if (y == 0xD0 || y == 0xD1)
+        if (y == 0xD0)
         {
             mprintf (LVL_VDP, "Sprite %d switched off\n", y);
             return;
         }
 
         mprintf (LVL_VDP, "Draw sprite %d @ %d,%d pat=%d, colour=%d\n", i, x, y, p, c);
+
+        statusSpriteUpdate (i, x, y, p, c);
+
+        /*  Transparent sprites don't get drawn */
+        if (c == 0)
+            continue;
 
         switch (size)
         {
@@ -412,7 +470,7 @@ void vdpRefresh (int force)
 {
     int sc;
 
-    if (!vdpRefreshNeeded)
+    if (!vdpRefreshNeeded || !vdpInitialised)
         return;
 
     vdpRefreshNeeded = false;
@@ -428,8 +486,7 @@ void vdpRefresh (int force)
     }
 
     vdpDrawSprites ();
-
-    if (vdpInitialised)
-        vdpScreenUpdate();
+    statusPaneDisplay ();
+    vdpScreenUpdate();
 }
 

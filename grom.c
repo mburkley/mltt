@@ -122,6 +122,16 @@ void gromWrite (int addr, int data, int size)
     }
 }
 
+BYTE gromData (int addr)
+{
+    return gRom.b[addr];
+}
+
+WORD gromAddr (void)
+{
+    return gRom.addr;
+}
+
 void gromShowStatus (void)
 {
     mprintf (LVL_GROM, "GROM\n");
