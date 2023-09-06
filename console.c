@@ -69,7 +69,7 @@ static bool parseValue (char *s, int *result)
     int base = 0;
 
     /*  If TI hex notation (>) is used or if x on its own is used then force
-     *  base 16.  Otherwise let glibc figure it out.
+     *  base 16.  Otherwise let strtoul figure it out.
      */
     if (s[0] == '>' || s[0] == 'x')
     {
@@ -251,12 +251,12 @@ bool consoleShow (int argc, char *argv[])
         if (grom)
         {
             printf ("GROM ");
-            data = gromRead (addr, bytes); // TODO method to access actual
+            data = gromRead (addr, bytes);
         }
         else if (vdp)
         {
             printf ("VDP ");
-            data = vdpRead (addr, bytes); // TODO method to access actual
+            data = vdpRead (addr, bytes);
         }
         else
         {
@@ -661,5 +661,4 @@ int main (int argc, char *argv[])
 
     return 0;
 }
-
 

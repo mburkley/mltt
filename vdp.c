@@ -117,8 +117,7 @@ struct
     bool graphics;
 }
 vdp;
-// static int plots;
-// static unsigned char frameBuffer[VDP_YSIZE*SCALE][VDP_XSIZE*SCALE][4];
+
 static bool vdpInitialised = false;
 static bool vdpRefreshNeeded = false;
 
@@ -151,6 +150,16 @@ static void vdpScreenUpdate (void)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glDrawPixels (frameBufferXSize, frameBufferYSize, GL_RGBA, GL_UNSIGNED_BYTE, frameBuffer);
     glutSwapBuffers();
+}
+
+int vdpReadStatus (void)
+{
+    return vdp.st;
+}
+
+int vdpReadRegister (int reg)
+{
+    return vdp.reg[reg];
 }
 
 int vdpRead (int addr, int size)
@@ -305,8 +314,6 @@ static void vdpPlot (int x, int y, int col)
     if (col == 0)
         col = VDP_BG_COLOUR;
 
-    // y = VDP_YSIZE - y - 1;
-
     /*  Draw a square block of pixels of size (scale x scale) */
     for (i = 0; i < frameBufferScale; i++)
         for (j = 0; j < frameBufferScale; j++)
@@ -372,7 +379,7 @@ static void vdpDrawSprites8x8 (int x, int y, int p, int c)
 {
     int i;
 
-    // mprintf (LVL_VDP, "Draw sprite pat 8x8 %d at %d,%d\n", p, x, y);
+    mprintf (LVL_VDP, "Draw sprite pat 8x8 %d at %d,%d\n", p, x, y);
     for (i = 0; i < 8; i++)
     {
         vdpDrawByte (vdp.ram[p+i], x, y + i, c & 0x0F);
@@ -383,7 +390,7 @@ static void vdpDrawSprites16x16 (int x, int y, int p, int c)
 {
     int i, col;
 
-    // mprintf (LVL_VDP, "Draw sprite pat 16x16 %d at %d,%d\n", p, x, y);
+    mprintf (LVL_VDP, "Draw sprite pat 16x16 %d at %d,%d\n", p, x, y);
 
     for (col = 0; col < 16; col += 8)
     {
@@ -429,7 +436,6 @@ static void vdpDrawSprites (void)
     int i;
     int x, y, p, c;
     int attr = VDP_SPRITEATTR_TAB;
-    // int entrySize = (VDP_SPRITESIZE) ? 32 : 8;
     int entrySize = 8;
 
     size = (VDP_SPRITESIZE ? 1 : 0);

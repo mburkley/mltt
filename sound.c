@@ -64,9 +64,6 @@
 /* Set a threshold for "quietness" where it is safe to change amplitudes to
  * avoid "pops"
  */
-#define QUIET_THRESHOLD 100
-
-#define FILTER_ELEMENTS 10
 
 typedef struct
 {
@@ -82,10 +79,7 @@ typedef struct
 }
 toneInfo;
 
-// short noiseData[AUDIO_FREQUENCY];
-int audioFilter[FILTER_ELEMENTS];
-
-toneInfo tones[4];
+static toneInfo tones[4];
 
 /*  XNOR truth table */
 int xnor[4] = { 1, 0, 0, 1 };
@@ -93,59 +87,15 @@ int xnor[4] = { 1, 0, 0, 1 };
 static pa_simple *pulseAudioHandle;
 static pa_sample_spec pulseAudioSpec;
 
-/*  Really basic filter that returns the average of the last 10 samples */
-static int filter (int sample)
-{
-    int i;
-
-    for (i = 0; i < FILTER_ELEMENTS - 1; i++)
-    {
-        audioFilter[i] = audioFilter[i+1];
-        // printf ("%d,", audioFilter[i]);
-    }
-
-    audioFilter[FILTER_ELEMENTS - 1] = sample;
-    sample = 0;
-
-    for (i = 0; i < FILTER_ELEMENTS; i++)
-        sample += audioFilter[i];
-
-    sample /= FILTER_ELEMENTS;
-    // printf(",avgsample=%d\n", sample);
-    return sample;
-}
-
 /*  Play a sample to pulse audio.  We are in stereo (2-channel) so play the same
  *  data to each channel.
  */
 static void sampleToPulseAudio (short data)
 {
     short sample[2];
-    // data = filter ((int) data);
     sample[0] = data;
     sample[1] = data;
     pa_simple_write (pulseAudioHandle, &sample, 4, NULL);
-
-    static int lastData;
-
-    // if (data - lastData > 2000 || data - lastData < -2000)
-    //     printf ("SOUND data jump %d\n", data - lastData);
-
-    lastData = data;
-
-    #if 0
-    if (data == 0)
-        return;
-    printf ("%6d ", data);
-    for (int i = -80; i < 80; i++)
-    {
-        printf (" ");
-        if (i * 400 > data)
-            break;
-    }
-
-    printf ("*\n");
-    #endif
 }
 
 static short generateTone (toneInfo *tone, bool noise)
@@ -154,8 +104,10 @@ static short generateTone (toneInfo *tone, bool noise)
     short sample;
     int bit;
 
-    /*  If a change in amplitude or frequency have been requested, do this only
-     *  when counter is zero so we don't do it in the middle of a cycle
+    /*  To avoid pops in the audio, we only make changes to amplitude at the
+     *  beginning or end of a cycle.  If a change in amplitude or frequency have
+     *  been requested, do this only when counter is zero so we don't do it in
+     *  the middle of a cycle
      */
     if (tone->counter == 0)
     {
@@ -166,18 +118,20 @@ static short generateTone (toneInfo *tone, bool noise)
     if (tone->amplitude == 0 || tone->period == 0)
         return 0;
 
-        /*tone->*/ double angle = (2 * pi * tone->counter) / tone->period;
+    double angle = (2 * pi * tone->counter) / tone->period;
 
     if (noise)
     {
         tone->counter++;
 
-            bit = tone->shift & 1;
-            sample = (bit * 2 - 1) * tone->amplitude;
-            /* Add a teeny bit of sine wave on top of square wave */
-            sample += tone->amplitude / 10 * sin (angle);
-            // sample = filter (tone, sample);
-            sample = filter (sample);
+        bit = tone->shift & 1;
+        sample = (bit * 2 - 1) * tone->amplitude;
+
+        /*  Pulse audio doesn't seem to like if we send repeated sampples so
+         *  add a teeny bit of sine wave on top of square wave to make it
+         *  vary
+         */
+        sample += tone->amplitude / 20 * sin (angle);
 
         if (tone->counter >= tone->period)
         {
@@ -185,6 +139,9 @@ static short generateTone (toneInfo *tone, bool noise)
 
             if (tone->whiteNoise)
             {
+                /*  I am not 100% sure this is the bit pattern used by the
+                 *  TMS9919 but the sound seems reasonable
+                 */
                 tone->shift |= xnor[tone->shift & 0x03] << 15;
             }
             else
@@ -193,31 +150,18 @@ static short generateTone (toneInfo *tone, bool noise)
             }
 
             tone->counter %= tone->period;
-            // tone->shift = 0x8000;
-
         }
     }
     else
     {
         tone->counter++;
         tone->counter %= tone->period;
-        #if 1
-        // sine wave
         sample = tone->amplitude * sin (angle);
-        #else
-        sample = tone->amplitude * (tone->counter * 2 / tone->period);
-        sample = filter (tone, sample);
-        #endif
     }
 
     return sample;
 }
 
-/*  To avoid pops in the audio, we only make changes to amplitude at the
- *  beginning or end of a cycle.  If going from zero (inactive) amplitude we set
- *  the angle to zero and only change amplitude if at low energy part of the
- *  current cycle
- */
 static bool updateActiveToneGenerators (toneInfo *tone)
 {
     if (tone->requestedAmplitude == 0 && tone->amplitude == 0)
@@ -259,8 +203,8 @@ void soundUpdate (void)
         statusSoundUpdate (i, tones[i].amplitude / 82, tones[i].period);
     }
 
-    // if (!anyActive)
-    //     return;
+    if (!anyActive)
+        return;
 
     for (i = 0; i < SAMPLE_COUNT; i++)
     {
@@ -271,11 +215,6 @@ void soundUpdate (void)
 
 void soundInit (void)
 {
-    // int i;
-
-    // for (i = 0; i < AUDIO_FREQUENCY; i++)
-    //     noiseData[i] = (rand() % (SAMPLE_AMPLITUDE * 2)) - SAMPLE_AMPLITUDE;
-
     pulseAudioSpec.format = PA_SAMPLE_S16NE;
     pulseAudioSpec.channels = 2;
     pulseAudioSpec.rate = AUDIO_FREQUENCY;
@@ -291,6 +230,7 @@ void soundInit (void)
                       NULL               // Ignore error code.
                       );
 }
+
 int soundRead (int addr, int size)
 {
     return 0;

@@ -260,6 +260,14 @@ static void carrySet (int condition)
         tms9900.st &= ~FLAG_C;
 }
 
+static void overflowSet (int condition)
+{
+    if (condition)
+        tms9900.st |= FLAG_OV;
+    else
+        tms9900.st &= ~FLAG_OV;
+}
+
 void cpuExecute (int data)
 {
     WORD  sReg = 0, dReg = 0;
@@ -404,10 +412,11 @@ void cpuExecute (int data)
     case OP_DIV:
         if (sData <= dData)
         {
-            tms9900.st |= FLAG_OV;
+            overflowSet (true);
         }
         else
         {
+            overflowSet (false);
             u32 = REGR(dReg) << 16 | REGR(dReg+1);
             REGW(dReg, u32 / sData);
             REGW(dReg+1, u32 % sData);
@@ -424,17 +433,19 @@ void cpuExecute (int data)
         break;
     case OP_AI:
         u32 = sData + cpuFetch();
-        carrySet (u32 > 0x10000);
-        u32 &= 0xffff;
-        memWriteW(sAddr, u32);
+        carrySet (u32 >= 0x10000);
+        sData = u32 & 0xffff;
+        doStore = 1;
         doCmpZ = 1;
         break;
     case OP_ANDI:
-        memWriteW(sAddr, sData & cpuFetch());
+        sData &= cpuFetch();
+        doStore = 1;
         doCmpZ = 1;
         break;
     case OP_ORI:
-        memWriteW(sAddr, sData | cpuFetch());
+        sData |= cpuFetch();
+        doStore = 1;
         doCmpZ = 1;
         break;
     case OP_CI:
@@ -503,6 +514,7 @@ void cpuExecute (int data)
         i32 = sData << 16;
         i32 >>= count;
 
+        /* Set carry flag if last bit shifted is set */
         carrySet ((i32 & 0x8000) != 0);
 
         sData = (i32 >> 16) & 0xffff;
@@ -516,6 +528,7 @@ void cpuExecute (int data)
         u32 >>= count;
         mprintf (LVL_CPU, "u32=%x\n", u32);
 
+        /* Set carry flag if last bit shifted is set */
         carrySet ((u32 & 0x8000) != 0);
 
         sData = u32 & 0xffff;
@@ -527,6 +540,7 @@ void cpuExecute (int data)
         u32 = sData << 16;
         u32 >>= count;
 
+        /* Set carry flag if last bit shifted is set */
         carrySet ((u32 & 0x8000) != 0);
 
         sData = (u32 >> 16) & 0xffff;
@@ -538,10 +552,11 @@ void cpuExecute (int data)
         u32 = sData;
         u32 <<= count;
 
-        /*
-         *  Set carry flag on MSB set
-         */
+        /* Set carry flag if last bit shifted is set */
         carrySet ((u32 & 0x10000) != 0);
+
+        /* Set if MSB changes */
+        overflowSet ((u32 & 0x8000) != (sData & 0x8000));
 
         sData = u32 & 0xFFFF;
         doStore = 1;

@@ -61,23 +61,13 @@ void timerStop (void)
     close (timerFd);
 }
 
+/*  Do a blocking read on the timer.  This synchronises the system at 50Hz.
+ *  This function used to poll and the main function used to sleep but it's
+ *  easier just to do a blocking read
+ */
 void timerPoll (void)
 {
     int n;
-    #if 0
-    struct pollfd pfds[1];
-    int ret;
-
-    pfds[0].fd = timerFd;
-    pfds[0].events = POLLIN;
-    ret = poll(pfds, 1, 0);
-
-    if (ret < 1)
-    {
-        return;
-    }
-
-    #endif
     u_int64_t data;
     n = read (timerFd, &data, sizeof (data));
 

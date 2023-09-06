@@ -386,7 +386,7 @@ static void postExecHook (WORD pc, int type, bool isByte, bool store, WORD sMode
             else
             {
                 sprintf (text+strlen(text), "%04X",
-                         (unsigned) regData);
+                         (unsigned) data);
             }
         }
         else if (dMode)
