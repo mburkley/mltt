@@ -57,7 +57,6 @@ int interruptLevel (int mask)
     {
         if (tms9901.intActive[i])
         {
-            // tms9901.intActive[i] = 0; // TODO ?
             return i;
         }
     }

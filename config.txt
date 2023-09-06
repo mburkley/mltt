@@ -3,7 +3,7 @@
 
 # Specify the speed by setting the number of instructions per second to be
 # executed
-inspersec 200000
+inspersec 150000
 
 # Load console ROM
 load roms/994arom.bin 0x0000 0x2000
@@ -76,7 +76,7 @@ comments unasm.txt
 pixelsize 4
 
 # Enable video output
-status
+# status
 video
 
 # Enable audio output

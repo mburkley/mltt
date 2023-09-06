@@ -108,7 +108,6 @@ static void statusPrintf (char *fmt, ...)
     vsprintf (line, fmt, ap);
     va_end (ap);
 
-    // printf("V:%s@%d,%d\n", s, vdpStatusPosX, vdpStatusPosY);
     for (i = 0; i <strlen (line); i++)
     {
         if (line[i] == '\n')
@@ -124,12 +123,6 @@ static void statusPrintf (char *fmt, ...)
         }
         else
         {
-            #if 0
-
-            statusDrawCharRaw (statusPosX + 32, statusPosY,
-                            &statusChars[charpat*7], 7, 0xf1);
-            #endif
-
             statusDrawChar (statusPosX++, statusPosY, line[i]);
 
             if (statusPosX >= statusPaneWidth >> 3)
@@ -150,16 +143,14 @@ void statusPaneDisplay (void)
 
     statusPosX = statusPosY = 0;
 
-    #if 0
     statusPrintf("VDP:\n");
 
     for (i = 0; i < 8; i++)
     {
-        vdpPrintf ("  R%d:%02X\n", i, vdp.reg[i]);
+        statusPrintf ("  R%d:%02X\n", i, vdpReadRegister(i));
     }
 
-    statusPrintf ("  St:%02X\n", status.st);
-    #endif
+    statusPrintf ("  St:%02X\n", vdpReadStatus());
 
     statusPrintf("\nCPU:\n");
     statusPrintf("  PC:%04X\n", cpuGetPC());
@@ -168,6 +159,15 @@ void statusPaneDisplay (void)
 
     statusPrintf("\nGROM:\n");
     statusPrintf("  PC:%04X\n", gromAddr());
+
+    statusPrintf ("\nSound:\n");
+
+    for (i = 0; i < 4; i++)
+    {
+        struct _statusSoundInfo *s = &statusSoundInfo[i];
+
+        statusPrintf ("  %2d amp=%2d per=%d\n", i, s->amplitude, s->period);
+    }
 
     statusPrintf ("\nSprites:\n");
 
@@ -180,15 +180,6 @@ void statusPaneDisplay (void)
 
         statusPrintf ("  %2d @ %d,%d p=%X c=%X\n",
                       i, s->x, s->y, s->pat, s->colour);
-    }
-
-    statusPrintf ("\nSound:\n");
-
-    for (i = 0; i < 4; i++)
-    {
-        struct _statusSoundInfo *s = &statusSoundInfo[i];
-
-        statusPrintf ("  %2d amp=%2d per=%d\n", i, s->amplitude, s->period);
     }
 
     statusPrintf ("\f");

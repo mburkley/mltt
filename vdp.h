@@ -25,6 +25,8 @@
 
 #include <stdbool.h>
 
+int vdpReadStatus (void);
+int vdpReadRegister (int reg);
 int vdpRead (int addr, int size);
 void vdpWrite (int addr, int data, int size);
 void vdpInitGraphics (bool statusPane, int scale);

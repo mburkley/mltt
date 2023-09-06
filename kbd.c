@@ -71,6 +71,9 @@ static int keyCode[KBD_ROW][KBD_COL] =
     {  0, 45, 46, 47, 48, 44, 0, 0 }
 };
 
+/*  This is a start at building "virtual keys" where keys on a real keyboard
+ *  create multi-key sequences.  e.g. left arrow key creates FNCT+S.
+ */
 #if 0
 static struct _
 {
@@ -86,31 +89,13 @@ keyExtended[] =
     { 54 // right shift
     { 97 // right control
     { 100 // altgr = alphalock?
-    
-    101010101010101010101010
-
 #endif
+
 /*  Maintain a current and previous table of key states.  The lastState table is
  *  only used to reduce debug output.
  */
 static int keyState[KBD_ROW][KBD_COL];
 static int lastState[KBD_ROW][KBD_COL];
-
-#if 0
-static int digitMap[] =
-{
-    82, // KEY_KP0
-    79, // KEY_KP1
-    80, // KEY_KP2
-    81, // KEY_KP3
-    75, // KEY_KP4
-    76, // KEY_KP5
-    77, // KEY_KP6
-    71, // KEY_KP7
-    72, // KEY_KP8
-    73, // KEY_KP9
-};
-#endif
 
 static void kbdReopen (void)
 {
