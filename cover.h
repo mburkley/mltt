@@ -25,7 +25,7 @@
 
 #include "cpu.h"
 
-extern BYTE covered[];
+extern uint8_t covered[];
 extern int outputCovered;
 
 #endif

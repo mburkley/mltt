@@ -25,11 +25,11 @@
 
 #include "cpu.h"
 
-void breakPointAdd (WORD addr);
+void breakPointAdd (uint16_t addr);
 void breakPointList (void);
-void breakPointRemove (WORD addr);
-void breakPointCondition (WORD addr);
-int breakPointHit (WORD addr);
+void breakPointRemove (uint16_t addr);
+void breakPointCondition (uint16_t addr);
+int breakPointHit (uint16_t addr);
 
 #endif
 

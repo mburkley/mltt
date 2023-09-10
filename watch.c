@@ -27,13 +27,13 @@
 
 struct
 {
-    WORD    last[20];
-    WORD    addr[20];
+    uint16_t    last[20];
+    uint16_t    addr[20];
     int     count;
 }
 w;
 
-void watchAdd (WORD addr)
+void watchAdd (uint16_t addr)
 {
     int         i;
 
@@ -69,7 +69,7 @@ void watchList (void)
     }
 }
 
-void watchRemove (WORD addr)
+void watchRemove (uint16_t addr)
 {
     int         i;
 

@@ -27,6 +27,6 @@
 #include "cpu.h"
 #include "cover.h"
 
-BYTE covered[0x5000];
+uint8_t covered[0x5000];
 int outputCovered;
 

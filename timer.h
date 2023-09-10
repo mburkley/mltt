@@ -23,9 +23,18 @@
 #ifndef __TIMER_H
 #define __TIMER_H
 
-void timerStart (int msec, void (*callback)(void));
-void timerStop (void);
+#include <stdbool.h>
+
+#define MAX_TIMERS 2
+
+#define TIMER_VDP 0
+#define TIMER_TMS9901 1
+
+void timerStart (int index, int nsec, void (*callback)(void));
+void timerStop (int index);
 void timerPoll (void);
+void timerInit (void);
+void timerClose (void);
 
 #endif
 

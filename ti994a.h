@@ -25,13 +25,13 @@
 
 #include "cpu.h"
 
-WORD memRead(WORD addr, int size);
+uint16_t memRead(uint16_t addr, int size);
 
 void ti994aRun (int instPerInterrupt);
 void ti994aInit (void);
 void ti994aClose (void);
 void ti994aShowScratchPad (bool showGplUsage);
-void ti994aMemLoad (char *file, WORD addr, WORD length);
+void ti994aMemLoad (char *file, uint16_t addr, uint16_t length);
 
 #endif
 

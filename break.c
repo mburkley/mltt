@@ -34,12 +34,12 @@
 
 struct
 {
-    WORD    addr[MAX_BREAKPOINTS];
+    uint16_t    addr[MAX_BREAKPOINTS];
     int     count;
 }
 bp;
 
-void breakPointAdd (WORD addr)
+void breakPointAdd (uint16_t addr)
 {
     int         i;
 
@@ -74,7 +74,7 @@ void breakPointList (void)
     }
 }
 
-void breakPointRemove (WORD addr)
+void breakPointRemove (uint16_t addr)
 {
     int         i;
 
@@ -100,7 +100,7 @@ void breakPointRemove (WORD addr)
     bp.count--;
 }
 
-int breakPointHit (WORD addr)
+int breakPointHit (uint16_t addr)
 {
     int         i;
 

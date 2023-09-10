@@ -23,10 +23,22 @@
 #ifndef __INTERRUPT_H
 #define __INTERRUPT_H
 
+#include <stdint.h>
+#include <stdbool.h>
+
+#define IRQ_DEVICE      1
+#define IRQ_VDP         2
+#define IRQ_TIMER       3
+
 void interruptRaise (int level);
 void interruptLower (int level);
 int interruptLevel (int mask);
-void interruptInit(void);
+int tms9901TimerNsec (void);
+bool tms9901Interrupt (int index, uint8_t state);
+void tms9901Init(void);
+bool tms9901BitSet (int index, uint8_t state);
+uint8_t tms9901BitGet (int index, uint8_t state);
+bool tms9901ModeSet (int index, uint8_t state);
 
 #endif
 

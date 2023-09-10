@@ -35,7 +35,7 @@
 #include "status.h"
 
 /* Private copy of character data for status display */
-static BYTE statusChars[96 * 7];
+static uint8_t statusChars[96 * 7];
 static bool statusPaneActive = false;
 
 static struct _statusSpriteInfo

@@ -25,12 +25,15 @@
 
 #include "cpu.h"
 
-void cruBitSet (WORD base, I8 bitOffset, BYTE state);
-void cruBitInput (WORD base, I8 bitOffset, BYTE state);
-BYTE cruBitGet (WORD base, I8 bitOffset);
-void cruMultiBitSet (WORD base, WORD data, int nBits);
-WORD cruMultiBitGet (WORD base, int nBits);
-void cruCallbackSet (int index, void (*callback) (int index, BYTE state));
+void cruBitInput (uint16_t base, int8_t bitOffset, uint8_t state);
+void cruBitOutput (uint16_t base, int8_t bitOffset, uint8_t state);
+void cruBitInput (uint16_t base, int8_t bitOffset, uint8_t state);
+uint8_t cruBitGet (uint16_t base, int8_t bitOffset);
+void cruMultiBitSet (uint16_t base, uint16_t data, int nBits);
+uint16_t cruMultiBitGet (uint16_t base, int nBits);
+void cruInputCallbackSet (int index, bool (*callback) (int index, uint8_t state));
+void cruOutputCallbackSet (int index, bool (*callback) (int index, uint8_t state));
+void cruReadCallbackSet (int index, uint8_t (*callback) (int index, uint8_t state));
 
 #endif
 

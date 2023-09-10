@@ -21,6 +21,7 @@
  */
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <time.h>
 
 #include "trace.h"
@@ -28,21 +29,66 @@
 
 #define MAX_CRU_BIT 4096
 
-struct
+/*  Maintains state of the CRU bits and call callbacks as required when bits
+ *  change.  Some bits have different behaviours when input vs output.  So we
+ *  implement two callbacks, one for each.  An input is when an external entity
+ *  modifies a bit (e.g. keyboard, VDP interrupt) where an output is when
+ *  software changes a bit (SBO, SBZ, LDCR).  There is also a read callback as
+ *  some bits need emulated software to generate their state (e.g. timer
+ *  countdown value).
+ *
+ *  The state reflects any active hardware input but the value read by software
+ *  may be different.  e.g. tms9901 timer read.  Also, writes by software may or
+ *  may not modify the state.  e.g. bit 3 set will not affect the input to bit
+ *  3.
+ */
+struct _cru
 {
-    BYTE state;
-    void (*callback) (int index, BYTE state);
-    int isInput;
-    int modified;
+    uint8_t state;
+
+    /*  All pins power up as inputs.  Outputting a value to a pin changes it to
+     *  an output until the next reset
+     */
+    bool isOutput;
+    /*  Define an input callback to be called when an entity external to the CPU
+     *  modifies a CRU bit.  The callback should return true if the change is to
+     *  be accepted.
+     */
+    bool (*inputCallback) (int index, uint8_t state);
+
+    /*  Define a callback to be called when software tries to modify a bit.  The
+     *  callback should return true if it has absorbed the change and the bit
+     *  should not be modified or false is the change should be stored.
+     */
+    bool (*outputCallback) (int index, uint8_t state);
+
+    /*  Define a read callback that is called when software reads a bit.  The
+     *  current state of the bit is passed as a parameter. The read function may
+     *  accept this value and return it, or over-ride it with its own value and
+     *  return that instead.
+     */
+    uint8_t (*readCallback) (int index, uint8_t state);
+    // int isInput;
+    bool modified;
 }
 cru[MAX_CRU_BIT];
 
-static void bitSet (int index, BYTE state)
-{
-    if (index != 2)
-        mprintf (LVL_CRU, "CRU: bit %04X set to %s\n", index<<1, state ? "ON" : "OFF");
+// static bool cruTimerMode;
+// static bool cruTimer;
 
-    mprintf (LVL_CRU, "CRU: bit %04X set to %s\n", index<<1, state ? "ON" : "OFF");
+// static void bitSet (int index, uint8_t state)
+// {
+// }
+
+/*  Input bits are set by an external actuator, e.g. keyboard */
+void cruBitInput (uint16_t base, int8_t bitOffset, uint8_t state)
+{
+    uint16_t index;
+
+    index = base / 2 + bitOffset;
+
+    // if (index > 21)
+        mprintf (LVL_CRU, "CRU: bit %d (>%04X) set to %d\n", index, index<<1, state);
 
     if (index >= MAX_CRU_BIT)
     {
@@ -50,56 +96,65 @@ static void bitSet (int index, BYTE state)
         halt ("out of range CRU");
     }
 
-    cru[index].state = state;
-    cru[index].modified = 1;
+    struct _cru *c = &cru[index];
 
-    if (cru[index].callback)
+    // cru[index].isInput = 1;
+    // bitSet (index, state);
+
+    c->state = state;
+    c->modified = true;
+
+    if (c->inputCallback)
     {
-        mprintf (LVL_CRU, "CRU: callback for bit %d\n", index);
-        cru[index].callback (index, state);
-        mprintf (LVL_CRU, "CRU: callback return for bit %d\n", index);
+        // mprintf (LVL_CRU, "CRU: callback for bit %d\n", index);
+        c->inputCallback (index, state);
+        // mprintf (LVL_CRU, "CRU: callback return for bit %d\n", index);
     }
-}
-
-void cruBitInput (WORD base, I8 bitOffset, BYTE state)
-{
-    WORD index;
-
-    index = base / 2;
-    index += bitOffset;
-
-    cru[index].isInput = 1;
-    bitSet (index, state);
 }
 
 /*
  *  Used by SBO and SBZ.  Base is R12
  */
-void cruBitSet (WORD base, I8 bitOffset, BYTE state)
+void cruBitOutput (uint16_t base, int8_t bitOffset, uint8_t state)
 {
-    WORD index;
+    uint16_t index;
 
-    index = base / 2;
-    index += bitOffset;
+    index = base / 2 + bitOffset;
 
-    if (cru[index].isInput)
+    if (index >= MAX_CRU_BIT)
     {
-        mprintf (LVL_CRU, "CRU set input bit ignored\n");
-        return;
+        printf ("Attempt to set bit %d\n", index);
+        halt ("out of range CRU");
     }
 
-    bitSet (index, state);
+    struct _cru *c = &cru[index];
+
+    c->modified = true;
+    c->isOutput = true;
+
+        // mprintf (LVL_CRU, "CRU: callback for bit %d\n", index);
+
+    /*  If there is no output callback or if the output callback returns false
+     *  to indicate the value should be stored, then store the value
+     */
+    if (!c->outputCallback || !c->outputCallback (index, state))
+        c->state = state;
+
+    // if (index > 21)
+        mprintf (LVL_CRU, "CRU: bit %d (>%04X) set to %d\n", index, index<<1, c->state);
+
+
+        // mprintf (LVL_CRU, "CRU: callback return for bit %d\n", index);
 }
 
 /*
  *  Used by TB.  Base is R12
  */
-BYTE cruBitGet (WORD base, I8 bitOffset)
+uint8_t cruBitGet (uint16_t base, int8_t bitOffset)
 {
-    WORD index;
+    uint16_t index;
 
-    index = base / 2;
-    index += bitOffset;
+    index = base / 2 + bitOffset;
 
     if (index >= MAX_CRU_BIT)
     {
@@ -107,18 +162,23 @@ BYTE cruBitGet (WORD base, I8 bitOffset)
         halt ("out of range CRU");
     }
 
-    if (cru[index].modified)
-        mprintf (LVL_CRU, "CRU: bit %04X get as %s\n", index<<1,
-                     cru[index].state ? "ON" : "OFF");
+    struct _cru *c = &cru[index];
 
-    cru[index].modified = 0;
-    return cru[index].state;
+    if (c->readCallback)
+        c->state = c->readCallback (index, c->state);
+
+    if (c->modified) // && index>21)
+        mprintf (LVL_CRU, "CRU: bit %d (>%04X) get as %d\n", index, index<<1,
+                     c->state);
+
+    c->modified = false;
+    return c->state;
 }
 
 /*
  *  Used by LDCR.  Base is R12
  */
-void cruMultiBitSet (WORD base, WORD data, int nBits)
+void cruMultiBitSet (uint16_t base, uint16_t data, int nBits)
 {
     int i;
 
@@ -129,26 +189,28 @@ void cruMultiBitSet (WORD base, WORD data, int nBits)
     if (!nBits)
         nBits = 16;
 
+    if (base >40)
     mprintf(LVL_CRU, "CRU multi set base=%04X data=%04X n=%d\n", base, data, nBits);
     for (i = 0; i < nBits; i++)
     {
-        cruBitSet (base, i, (data & (1<<i)) ? 1 : 0);
+        cruBitOutput (base, i, (data & (1<<i)) ? 1 : 0);
     }
-    mprintf(LVL_CRU, "CRU multi set done\n");
+    // mprintf(LVL_CRU, "CRU multi set done\n");
 }
 
 /*
  *  Used by STCR.  Base is R12
  */
-WORD cruMultiBitGet (WORD base, int nBits)
+uint16_t cruMultiBitGet (uint16_t base, int nBits)
 {
     int i;
-    WORD data = 0;
+    uint16_t data = 0;
 
     if (!nBits)
         nBits = 16;
 
-    mprintf(LVL_CRU, "CRU start multi get b=%x n=%d\n", base, nBits);
+    if (base >40)
+    mprintf(LVL_CRU, "CRU start multi get base=>%04X n=%d\n", base, nBits);
     for (i = 0; i < nBits; i++)
     {
         if (cruBitGet (base, i))
@@ -157,12 +219,23 @@ WORD cruMultiBitGet (WORD base, int nBits)
         }
     }
 
-    mprintf(LVL_CRU, "CRU multi get b=%x d=%x n=%d\n", base, data, nBits);
+    if (base >40)
+    mprintf(LVL_CRU, "CRU multi get base=>%04X d=%x n=%d\n", base, data, nBits);
     return data;
 }
 
-void cruCallbackSet (int index, void (*callback) (int index, BYTE state))
+void cruInputCallbackSet (int index, bool (*callback) (int index, uint8_t state))
 {
-    cru[index].callback = callback;
+    cru[index].inputCallback = callback;
+}
+
+void cruOutputCallbackSet (int index, bool (*callback) (int index, uint8_t state))
+{
+    cru[index].outputCallback = callback;
+}
+
+void cruReadCallbackSet (int index, uint8_t (*callback) (int index, uint8_t state))
+{
+    cru[index].readCallback = callback;
 }
 

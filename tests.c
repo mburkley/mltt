@@ -98,24 +98,24 @@ static unsigned char testmem[0x200] =
     0x00, 0x00
 };
 
-WORD memReadB(WORD addr)
+uint16_t memReadB(uint16_t addr)
 {
     printf("# [%s %x=%x]\n", __func__, addr, testmem[addr]);
     return testmem[addr];
 }
 
-void memWriteB(WORD addr, BYTE data)
+void memWriteB(uint16_t addr, uint8_t data)
 {
     testmem[addr] = data;
     printf("# [%s %x=%x]\n", __func__, addr, data);
 }
 
-WORD memReadW(WORD addr)
+uint16_t memReadW(uint16_t addr)
 {
     return testmem[addr] << 8 | testmem[addr+1];
 }
 
-void memWriteW(WORD addr, WORD data)
+void memWriteW(uint16_t addr, uint16_t data)
 {
     testmem[addr] = data >> 8;
     testmem[addr+1] = data & 0xff;
@@ -178,7 +178,7 @@ int main(void)
     result (memReadW (0x102), 0x02FF);
 
     if (cruBitGet (0, 2))
-        cruBitSet (0, 2, 0);
+        cruBitInput (0, 2, 0);
 
     cpuExecute (cpuFetch());
     result (memReadW (0x102), 0xFFFF);

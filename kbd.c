@@ -34,6 +34,7 @@
 
 #include "trace.h"
 #include "kbd.h"
+#include "cru.h"
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
@@ -136,6 +137,52 @@ static void decodeEvent (struct input_event ev)
                    ev.value == 0 ? "UP" : "DOWN", ev.code);
 
     }
+}
+
+static int kbdColumn;
+
+bool kbdColumnUpdate (int index, uint8_t value)
+{
+    if (index < 18 || index > 20)
+    {
+        printf ("bad KBD col CRU index %d\n", index);
+        halt ("bad KBD col");
+    }
+
+    index -= 18;
+    int bit = 1 << index;
+
+    kbdColumn &= ~bit;
+
+    if (value)
+        kbdColumn |= bit;
+
+    int kbdRow;
+    // int col = (cruBitGet(0, 20)<<2)|(cruBitGet(0, 19)<<1)|cruBitGet(0, 18);
+
+    // mprintf (LVL_CONSOLE, "KBD scan col %d (%d,%d,%d)\n", col, cruBitGet(0,18),
+    // cruBitGet(0,19),cruBitGet(0,20));
+    mprintf (LVL_CONSOLE, "KBD scan col %d\n", kbdColumn);
+
+    for (kbdRow = 0; kbdRow < KBD_COL; kbdRow++)
+    {
+        int bit = keyState[kbdRow][kbdColumn] ? 0 : 1;
+
+        if (keyState[kbdRow][kbdColumn] != lastState[kbdRow][kbdColumn])
+        {
+            mprintf (LVL_KBD, "%s scan kbdRow/kbdColumn %d/%d = %d\n", __func__, kbdRow, kbdColumn, keyState[kbdRow][kbdColumn]);
+            lastState[kbdRow][kbdColumn] = keyState[kbdRow][kbdColumn];
+        }
+
+
+        if (!bit)
+            mprintf (LVL_CONSOLE, "KBD col %d, row %d active\n", kbdColumn, kbdRow);
+
+        cruBitInput (0, 3+kbdRow, bit);
+    }
+
+    /*  Return false as we want this value to be stored */
+    return false;
 }
 
 void kbdPoll (void)

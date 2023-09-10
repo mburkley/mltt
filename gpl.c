@@ -109,8 +109,8 @@ static MME mnemonics[] =
 struct _scratchPadUsage
 {
     char *mnemonic;
-    WORD addrStart;
-    WORD addrEnd;
+    uint16_t addrStart;
+    uint16_t addrEnd;
     char *description;
 }
 scratchPadUsage[] =
@@ -209,7 +209,7 @@ static struct
     bool fmtMode;
     operand src;
     operand dst;
-    BYTE operation[10];
+    uint8_t operation[10];
 }
 gplState;
 
@@ -285,7 +285,7 @@ static void interpret (void)
 }
 
 /*  Returns 1 byte was consumed or 0 if don't want it */
-static int decodeOperand (operand *op, BYTE data)
+static int decodeOperand (operand *op, uint8_t data)
 {
     mprintf(LVL_GPLDBG, "Process operand %s\n", op==&gplState.src ? "SRC" : "DST");
     /*  We don't do bitwise interpretation of values if they are immediate, they
@@ -365,7 +365,7 @@ static int decodeOperand (operand *op, BYTE data)
     return 0;
 }
 
-static void decodeNextByte (BYTE data)
+static void decodeNextByte (uint8_t data)
 {
     /*  Decoding second and subsequent bytes of an instruction */
     gplState.operation[gplState.bytesStored++] = data;
@@ -390,7 +390,7 @@ static void decodeNextByte (BYTE data)
     }
 }
 
-static void decodeFirstByte (WORD addr, BYTE data)
+static void decodeFirstByte (uint16_t addr, uint8_t data)
 {
     /*  Decoding first byte of an instruction, reset the state and store the
      *  first byte
@@ -496,7 +496,7 @@ static void decodeFirstByte (WORD addr, BYTE data)
     }
 }
 
-void gplDisassemble (WORD addr, BYTE data)
+void gplDisassemble (uint16_t addr, uint8_t data)
 {
     /*  Ignore a byte fetch if CPU address is 0x7A as this is just checking to
      *  see if a GROM is present 
@@ -549,7 +549,7 @@ void gplDisassemble (WORD addr, BYTE data)
         interpret();
 }
 
-void gplShowScratchPad (WORD addr)
+void gplShowScratchPad (uint16_t addr)
 {
     for (int i = 0; i < NSCRATCH; i++)
     {
@@ -564,7 +564,7 @@ void gplShowScratchPad (WORD addr)
     }
 }
 
-WORD gplScratchPadNext (WORD addr)
+uint16_t gplScratchPadNext (uint16_t addr)
 {
     for (int i = 0; i < NSCRATCH; i++)
     {

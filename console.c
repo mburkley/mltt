@@ -240,7 +240,7 @@ bool consoleShow (int argc, char *argv[])
     {
         int addr;
         int bytes = 1;
-        WORD data;
+        uint16_t data;
 
         if (argc < 3 || !parseValue (argv[2], &addr))
             return false;

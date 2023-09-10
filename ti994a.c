@@ -52,11 +52,12 @@
 #include "timer.h"
 #include "interrupt.h"
 #include "gpl.h"
+#include "cassette.h"
 #include "ti994a.h"
 
 typedef union
 {
-    BYTE b[0x2000];
+    uint8_t b[0x2000];
 }
 memPage;
 
@@ -102,7 +103,7 @@ memMap mmio[] =
 
 bool ti994aRunFlag;
 
-static void ti994aPrintScratchMemory (WORD addr, int len)
+static void ti994aPrintScratchMemory (uint16_t addr, int len)
 {
     int i, j;
 
@@ -134,11 +135,11 @@ void ti994aShowScratchPad (bool showGplUsage)
 
     if (showGplUsage)
     {
-        WORD addr = 0x8300;
+        uint16_t addr = 0x8300;
 
         while (addr >= 0x8300 && addr < 0x8400)
         {
-            WORD nextAddr = gplScratchPadNext (addr);
+            uint16_t nextAddr = gplScratchPadNext (addr);
             ti994aPrintScratchMemory (addr - 0x8300, nextAddr - addr);
             gplShowScratchPad(addr);
             addr = nextAddr;
@@ -158,7 +159,7 @@ static memMap *memMapEntry (int addr)
     return &memory[addr>>13];
 }
 
-WORD memRead(WORD addr, int size)
+uint16_t memRead(uint16_t addr, int size)
 {
     memMap *p = memMapEntry (addr);
 
@@ -198,7 +199,7 @@ error:
     return 0xff;
 }
 
-void memWrite(WORD addr, WORD data, int size)
+void memWrite(uint16_t addr, uint16_t data, int size)
 {
     memMap *p = memMapEntry (addr);
 
@@ -251,27 +252,27 @@ error:
     halt ("write");
 }
 
-WORD memReadB(WORD addr)
+uint16_t memReadB(uint16_t addr)
 {
     return memRead (addr, 1);
 }
 
-void memWriteB(WORD addr, BYTE data)
+void memWriteB(uint16_t addr, uint8_t data)
 {
     return memWrite (addr, data, 1);
 }
 
-WORD memReadW(WORD addr)
+uint16_t memReadW(uint16_t addr)
 {
     return memRead (addr, 2);
 }
 
-void memWriteW(WORD addr, WORD data)
+void memWriteW(uint16_t addr, uint16_t data)
 {
     return memWrite (addr, data, 2);
 }
 
-void ti994aMemLoad (char *file, WORD addr, WORD length)
+void ti994aMemLoad (char *file, uint16_t addr, uint16_t length)
 {
     FILE *fp;
     int i;
@@ -288,7 +289,7 @@ printf("%s %s %x %x\n", __func__, file, addr, length);
     {
         p = &memory[i>>13];
 
-        if (fread (p->m->b, sizeof (BYTE), 0x2000, fp) != 0x2000)
+        if (fread (p->m->b, sizeof (uint8_t), 0x2000, fp) != 0x2000)
         {
             halt ("ROM file read failure");
         }
@@ -297,66 +298,15 @@ printf("%s %s %x %x\n", __func__, file, addr, length);
     fclose (fp);
 }
 
-void ti994aKeyboardScan (int index, BYTE state)
-{
-    int row;
-    int col = (cruBitGet(0, 20)<<2)|(cruBitGet(0, 19)<<1)|cruBitGet(0, 18);
-
-    mprintf (LVL_CONSOLE, "KBD scan col %d (%d,%d,%d)\n", col, cruBitGet(0,18),
-    cruBitGet(0,19),cruBitGet(0,20));
-    for (row = 0; row < KBD_COL; row++)
-    {
-        int bit = kbdGet (row, col) ? 0 : 1;
-
-         if (!bit)
-             mprintf (LVL_CONSOLE, "KBD col %d, row %d active\n", col, row);
-
-        cruBitInput (0, 3+row, bit);
-    }
-}
-
-void ti994aInterrupt (int index, BYTE state)
-{
-    /*  Generate an interrupt for the each cru bit
-     *  that is set.
-     */
-    int i;
-    bool raise = false;
-
-    /*  Interrupts to the TMS9900 are hardwired to always generate interrupt
-     *  level 1 regardless of what device generated the interrupt.  So if any
-     *  bit is low, we raise interrupt level 1, otherwise lower it.
-     */
-    for (i = 1; i <= 2; i++)
-        if (!cruBitGet (0, i))
-            raise = true;
-
-    if (raise)
-        interruptRaise (1);
-    else
-        interruptLower (1);
-}
-
 void ti994aVideoInterrupt (void)
 {
-    static int count;
     vdpRefresh(0);
     soundUpdate();
 
     /*
      *  Clear bit 2 to indicate VDP interrupt
      */
-
-    if (cruBitGet (0, 2))
-    {
-        cruBitSet (0, 2, 0);
-    }
-
-    if (++count == 50)
-    {
-        printf (".");
-        count = 0;
-    }
+    cruBitInput (0, IRQ_VDP, 0);
 }
 
 void ti994aRun (int instPerInterrupt)
@@ -370,18 +320,41 @@ void ti994aRun (int instPerInterrupt)
            !breakPointHit (cpuGetPC()) &&
            !conditionTrue ())
     {
-        cpuExecute (cpuFetch());
+        uint16_t opcode = cpuFetch ();
+        bool shouldBlock = false;
+        cpuExecute (opcode);
+        count++;
 
+        /*  Instruction >10FF is an infinite loop.  It is used to wait for an
+         *  interrupt during cassette operations.  There is no need to actually
+         *  spin, just go straight to a blocking read on the interrupt timer.
+         *  If the PC is 0900 this is the ISR, so the instruction was
+         *  interrupted, so don't block again.
+         */
+        if (opcode == 0x10FF && cpuGetPC() != 0x0900)
+            shouldBlock = true;
+
+        /*  Instruction >0300 is LIMI.  If the interrupt mask is non zero after
+         *  executing this instruction, then the console has enabled interrupts,
+         *  which we can assume means it is executing code that is not timing
+         *  critical.  So we can use this time to check if we should take a
+         *  pause.
+         */
         /*  To approximate execution speed at around 10 clock cycles per
          *  instruction with a 3MHz clock, we expect to execute about 2000
          *  instructions per VDP interrupt so do a blocking timer read once
          *  count reaches this value
          */
-        if (count++ == instPerInterrupt)
+        if (opcode == 0x0300 && cpuGetIntMask() > 0 && count >= instPerInterrupt)
+        {
+            shouldBlock = true;
+            count -= instPerInterrupt;
+        }
+
+        if (shouldBlock)
         {
             kbdPoll ();
             timerPoll ();
-            count = 0;
         }
 
         watchShow();
@@ -392,57 +365,43 @@ void ti994aRun (int instPerInterrupt)
 
 void ti994aInit (void)
 {
-    /*  Start a 20-msec (50Hz) recurring timer to generate video interrupts */
-    timerStart (20, ti994aVideoInterrupt);
+    tms9901Init ();
+    timerInit ();
 
-    cruBitSet (0, 0, 0); // control
-    cruBitSet (0, 1, 1); // externl irq
-    cruBitSet (0, 2, 1); // /VDP irq
-    cruBitInput (0, 3, 1); // kbd = line
-    cruBitInput (0, 4, 1); // kbd space line
-    cruBitInput (0, 5, 1); // kbd enter line
-    cruBitInput (0, 6, 1); // kbd O line
-    cruBitInput (0, 7, 1); // kbd FCTN line
-    cruBitInput (0, 8, 1); // kbd SHIFT line
-    cruBitInput (0, 9, 1); // kbd CTRL line
-    cruBitInput (0, 10, 1); // kbd Z line
-    cruBitInput (0, 11, 1); // not used
-    cruBitInput (0, 12, 1); // reserved
-    cruBitInput (0, 13, 1); // not used
-    cruBitInput (0, 14, 1); // not used
-    cruBitInput (0, 15, 1); // not used
-    cruBitInput (0, 16, 0); // reserved
-    cruBitInput (0, 17, 0); // reserved
-    cruBitSet (0, 18, 0); // bit 2 kbd sel
-    cruBitSet (0, 19, 0); // bit 1 kbd sel
-    cruBitSet (0, 20, 0); // bit 0 kbd sel
-    cruBitSet (0, 21, 0); // alpha lock column select
-    cruBitSet (0, 22, 0); // cassette motor 1
-    cruBitSet (0, 23, 0); // cassette motor 2
-    cruBitSet (0, 24, 0); // audio gate
-    cruBitSet (0, 25, 0); // tape output
-    cruBitInput (0, 26, 0); // reserved
-    cruBitInput (0, 27, 0); // tape input
-    cruBitSet (0, 28, 0); // not used
-    cruBitSet (0, 29, 0); // not used
-    cruBitSet (0, 30, 0); // not used
-    cruBitSet (0, 31, 0); // not used
+    /*  Start a 20-msec (20,000 usec / 50Hz) recurring timer to generate video interrupts */
+    timerStart (TIMER_VDP, 20000000, ti994aVideoInterrupt);
+
     int i;
 
-    /*  Attach handlers to CRU bits that generate interrupts */
-    for (i = 1; i <= 2; i++)
-        cruCallbackSet (i, ti994aInterrupt);
+    /*  Attach handler to bit 0 to set mode */
+    cruOutputCallbackSet (0, tms9901ModeSet);
 
-    /*  Attach handlers to CRU bits that are for keyboard input.  Note to avoid
-     *  evaluating the column every time a bit is written, we only set a call on
-     *  the most significant bit as it will be the last bit to be written
+    /*  Attach handlers to CRU bits that generate interrupts (input), mask
+     *  interrupts (output in interrupt mode) or set the clock (output in timer
+     *  mode).
      */
-    for (i = 20; i <= 20; i++)
-        cruCallbackSet (i, ti994aKeyboardScan);
+    for (i = 1; i <= 15; i++)
+    {
+        cruBitInput (0, i, 1);  // Initial state inactive (active low)
+        cruInputCallbackSet (i, tms9901Interrupt);
+        cruOutputCallbackSet (i, tms9901BitSet);
+        cruReadCallbackSet (i, tms9901BitGet);
+    }
+
+    /*  Attach handlers to CRU bits that are for keyboard input column select.
+     */
+    for (i = 18; i <= 20; i++)
+        cruOutputCallbackSet (i, kbdColumnUpdate);
+
+    cruOutputCallbackSet (22, cassetteMotor);
+    cruOutputCallbackSet (23, cassetteMotor);
+    cruOutputCallbackSet (24, cassetteAudioGate);
+    cruOutputCallbackSet (25, cassetteTapeOutput);
+    cruReadCallbackSet (27, cassetteTapeInput);
 }
 
 void ti994aClose (void)
 {
-    timerStop ();
+    timerClose ();
 }
 

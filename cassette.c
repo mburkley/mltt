@@ -20,17 +20,33 @@
  * SOFTWARE.
  */
 
-#ifndef __GROM_H
-#define __GROM_H
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "cpu.h"
+#include "sound.h"
+#include "interrupt.h"
+#include "cassette.h"
 
-int gromRead (int addr, int size);
-uint8_t gromData (int addr);
-uint16_t gromAddr (void);
-void gromWrite (int addr, int data, int size);
-void gromShowStatus (void);
-void gromLoad (char *name, int start, int len);
+bool cassetteMotor(int index, uint8_t value)
+{
+    printf ("cassette motor %d set to %d\n", index-21, value);
+    return false;
+}
 
-#endif
+bool cassetteAudioGate(int index, uint8_t value)
+{
+    printf ("cassette audio gate set to %d\n", value);
+    return false;
+}
+bool cassetteTapeOutput(int index, uint8_t value)
+{
+    soundModulationValue (value);
+    return false;
+}
+uint8_t cassetteTapeInput(int index, uint8_t value)
+{
+    printf ("cassette input\n");
+    return false;
+}
 

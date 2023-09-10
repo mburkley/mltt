@@ -29,10 +29,10 @@
 
 struct
 {
-    WORD addr;
-    BYTE lowByteGet;
-    BYTE lowByteSet;
-    BYTE b[0x8000];
+    uint16_t addr;
+    uint8_t lowByteGet;
+    uint8_t lowByteSet;
+    uint8_t b[0x8000];
 }
 gRom;
 
@@ -52,7 +52,7 @@ int gromRead (int addr, int size)
         gRom.lowByteGet = 0;
         gRom.lowByteSet = 0;
 
-        BYTE result;
+        uint8_t result;
 
         if (gRom.addr > 0x7FFF)
         {
@@ -100,7 +100,7 @@ void gromWrite (int addr, int data, int size)
     switch (addr)
     {
     case 2:
-        mprintf (LVL_GROM, "GROMAD BYTE write to 9C02\n");
+        mprintf (LVL_GROM, "GROMAD uint8_t write to 9C02\n");
         if (gRom.lowByteSet)
         {
             gRom.addr = (gRom.addr & 0xFF00) | data;
@@ -122,12 +122,12 @@ void gromWrite (int addr, int data, int size)
     }
 }
 
-BYTE gromData (int addr)
+uint8_t gromData (int addr)
 {
     return gRom.b[addr];
 }
 
-WORD gromAddr (void)
+uint16_t gromAddr (void)
 {
     return gRom.addr;
 }
@@ -154,7 +154,7 @@ void gromLoad (char *name, int start, int len)
         exit (1);
     }
 
-    if (fread (gRom.b + start, sizeof (BYTE), len, fp) != len)
+    if (fread (gRom.b + start, sizeof (uint8_t), len, fp) != len)
     {
         halt ("GROM file read failure");
     }

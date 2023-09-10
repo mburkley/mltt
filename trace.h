@@ -29,10 +29,11 @@
 #define LVL_GROM        0x008
 #define LVL_UNASM       0x010
 #define LVL_CRU         0x020
-#define LVL_KBD         0x040
-#define LVL_SOUND       0x080
-#define LVL_GPL         0x100
-#define LVL_GPLDBG      0x200
+#define LVL_INTERRUPT   0x040
+#define LVL_KBD         0x080
+#define LVL_SOUND       0x100
+#define LVL_GPL         0x200
+#define LVL_GPLDBG      0x400
 
 int mprintf (int level, char *s, ...);
 void halt (char *s);

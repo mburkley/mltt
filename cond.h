@@ -25,9 +25,9 @@
 
 #include "cpu.h"
 
-void conditionAdd (WORD addr, char *comp, WORD value);
+void conditionAdd (uint16_t addr, char *comp, uint16_t value);
 void conditionList (void);
-void conditionRemove (WORD addr);
+void conditionRemove (uint16_t addr);
 int conditionTrue (void);
 
 #endif

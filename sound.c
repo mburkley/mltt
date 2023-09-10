@@ -49,11 +49,12 @@
 
 /* At 44,100Hz we need to generate 882 samples per call as we are called every
  * 20msec.
- *
- * We seem to be getting underruns.  Upping to 1000 to debug.
  */
-// #define SAMPLE_COUNT 882 // 44,100 divided by 50
-#define SAMPLE_COUNT 1000 // 44,100 divided by 50
+#define SAMPLE_COUNT 882 // 44,100 divided by 50
+
+/* We seem to be getting underruns.  Upping to 1000 to debug.
+ */
+// #define SAMPLE_COUNT 1000 // 44,100 divided by 50
 
 /* We are summing up to 4 sound sources to generate a value from -32768 to +32767
  * so we assume a maximum volume (minimum attenuation) of any one source to have
@@ -61,9 +62,9 @@
  */
 #define SAMPLE_AMPLITUDE 546 // 8191 div 15
 
-/* Set a threshold for "quietness" where it is safe to change amplitudes to
- * avoid "pops"
- */
+#define AUX_SAMPLE_FIFO (SAMPLE_COUNT*50)
+
+#define AUX_AMPLITUDE 8191
 
 typedef struct
 {
@@ -79,6 +80,10 @@ typedef struct
 }
 toneInfo;
 
+static short overlayAudio[AUX_SAMPLE_FIFO];
+static int overlayAudioHead;
+static int overlayAudioTail;
+
 static toneInfo tones[4];
 
 /*  XNOR truth table */
@@ -87,20 +92,8 @@ int xnor[4] = { 1, 0, 0, 1 };
 static pa_simple *pulseAudioHandle;
 static pa_sample_spec pulseAudioSpec;
 
-/*  Play a sample to pulse audio.  We are in stereo (2-channel) so play the same
- *  data to each channel.
- */
-static void sampleToPulseAudio (short data)
-{
-    short sample[2];
-    sample[0] = data;
-    sample[1] = data;
-    pa_simple_write (pulseAudioHandle, &sample, 4, NULL);
-}
-
 static short generateTone (toneInfo *tone, bool noise)
 {
-    double pi = 3.14159;
     short sample;
     int bit;
 
@@ -118,7 +111,7 @@ static short generateTone (toneInfo *tone, bool noise)
     if (tone->amplitude == 0 || tone->period == 0)
         return 0;
 
-    double angle = (2 * pi * tone->counter) / tone->period;
+    double angle = (2 * M_PI * tone->counter) / tone->period;
 
     if (noise)
     {
@@ -189,6 +182,7 @@ void soundUpdate (void)
 {
     int i;
     bool anyActive = false;
+    bool overlay = false;
 
     if (pulseAudioHandle == NULL)
         return;
@@ -203,14 +197,37 @@ void soundUpdate (void)
         statusSoundUpdate (i, tones[i].amplitude / 82, tones[i].period);
     }
 
-    if (!anyActive)
+    int overlaySampleCount = (AUX_SAMPLE_FIFO + overlayAudioHead - overlayAudioTail) % AUX_SAMPLE_FIFO;
+
+    if (overlaySampleCount >= SAMPLE_COUNT)
+        overlay = true;
+
+    if (!anyActive && !overlay)
         return;
 
+    /*  Create an array of samples to play to pulse audio.  We are in stereo
+     *  (2-channel) so play the same data to each channel.  The values are
+     *  signed 16-bit so for two channels we have 4 bytes for sample.
+     */
+    int16_t sampleData[SAMPLE_COUNT][2];
     for (i = 0; i < SAMPLE_COUNT; i++)
     {
-        short sample = generateSample ();
-        sampleToPulseAudio (sample);
+        int16_t sample = generateSample ();
+
+        if (overlay)
+        {
+            sample += overlayAudio[overlayAudioTail];
+            overlayAudioTail++;
+            overlayAudioTail %= AUX_SAMPLE_FIFO;
+        }
+
+        sampleData[i][0] =
+        sampleData[i][1] = sample;
+        // printf("{%d}",sample);
     }
+
+    // printf ("\n[%d-%d=%d]\n", overlaySampleCount, SAMPLE_COUNT, (AUX_SAMPLE_FIFO + overlayAudioHead - overlayAudioTail) % AUX_SAMPLE_FIFO);
+    pa_simple_write (pulseAudioHandle, sampleData, 4*SAMPLE_COUNT, NULL);
 }
 
 void soundInit (void)
@@ -296,4 +313,60 @@ void soundWrite (int addr, int data, int size)
     }
 }
 
+/*
+ *  Create audio overlay (cassette basically).  Modulates a sine wave based on
+ *  the square wave from the cassette output.  Uses a 3-bit shift register to
+ *  determine the context of the bit.  A 0 generates the bottom half of a sine
+ *  (PI to 2PI), a 1 generates the top half (0 to PI).  If it is different from
+ *  previous and next then frequency is doubled.  If it is the same as previous
+ *  then it is the second quarter of a sine wave.  If it is the same as next
+ *  then it is the first quarter of sine wave.
+ */
+struct _encoding
+{
+    int start;
+    int duration;
+}
+encoding[] =
+{
+    { 0, 0 }, // 000 invalid
+    { 3, 1 }, // 001 play freq 270 to 360
+    { 0, 2 }, // 010 play freq*2 0 to 180
+    { 0, 1 }, // 011 play freq   0 to 90
+    { 2, 1 }, // 100 play freq 180 to 270
+    { 2, 2 }, // 101 play freq*2 180 to 360
+    { 1, 1 }, // 110 play freq 90 to 180
+    { 0, 0 }  // 111 invalid
+};
+
+static int modulationState;
+static int modulationNext;
+
+void soundModulation (int duration)
+{
+    static double sampleCount = 0;
+
+    sampleCount += 1.0 * AUDIO_FREQUENCY * duration / 1000000000.0;
+    int samples = (int) sampleCount;
+    sampleCount -= samples;
+
+    // printf("%d", modulationState);
+    double angle = (M_PI / 2.0) * encoding[modulationState].start;
+    double change = (M_PI / 2.0) * encoding[modulationState].duration / samples;
+
+    for (int i = 0; i < samples; i++)
+    {
+        overlayAudio[overlayAudioHead++] = 8191 * sin (angle + i * change);
+        overlayAudioHead %= AUX_SAMPLE_FIFO;
+    }
+
+    modulationState <<= 1;
+    modulationState |= modulationNext;
+    modulationState &= 0x07;
+}
+
+void soundModulationValue (int value)
+{
+    modulationNext = value;
+}
 

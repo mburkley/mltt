@@ -41,13 +41,13 @@
 static const char *unasmText[65536];
 static const char *currText;
 
-void (*unasmPreExecHook)(WORD pc, WORD data, WORD opMask, int type,
-                     WORD sMode, WORD sReg, WORD sArg,
-                     WORD dMode, WORD dReg, WORD dArg,
-                     WORD count, WORD offset);
-void (*unasmPostExecHook)(WORD pc, int type, bool isByte, bool store, WORD sMode,
-                          WORD sAddr, WORD dMode, WORD dReg, WORD addr,
-                          WORD data, WORD wp);
+void (*unasmPreExecHook)(uint16_t pc, uint16_t data, uint16_t opMask, int type,
+                     uint16_t sMode, uint16_t sReg, uint16_t sArg,
+                     uint16_t dMode, uint16_t dReg, uint16_t dArg,
+                     uint16_t count, uint16_t offset);
+void (*unasmPostExecHook)(uint16_t pc, int type, bool isByte, bool store, uint16_t sMode,
+                          uint16_t sAddr, uint16_t dMode, uint16_t dReg, uint16_t addr,
+                          uint16_t data, uint16_t wp);
 
 extern int outputLevel;
 
@@ -78,7 +78,7 @@ static const char *parseComment (char type, int *len)
     return ret;
 }
 
-static char * printOper (WORD mode, WORD reg, WORD arg)
+static char * printOper (uint16_t mode, uint16_t reg, uint16_t arg)
 {
     static char result[20];
 
@@ -112,8 +112,8 @@ static char * printOper (WORD mode, WORD reg, WORD arg)
     return result;
 }
 
-static void unasmTwoOp (WORD opCode, WORD pc, WORD sMode, WORD sReg,
-                        WORD sAddr, WORD dMode, WORD dReg, WORD dAddr)
+static void unasmTwoOp (uint16_t opCode, uint16_t pc, uint16_t sMode, uint16_t sReg,
+                        uint16_t sAddr, uint16_t dMode, uint16_t dReg, uint16_t dAddr)
 {
     char *name = "****";
     char op[20];
@@ -164,8 +164,8 @@ static void unasmTwoOp (WORD opCode, WORD pc, WORD sMode, WORD sReg,
     mprintf (LVL_UNASM, "%-30.30s", out);
 }
 
-static void unasmOneOp (WORD opCode, WORD pc, WORD sMode, WORD sReg,
-                        WORD sAddr)
+static void unasmOneOp (uint16_t opCode, uint16_t pc, uint16_t sMode, uint16_t sReg,
+                        uint16_t sAddr)
 {
     char *name = "****";
     char out[31];
@@ -201,7 +201,7 @@ static void unasmOneOp (WORD opCode, WORD pc, WORD sMode, WORD sReg,
     mprintf (LVL_UNASM, "%-30.30s", out);
 }
 
-static void unasmImmed (WORD opCode, WORD pc, WORD sReg)
+static void unasmImmed (uint16_t opCode, uint16_t pc, uint16_t sReg)
 {
     char out[31];
     char *name = "****";
@@ -252,7 +252,7 @@ static void unasmImmed (WORD opCode, WORD pc, WORD sReg)
     mprintf (LVL_UNASM, "%-30.30s", out);
 }
 
-static void unasmJump (WORD opCode, WORD pc, I8 offset, bool cond)
+static void unasmJump (uint16_t opCode, uint16_t pc, int8_t offset, bool cond)
 {
     // char out[31];
     char *name = "****";
@@ -300,10 +300,10 @@ static void unasmJump (WORD opCode, WORD pc, I8 offset, bool cond)
     }
 }
 
-static void preExecHook (WORD pc, WORD data, WORD opMask, int type,
-                     WORD sMode, WORD sReg, WORD sArg,
-                     WORD dMode, WORD dReg, WORD dArg,
-                     WORD count, WORD offset)
+static void preExecHook (uint16_t pc, uint16_t data, uint16_t opMask, int type,
+                     uint16_t sMode, uint16_t sReg, uint16_t sArg,
+                     uint16_t dMode, uint16_t dReg, uint16_t dArg,
+                     uint16_t count, uint16_t offset)
 {
     const char *comment;
     int len;
@@ -351,9 +351,9 @@ static void preExecHook (WORD pc, WORD data, WORD opMask, int type,
     }
 }
 
-static void postExecHook (WORD pc, int type, bool isByte, bool store, WORD sMode,
-                          WORD sAddr, WORD dMode, WORD dReg, WORD addr,
-                          WORD data, WORD regData)
+static void postExecHook (uint16_t pc, int type, bool isByte, bool store, uint16_t sMode,
+                          uint16_t sAddr, uint16_t dMode, uint16_t dReg, uint16_t addr,
+                          uint16_t data, uint16_t regData)
 {
     char text[30] = "";
 
