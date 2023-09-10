@@ -306,6 +306,7 @@ void ti994aVideoInterrupt (void)
     /*
      *  Clear bit 2 to indicate VDP interrupt
      */
+    mprintf (LVL_INTERRUPT, "IRQ_VDP lowered\n");
     cruBitInput (0, IRQ_VDP, 0);
 }
 
@@ -334,18 +335,12 @@ void ti994aRun (int instPerInterrupt)
         if (opcode == 0x10FF && cpuGetPC() != 0x0900)
             shouldBlock = true;
 
-        /*  Instruction >0300 is LIMI.  If the interrupt mask is non zero after
-         *  executing this instruction, then the console has enabled interrupts,
-         *  which we can assume means it is executing code that is not timing
-         *  critical.  So we can use this time to check if we should take a
-         *  pause.
-         */
         /*  To approximate execution speed at around 10 clock cycles per
          *  instruction with a 3MHz clock, we expect to execute about 2000
          *  instructions per VDP interrupt so do a blocking timer read once
          *  count reaches this value
          */
-        if (opcode == 0x0300 && cpuGetIntMask() > 0 && count >= instPerInterrupt)
+        if (count >= instPerInterrupt)
         {
             shouldBlock = true;
             count -= instPerInterrupt;

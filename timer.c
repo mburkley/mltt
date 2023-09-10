@@ -78,12 +78,15 @@ void timerStart (int index, int nsec, void (*callback)(void))
     timers[index].running = (nsec>0) ? true : false;
 
     timerReset (index, nsec);
+    mprintf (LVL_INTERRUPT, "Timer %d running with interval %d nsec\n",
+             index, nsec);
 }
 
 void timerStop (int index)
 {
     // printf ("stop-%d\n", index);
     timerReset (index, 0);
+    mprintf (LVL_INTERRUPT, "Timer %d stopped\n");
 }
 
 /*  Do a blocking read on the timers.  This synchronises the system at 50Hz or a
