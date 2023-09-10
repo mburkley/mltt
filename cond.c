@@ -41,8 +41,8 @@
 
 struct
 {
-    WORD    addr;
-    WORD    value;
+    uint16_t    addr;
+    uint16_t    value;
     int cond;
 }
 c[MAX];
@@ -77,7 +77,7 @@ static int conditionEval (int i)
     return 0;
 }
 
-void conditionAdd (WORD addr, char *comp, WORD value)
+void conditionAdd (uint16_t addr, char *comp, uint16_t value)
 {
     int         i;
 
@@ -128,7 +128,7 @@ void conditionList (void)
     }
 }
 
-void conditionRemove (WORD addr)
+void conditionRemove (uint16_t addr)
 {
     int         i;
 

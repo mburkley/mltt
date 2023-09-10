@@ -53,11 +53,12 @@ keyboard /dev/input/event22
 # 004=vdp               - show VDP debug info
 # 008=grom              - show GROM access debug info
 # 010=unasm             - Show disassembly as running
-# 020=cru               - show CRU debug infou
-# 040=kbd               - show keyboard debug info
-# 080=sound             - show sound instructions, frequencies, etc
-# 100=gpl               - dissamble GPL instructions
-# 200=gpl debug         - show debug of GPL disassembly
+# 020=cru               - show CRU debug info
+# 040=interrupts        - show interrupt debug info
+# 080=kbd               - show keyboard debug info
+# 100=sound             - show sound instructions, frequencies, etc
+# 200=gpl               - dissamble GPL instructions
+# 400=gpl debug         - show debug of GPL disassembly
 level 0x000
 
 # Initialise the CPU
@@ -75,8 +76,10 @@ comments unasm.txt
 # Set pixel size
 pixelsize 4
 
-# Enable video output
+# Enable status pane
 # status
+
+# Enable video output
 video
 
 # Enable audio output

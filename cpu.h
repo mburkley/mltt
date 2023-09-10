@@ -28,17 +28,8 @@
  *  that short is 16 bit in either and long is 32 bit in either.
  */
 
-typedef unsigned int    DWORD;
-typedef unsigned short  WORD;
-typedef unsigned char   BYTE;
-
-typedef int             I32;
-typedef short           I16;
-typedef char            I8;
-
-typedef unsigned int    U32;
-typedef unsigned short  U16;
-typedef unsigned char   U8;
+#include <stdint.h>
+#include <stdbool.h>
 
 #define AMODE_NORMAL    0
 #define AMODE_INDIR     1
@@ -134,14 +125,15 @@ typedef unsigned char   U8;
 #define FLAG_XOP 0x0200
 #define FLAG_MSK 0x000F
 
-WORD cpuRead(WORD addr);
+uint16_t cpuRead(uint16_t addr);
 void cpuShowStatus(void);
 void cpuShowStWord(void);
 void cpuExecute (int data);
-WORD cpuFetch (void);
-WORD cpuGetPC (void);
-WORD cpuGetWP (void);
-WORD cpuGetST (void);
+uint16_t cpuFetch (void);
+uint16_t cpuGetPC (void);
+uint16_t cpuGetWP (void);
+uint16_t cpuGetST (void);
+uint16_t cpuGetIntMask (void);
 void cpuInterrupt (int level);
 void cpuBoot (void);
 

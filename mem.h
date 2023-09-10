@@ -25,12 +25,12 @@
 
 #include "cpu.h"
 
-WORD memReadW(WORD addr);
-void memWriteW(WORD addr, WORD data);
-WORD memReadB(WORD addr);
-void memWriteB(WORD addr, BYTE data);
-WORD * memWordAddr (WORD addr);
-void memLoad (char *file, WORD addr, WORD length);
+uint16_t memReadW(uint16_t addr);
+void memWriteW(uint16_t addr, uint16_t data);
+uint16_t memReadB(uint16_t addr);
+void memWriteB(uint16_t addr, uint8_t data);
+uint16_t * memWordAddr (uint16_t addr);
+void memLoad (char *file, uint16_t addr, uint16_t length);
 
 #endif
 

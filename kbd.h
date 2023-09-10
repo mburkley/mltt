@@ -26,17 +26,13 @@
 #define KBD_ROW 8
 #define KBD_COL 8
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <stdint.h>
+#include <stdbool.h>
 
 void kbdPoll (void);
 int kbdGet (int row, int col);
 void kbdClose (void);
 void kbdOpen (const char *device);
-
-#ifdef __cplusplus
-}
-#endif
+bool kbdColumnUpdate (int index, uint8_t value);
 
 #endif

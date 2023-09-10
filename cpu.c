@@ -45,17 +45,17 @@
 
 struct
 {
-    WORD pc;
-    WORD wp;
-    WORD st;
+    uint16_t pc;
+    uint16_t wp;
+    uint16_t st;
 }
 tms9900;
 
 typedef struct
 {
-    WORD index;
-    WORD type;
-    WORD opMask;
+    uint16_t index;
+    uint16_t type;
+    uint16_t opMask;
     bool store;
     bool hasDest;
     bool isByte;
@@ -134,34 +134,39 @@ OpGroup opGroup[64] =
 #define REGR(r) memReadW(tms9900.wp+((r)<<1))
 #define REGW(r,d) memWriteW(tms9900.wp+((r)<<1),d)
 
-WORD cpuFetch (void)
+uint16_t cpuFetch (void)
 {
-    WORD ret;
+    uint16_t ret;
 
     ret = memReadW(tms9900.pc);
     tms9900.pc += 2;
     return ret;
 }
 
-WORD cpuGetPC (void)
+uint16_t cpuGetPC (void)
 {
     return tms9900.pc;
 }
 
-WORD cpuGetWP (void)
+uint16_t cpuGetWP (void)
 {
     return tms9900.wp;
 }
 
-WORD cpuGetST (void)
+uint16_t cpuGetST (void)
 {
     return tms9900.st;
 }
 
+uint16_t cpuGetIntMask (void)
+{
+    return tms9900.st & FLAG_MSK;
+}
+
 static void blwp (int addr)
 {
-    WORD owp = tms9900.wp;
-    WORD opc = tms9900.pc;
+    uint16_t owp = tms9900.wp;
+    uint16_t opc = tms9900.pc;
 
     tms9900.wp = memReadW (addr);
     tms9900.pc = memReadW (addr+2);
@@ -182,7 +187,7 @@ static void rtwp (void)
 
 /*  Jump if all bits in the set mask are set and all bits in the clear mask are
  *  clear */
-static void jumpAnd (WORD setMask, WORD clrMask, WORD offset)
+static void jumpAnd (uint16_t setMask, uint16_t clrMask, uint16_t offset)
 {
     if ((tms9900.st & setMask) == setMask &&
         (~tms9900.st & clrMask) == clrMask)
@@ -193,7 +198,7 @@ static void jumpAnd (WORD setMask, WORD clrMask, WORD offset)
 
 /*  Jump if any bits in the set mask are set or any bits in the clear mask are
  *  clear */
-static void jumpOr (WORD setMask, WORD clrMask, WORD offset)
+static void jumpOr (uint16_t setMask, uint16_t clrMask, uint16_t offset)
 {
     if ((tms9900.st & setMask) != 0 ||
         (~tms9900.st & clrMask) != 0)
@@ -202,7 +207,7 @@ static void jumpOr (WORD setMask, WORD clrMask, WORD offset)
     }
 }
 
-static void compare (WORD sData, WORD dData)
+static void compare (uint16_t sData, uint16_t dData)
 {
     /*
      *  Leave int. mask and Carry flag
@@ -226,7 +231,7 @@ static void compare (WORD sData, WORD dData)
     }
 }
 
-static void operand (WORD mode, WORD reg, WORD *arg, WORD *addr, bool isByte)
+static void operand (uint16_t mode, uint16_t reg, uint16_t *arg, uint16_t *addr, bool isByte)
 {
     switch (mode)
     {
@@ -240,7 +245,7 @@ static void operand (WORD mode, WORD reg, WORD *arg, WORD *addr, bool isByte)
 
     case AMODE_SYM:
         *arg = cpuFetch();
-        *addr = (WORD) (*arg + (reg == 0 ? 0 : REGR(reg)));
+        *addr = (uint16_t) (*arg + (reg == 0 ? 0 : REGR(reg)));
         break;
 
     case AMODE_INDIRINC:
@@ -270,18 +275,18 @@ static void overflowSet (int condition)
 
 void cpuExecute (int data)
 {
-    WORD  sReg = 0, dReg = 0;
-    WORD sAddr = 0, dAddr = 0;
-    WORD sData = 0, dData = 0;
-    WORD dMode = 0, sMode = 0;
-    WORD sArg = 0, dArg = 0;
-    WORD pc = tms9900.pc;
+    uint16_t  sReg = 0, dReg = 0;
+    uint16_t sAddr = 0, dAddr = 0;
+    uint16_t sData = 0, dData = 0;
+    uint16_t dMode = 0, sMode = 0;
+    uint16_t sArg = 0, dArg = 0;
+    uint16_t pc = tms9900.pc;
     bool doStore = 0;
     bool doCmpZ = 0;
-    I8 offset = 0;
-    WORD count = 0;
-    U32 u32 = 0;
-    I32 i32 = 0;
+    int8_t offset = 0;
+    uint16_t count = 0;
+    uint32_t u32 = 0;
+    int32_t i32 = 0;
     OpGroup *o = &opGroup[data >> 10];
     int isByte = o->isByte;
 
@@ -372,7 +377,7 @@ void cpuExecute (int data)
 
     case OP_SZC: dData &= ~sData;  doStore = 1; doCmpZ = 1;      break;
     case OP_S:
-        u32 = (U32) dData - sData;
+        u32 = (uint32_t) dData - sData;
         dData = u32 & 0xFFFF;
         u32 >>= 16;
 
@@ -389,7 +394,7 @@ void cpuExecute (int data)
     case OP_SOC: dData |= sData;   doStore = 1; doCmpZ = 1;      break;
 
     case OP_A:
-        u32 = (U32) dData + sData;
+        u32 = (uint32_t) dData + sData;
         dData = u32 & 0xFFFF;
         u32 >>= 16;
 
@@ -480,8 +485,8 @@ void cpuExecute (int data)
     case OP_JNE: jumpAnd (0,        FLAG_EQ,            offset);    break;
     case OP_JEQ: jumpAnd (FLAG_EQ,  0,                  offset);    break;
 
-    case OP_SBZ:        cruBitSet (REGR(12), offset, 0);        break;
-    case OP_SBO:        cruBitSet (REGR(12), offset, 1);        break;
+    case OP_SBZ:        cruBitOutput (REGR(12), offset, 0);        break;
+    case OP_SBO:        cruBitOutput (REGR(12), offset, 1);        break;
 
     case OP_TB:
         tms9900.st |= (cruBitGet (REGR(12), offset) ? FLAG_EQ : 0);
@@ -620,7 +625,7 @@ void cpuExecute (int data)
     if (doStore)
     {
         if (isByte)
-            memWriteB (dAddr, (WORD) (dData >> 8));
+            memWriteB (dAddr, (uint16_t) (dData >> 8));
         else
             memWriteW (dAddr, dData);
     }
@@ -656,7 +661,7 @@ void cpuExecute (int data)
 
 void cpuShowStatus(void)
 {
-    WORD i;
+    uint16_t i;
 
     printf ("CPU\n");
     printf ("===\n");

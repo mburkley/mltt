@@ -25,9 +25,9 @@
 
 #include "cpu.h"
 
-void gplDisassemble (WORD addr, BYTE data);
-void gplShowScratchPad (WORD addr);
-WORD gplScratchPadNext (WORD addr);
+void gplDisassemble (uint16_t addr, uint8_t data);
+void gplShowScratchPad (uint16_t addr);
+uint16_t gplScratchPadNext (uint16_t addr);
 
 #endif
 

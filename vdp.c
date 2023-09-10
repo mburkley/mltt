@@ -69,7 +69,7 @@
 #define VDP_FG_COLOUR       ((vdp.reg[7] & 0xf0) >> 4)
 #define VDP_BG_COLOUR       (vdp.reg[7] & 0x0f)
 
-#define MAX_ADDR 0x4000
+#define MAX_ADDR 0x8002
 
 // #include "cpu.h"
 
@@ -107,13 +107,13 @@ colours[16] =
 
 struct
 {
-    WORD addr;
+    uint16_t addr;
     int cmdInProg;
     int mode;
-    BYTE reg[8];
-    BYTE cmd;
-    BYTE st;
-    BYTE ram[MAX_ADDR];
+    uint8_t reg[8];
+    uint8_t cmd;
+    uint8_t st;
+    uint8_t ram[MAX_ADDR];
     bool graphics;
 }
 vdp;
@@ -129,10 +129,10 @@ static bool vdpRefreshNeeded = false;
  */
 static struct _frameBuffer
 {
-    BYTE r;
-    BYTE g;
-    BYTE b;
-    BYTE unused;
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t unused;
 }
 *frameBuffer;
 
@@ -174,6 +174,7 @@ int vdpRead (int addr, int size)
     case 0:
         if (vdp.addr >= MAX_ADDR)
         {
+            printf ("VDP read %04X out of range", vdp.addr);
             halt ("VDP read out of range");
         }
 

@@ -28,13 +28,13 @@
 void unasmRunTimeHookAdd (void);
 void unasmReadText (const char *textFile);
 
-extern void (*unasmPreExecHook)(WORD pc, WORD data, WORD opMask, int type,
-                     WORD sMode, WORD sReg, WORD sArg,
-                     WORD dMode, WORD dReg, WORD dArg,
-                     WORD count, WORD offset);
-extern void (*unasmPostExecHook)(WORD pc, int type, bool isByte, bool store, WORD sMode,
-                          WORD sAdddr, WORD dMode, WORD dReg, WORD addr,
-                          WORD data, WORD regData);
+extern void (*unasmPreExecHook)(uint16_t pc, uint16_t data, uint16_t opMask, int type,
+                     uint16_t sMode, uint16_t sReg, uint16_t sArg,
+                     uint16_t dMode, uint16_t dReg, uint16_t dArg,
+                     uint16_t count, uint16_t offset);
+extern void (*unasmPostExecHook)(uint16_t pc, int type, bool isByte, bool store, uint16_t sMode,
+                          uint16_t sAdddr, uint16_t dMode, uint16_t dReg, uint16_t addr,
+                          uint16_t data, uint16_t regData);
 
 #endif
 

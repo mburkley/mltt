@@ -25,9 +25,9 @@
 
 #include "cpu.h"
 
-void watchAdd (WORD addr);
+void watchAdd (uint16_t addr);
 void watchList (void);
-void watchRemove (WORD addr);
+void watchRemove (uint16_t addr);
 void watchShow (void);
 
 #endif
