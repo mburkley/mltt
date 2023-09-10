@@ -18,13 +18,13 @@ grom roms/994agrom.bin 0x0000 0x6000
 #
 #  The Attack
 #
-grom roms/attackg.bin  0x6000 0x2000
+# grom roms/attackg.bin  0x6000 0x2000
 
 #
 #  Munchman
 #
-# load roms/munchmnc.bin 0x6000 0x2000
-# grom roms/munchmng.bin  0x6000 0x2000
+load roms/munchmnc.bin 0x6000 0x2000
+grom roms/munchmng.bin  0x6000 0x2000
 
 #
 #  Invaders
@@ -59,7 +59,7 @@ keyboard /dev/input/event22
 # 100=sound             - show sound instructions, frequencies, etc
 # 200=gpl               - dissamble GPL instructions
 # 400=gpl debug         - show debug of GPL disassembly
-level 0x000
+# level 0x040
 
 # Initialise the CPU
 boot
@@ -77,7 +77,7 @@ comments unasm.txt
 pixelsize 4
 
 # Enable status pane
-# status
+status
 
 # Enable video output
 video
