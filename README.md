@@ -5,6 +5,6 @@ This is an emulator for the TI-99/4A home computer which was my first PC back in
 
 To build, download and type make.  libraries etc have to be manually installed.
 
-To run: ./ti994a inp
+To run: ./ti994a <config-file>
 
-where inp is the input file that contains instructions to load roms/groms/etc.
+where <config-file> is the input file that contains instructions to load roms/groms/etc.  Default if unspecified is config.txt
