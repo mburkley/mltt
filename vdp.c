@@ -71,11 +71,8 @@
 
 #define MAX_ADDR 0x8002
 
-// #include "cpu.h"
-
 #define VDP_STATUS_PANE_WIDTH 32
 
-// #define VDP_SCALE   4
 #define VDP_XSIZE 256
 #define VDP_YSIZE 192
 
@@ -184,6 +181,7 @@ int vdpRead (int addr, int size)
         vdp.cmdInProg = 0;
         return vdp.st;
     default:
+        printf ("addr=%04X\n", addr);
         halt ("VDP invalid address");
         break;
     }
@@ -331,6 +329,11 @@ static void vdpDrawChar (int cx, int cy, int ch)
     int data;
     int charpat = VDP_CHARPAT_TAB + (ch << 3);
     int colour = vdp.ram[VDP_GR_COLTAB_ADDR + (ch >> 3)];
+
+    #if 0
+    if (VDP_BITMAP_MODE)
+        charpat += (cy >> 3) << ???
+    #endif
 
     for (y = 0; y < 8; y++)
     {

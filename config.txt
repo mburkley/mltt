@@ -44,6 +44,28 @@ grom roms/munchmng.bin  0x6000 0x2000
 # load roms/TombCitC.Bin 0x6000 0x2000
 # grom roms/TombCitG.Bin 0x6000 0x2000
 
+#
+#  Frogger
+#
+# load roms/FROGGERC.BIN 0x6000 0x2000
+# grom roms/FROGGERG.BIN 0x6000 0x9800
+
+#
+#  Pacman
+#
+# load roms/PACMANC.BIN 0x6000 0x2000
+# ??? grom roms/PACMAND.BIN 0x6000 0x2000
+
+#
+#  centipede
+#
+# load roms/CENTIPEC.BIN 0x6000 0x2000
+
+#
+#  breakout
+#
+# load roms/BREAKC.BIN 0x6000 0x2000
+
 # Specify the keyboard input device (user read access required)
 keyboard /dev/input/event22
 
@@ -59,7 +81,7 @@ keyboard /dev/input/event22
 # 100=sound             - show sound instructions, frequencies, etc
 # 200=gpl               - dissamble GPL instructions
 # 400=gpl debug         - show debug of GPL disassembly
-# level 0x040
+# level 0x070
 
 # Initialise the CPU
 boot

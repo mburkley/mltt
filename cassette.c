@@ -28,9 +28,33 @@
 #include "interrupt.h"
 #include "cassette.h"
 
+static bool cassetteFileOpen = false;
+
 bool cassetteMotor(int index, uint8_t value)
 {
     printf ("cassette motor %d set to %d\n", index-21, value);
+
+    if (value == 0 && cassetteFileOpen)
+    {
+        /*  Write a few zero bits to the audio output to flush out any pending
+         *  bits that are to be written.  This is to ensure the audio modulation
+         *  state machine has written out all pending bits.  These "dribble"
+         *  bits have no effect on the loading operation.
+         */
+
+        printf ("closing tape file\n");
+
+        for (int i = 0; i < 8; i++)
+        {
+            soundModulationToggle ();
+            soundModulation (360000); // 360000 nanosec=1 cycle of 1370Hz @ 44100
+            soundModulation (360000);
+        }
+
+        soundWavFileClose ();
+        cassetteFileOpen = false;
+    }
+
     return false;
 }
 
@@ -39,14 +63,27 @@ bool cassetteAudioGate(int index, uint8_t value)
     printf ("cassette audio gate set to %d\n", value);
     return false;
 }
+
 bool cassetteTapeOutput(int index, uint8_t value)
 {
+    if (!cassetteFileOpen)
+    {
+        soundWavFileOpenWrite ();
+        cassetteFileOpen = true;
+    }
+
     soundModulationValue (value);
     return false;
 }
+
 uint8_t cassetteTapeInput(int index, uint8_t value)
 {
-    printf ("cassette input\n");
-    return false;
+    if (!cassetteFileOpen)
+    {
+        soundWavFileOpenRead ();
+        cassetteFileOpen = true;
+    }
+
+    return soundModulationRead ();
 }
 

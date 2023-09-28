@@ -32,7 +32,7 @@ struct
     uint16_t addr;
     uint8_t lowByteGet;
     uint8_t lowByteSet;
-    uint8_t b[0x8000];
+    uint8_t b[0x10000];
 }
 gRom;
 

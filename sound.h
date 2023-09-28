@@ -25,12 +25,35 @@
 
 #include "cpu.h"
 
+typedef struct
+{
+    char riff[4];
+    unsigned int fileSize;
+    char wave[4];
+    char fmt[4];
+    unsigned int waveSize;
+    short waveType;
+    short numChannels;
+    unsigned int sampleRate;
+    unsigned int bytesSec;
+    short blockAlign;
+    short bitsSample;
+    char data[4];
+    unsigned int dataSize;
+}
+WAV_FILE_HDR;
+
 void soundInit (void);
 void soundUpdate (void);
 int soundRead (int addr, int size);
 void soundWrite (int addr, int data, int size);
 void soundModulation (int duration);
 void soundModulationValue (int value);
+void soundModulationToggle (void);
+void soundWavFileOpenRead(void);
+void soundWavFileOpenWrite(void);
+void soundWavFileClose (void);
+uint16_t soundModulationRead (void);
 
 #endif
 

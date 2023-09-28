@@ -103,11 +103,11 @@
 0864 @-@- Push GROM address to sub stack@-@+ Inc stack ptr
 087E @+ Return@+
 0900 @-@- Interrupt Level 1 Service Routine@-
-090A @+ Cassette interrupt?
+090A @+ Bit >0020 set - Cassette interrupt?
 090E @+ Not cassette, jump
 0914 @+ Test if VDP interrupt
 0916 @+ If low, then VDP interrupt, so jump
-094A @+ Clear VDP interrupt
+094A @+ Clear and re-arm VDP interrupt
 0A6A @+ Set KBD col select CRU addr
 0A6E @+ Write keyboard column select bits to CRU
 0A72 @+ WHY?
@@ -125,3 +125,124 @@
 0AAC @+ Increment(?) VDP interrupt timer
 0AB0 @+ User defined interrupt
 0ABE @+ ISR Return@+
+0B3E @+ CZC >1FFF
+13CA @+ Initial tape input state to 0
+13CC @+ CRU base to zero
+13D4 @+ Disable VDP interrupts
+13D6 @+ ?? Why - nothing uses bit 12 ??
+13DC @+ Disable periph interrupts?
+13DE @+ Enable timer interrupts
+1404 @-@- Interrupt cassette:@-@+ Set 9901 interrupt mode
+1406 @+ Timer interrupt reset
+1408 @+ R1 Negative?
+140C @+ INTWS
+1410 @+ Compare *R14 with>10FF (JMP -2)
+1416 @+ Trick, jump from infinite loop
+1418 @+ End@+
+141E @+ R6 GPLWS becomes new R14
+1426 @-@- Cassette verify (GPL I/O):@-@+ Set flag verify
+142A @+ Read VDP
+142E @-@- Cassette read@-@+Flag read (with >0010)
+1432 @+ Write VDP
+1436 @+ ?? Bit timer ??
+143A @+ Fetch pointer, write VDP address
+143E @+ Data buffer in R7
+1442 @+ Set condition bit GPL status (| > 20)
+1448 @+ Waiting loop reception
+144C @+ Enable interrupt
+1450 @+ Interrupt done new PC
+1454 @+ Bit duration
+145C @+ Count down loop
+145E @+ End with error
+1460 @+ ?? Expected minimum preamble len=48
+1468 @+ double
+146E @+ CS1 Receive character, go on
+1470 @+ CS1 Receive no character, once again
+1472 @+ CS1 At least R2 character (preamble counter?)
+1474 @+ No, next character
+147E @+ CS1 start the timer
+1484 @+ Receive character
+1488 @+ Receive change (bit)
+148A @+ No change
+148C @+ 8 Bits?
+148E @+ Once more
+1492 @+ CS1 Read time remaining on timer
+1494 @+ Subtract remaining time from original time
+1498 @+ remain *= 4
+149A @+ add remain to make it remain * 5
+149C @+ divide by 64
+149E @+ Set last bit
+14A2 @+ Trick return
+14A6 @+ ?? Check if elapsed is full bit or half bit
+14AC @+ Read bit
+14B0 @+ Receive 1 bit
+14B4 @+ No change
+14B6 @+ Go on 7 bits
+14BE @+ Once more
+14C0 @+ All 7?
+14C2 @+ No, go on
+14C4 @+ Trick return
+14C8 @+ Data block
+14CC @+ Set error
+14D2 @+ Prepare address
+14D6 @+ Receive number of data blocks
+14DA @+ Enough storage
+14DC @+ End with error
+14DE @+ New number data blocks
+14E4 @+ Fetch 2nd time
+14EA @+ Go on with 1st data block
+14EC @+ Clear 1st byte
+14F0 @+ Negate
+14F2 @+ Fetch check sum
+14F6 @+ O.k. (Addition must result in 0,if data o.k)
+14F8 @+ Already the 2nd time
+14FA @+ End with error
+14FC @+ Write VDP address
+1500 @+ Flag R5
+1504 @+ Once more from beginning
+1506 @+ 1 time
+1508 @+ No, jump
+150A @+ Receive 49 character
+150E @+ New PC over interrupt
+1512 @+ Fetch byte
+1516 @+ All ?
+151A @+ New VDP address
+151E @+ Write address
+1528 @+ All data blocks
+152C @+ End
+152E @+ >40 Character
+1534 @+ Receive
+1540 @+ Verify
+1544 @+ O.k. Jump
+154A @+ End of data blocks ?
+154E @+ Byte in VDP
+1552 @+ End of data blocks ?
+1558 @+ Clear condition bit GPL status
+155E @+ Clear interrupt flags
+1566 @+ CRU reset
+156E @+ To GPL interpreter
+1572 @-@- Wait for timer expire@+ Save return address
+1574 @+ Inf loop, wait for interrupt
+1576 @+ Check bit status, update R1
+157A @+ No change from R1
+1580 @+ Is it currently a 1 or 0 ? CZC R1 to >00FF
+1586 @+ Mag tape in, Wait for not zero
+158C @+ Mag tape in, Wait for zero
+1590 @+ CS1 Restart the timer
+159A @+ CS1 XOR with>00FF, flip R1
+159E @+ Return
+15AA @-@-Receive byte in R4 and built check sum in R7 @+ Fetch 1 bit
+15AE @+ See TB entry
+15B0 @+ Set bit
+15B4 @+ All 8 bits?
+15B6 @+ Built check sum
+15B8 @+ Return
+15BA @-@- Mag tape in. Check if bit has changed from R1 (00 = clear, FF=set)@- If changed then flip R1 and return *B11 + 2
+15BC @+ jump if bit is set
+15BE @+ CZC >00FF : is R1 == >0000 ?
+15C2 @+ bit clear and R1=0000, no change, jump
+15C4 @+ CS1 bit changed, flip R1
+15C8 @+ Changed, Return to caller
+15CA @+ CZC >00FF : is R1 == >0000 ?
+15CE @+ bit set and R1=0000, change
+15D0 @+ No change, Return to caller +2

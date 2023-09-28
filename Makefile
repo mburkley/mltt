@@ -26,7 +26,7 @@ LIBS=\
 -lreadline \
 -lm
 
-all:  ti994a tests
+all:  ti994a tests dumptape
 
 ti994a: $(SRCS) console.c ti994a.c
 	gcc -Wall -ggdb3 -o ti994a -D__GROM_DEBUG console.c ti994a.c $(SRCS) $(LIBS)
@@ -37,3 +37,5 @@ tests: $(SRCS) tests.c
 testkbd: $(SRCS) kbd.c trace.c
 	gcc -Wall -ggdb3 -o testkbd -D__UNIT_TEST kbd.c trace.c $(LIBS)
 
+dumptape: $(SRCS) dumptape.c
+	gcc -Wall -ggdb3 -o dumptape -D__UNIT_TEST dumptape.c $(LIBS)

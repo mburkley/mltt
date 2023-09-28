@@ -49,6 +49,11 @@ static void timespecSet (struct timespec *ts, int nsec)
     ts->tv_nsec = (nsec % NSEC_PER_SEC);
 }
 
+static int timespecGet (struct timespec *ts)
+{
+    return ts->tv_sec * NSEC_PER_SEC + ts->tv_nsec;
+}
+
 static void timerReset (int index, int nsec)
 {
     struct itimerspec startval;
@@ -56,7 +61,6 @@ static void timerReset (int index, int nsec)
     timespecSet (&startval.it_value, nsec);
     timespecSet (&startval.it_interval, nsec);
 
-    // printf("[t%d timerfd reset to %d]\n", index, nsec);
     if (timerfd_settime(timers[index].fd, /* TFD_TIMER_ABSTIME */ 0, &startval, NULL) == -1)
     {
         perror ("timer");
@@ -84,15 +88,26 @@ void timerStart (int index, int nsec, void (*callback)(void))
 
 void timerStop (int index)
 {
-    // printf ("stop-%d\n", index);
     timerReset (index, 0);
     mprintf (LVL_INTERRUPT, "Timer %d stopped\n");
 }
 
+int timerRemain (int index)
+{
+    struct itimerspec remain;
+
+    if (timerfd_gettime(timers[index].fd, &remain) == -1)
+    {
+        perror ("timer");
+        halt("timerfd_gettime");
+    }
+
+    return timespecGet (&remain.it_value);
+}
+
 /*  Do a blocking read on the timers.  This synchronises the system at 50Hz or a
- *  lower value if specified.
- *  This function used to poll and the main function used to sleep but it's
- *  easier just to do a blocking read
+ *  lower value if specified.  This function used to poll and the main function
+ *  used to sleep but it's easier just to do a blocking read
  */
 void timerPoll (void)
 {
@@ -108,7 +123,6 @@ void timerPoll (void)
 
     int expired;
 
-    // printf("[p]\n");
     expired = poll(pfds, MAX_TIMERS, -1);
 
     if (expired == 0)
@@ -121,12 +135,10 @@ void timerPoll (void)
         return;
     }
 
-    // printf("poll-expired\n");
     for (i = 0; i < MAX_TIMERS; i++)
     {
         if ((pfds[i].revents & POLLIN) != 0)
         {
-            // printf ("[exp:%d]\n", i);
             u_int64_t data;
             int n = read (timers[i].fd, &data, sizeof (data));
 
