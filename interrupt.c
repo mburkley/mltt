@@ -52,45 +52,45 @@ tms9901;
 int interruptLevel (int mask)
 {
     int i;
+    int level = -1;
 
-    for (i = 0; i <= mask; i++)
+    /*  Interrupts to the TMS9900 are hardwired to always generate interrupt
+     *  level 1 regardless of what device generated the interrupt.  So if any
+     *  level is > 0 and mask > 0, return level 1.
+     */
+
+    if (mask == 0)
+        return -1;
+
+    for (i = 0; i <= 16; i++)
     {
-        if (tms9901.intActive[i] ) // && !tms9901.intDisabled[i])
+        if (tms9901.intActive[i])
         {
             mprintf (LVL_INTERRUPT, "TMS9901 interrupt %d active\n", i);
-            /*  Always return 1, hardwired into the TMS9900 */
-            return 1;
+            level = i;
+            break;
         }
     }
+
+    if (level >= 0)
+        return 1;
 
     return -1;
 }
 
 bool tms9901Interrupt (int index, uint8_t state)
 {
-    /*  Generate an interrupt for the each cru bit
-     *  that is set (active low) and not masked.
+    /*  Set interrupt active for the each cru bit
+     *  that is active low and not masked.
      */
-    int i;
-    bool raise = false;
-
-    /*  Interrupts to the TMS9900 are hardwired to always generate interrupt
-     *  level 1 regardless of what device generated the interrupt.  So if any
-     *  bit is low, we raise interrupt level 1, otherwise lower it.
-     */
-    for (i = 1; i < 16; i++)
-        if (!cruBitGet (0, i) && !tms9901.intDisabled[i])
-        {
-            mprintf (LVL_INTERRUPT, "IRQ bit %d is low and enabled, raise interrupt\n", i);
-            raise = true;
-        }
-
-    if (raise)
-        tms9901.intActive[1] = 1;
+    if (!state && !tms9901.intDisabled[index])
+    {
+        mprintf (LVL_INTERRUPT, "IRQ bit %d is low and enabled, raise interrupt\n", index);
+        tms9901.intActive[index] = 1;
+    }
     else
     {
-        // mprintf (LVL_INTERRUPT, "IRQ bits all high or disabled, no interrupt pending\n");
-        tms9901.intActive[1] = 0;
+        tms9901.intActive[index] = 0;
     }
 
     /*  Allow the bit state to be changed */
@@ -100,9 +100,17 @@ bool tms9901Interrupt (int index, uint8_t state)
 /*  Timer increments is 1B * interval * 64 / 3M (system clock 3MHz)
  *  so to convert to nanoseconds, its 1000 * 64 * timer / 3
  */
-int tms9901TimerNsec (void)
+int tms9901TimerToNsec (void)
 {
     return 1000 * 64 * tms9901.timer / 3;
+}
+
+/*  Do the reverse of the above conversion to convert a remaining value in
+ *  nanseconds to a timer register value
+ */
+int tms9901TimerFromNsec (int value)
+{
+    return value * 3 / (1000 * 64);
 }
 
 void tms9901Init(void)
@@ -124,7 +132,7 @@ static void timerCallback (void)
         mprintf (LVL_INTERRUPT, "TMS9901 timer expired, raise interrupt\n");
 
         cruBitInput (0, IRQ_TIMER, 0);
-        soundModulation (tms9901TimerNsec ());
+        soundModulation (tms9901TimerToNsec ());
     }
 }
 
@@ -134,16 +142,22 @@ bool tms9901BitSet (int index, uint8_t state)
     if (tms9901.timerMode)
     {
         int bit = 1 << (index - 1);
-        tms9901.timer &= ~bit;
+        int newTimerValue = 0;
+
+        newTimerValue = tms9901.timer & ~bit;
 
         if (state)
-            tms9901.timer |= bit;
+            newTimerValue |= bit;
 
-        mprintf (LVL_INTERRUPT, "TMS9901 timer bit %d set to %d, timer set to %d\n", index, state, tms9901.timer);
+        if (newTimerValue != tms9901.timer)
+            mprintf (LVL_INTERRUPT, "TMS9901 timer bit %d set to %d, timer set to %d\n", index, state, tms9901.timer);
 
-        int nsec = tms9901TimerNsec ();
+        tms9901.timer = newTimerValue;
+        int nsec = tms9901TimerToNsec ();
         timerStart (TIMER_TMS9901, nsec, timerCallback);
-        printf ("t-start %d nsec\n", nsec);
+        mprintf (LVL_INTERRUPT, "t-start %04X -> %d nsec\n", tms9901.timer, nsec);
+        int timer = tms9901TimerFromNsec (timerRemain (TIMER_TMS9901));
+        mprintf (LVL_INTERRUPT, "TMS9901 timer remain %04X\n", timer);
 
         /* Don't allow the actual state of the bit to change */
         return true;
@@ -153,7 +167,6 @@ bool tms9901BitSet (int index, uint8_t state)
         /* Interrupt mode.  Writing 1 enables an interrupt, 0 disables it */
         mprintf (LVL_INTERRUPT, "TMS9901 bit %d state %d interrupt is %s\n", index, state,
                 (state == 0) ? "disabled" : "enabled");
-        // printf ("[%d-%s]", index, state?"en":"dis");
         tms9901.intDisabled[index] = (state == 0);
 
         /* Set the input bit back to 1 to clear the interrupt condition.  This
@@ -171,7 +184,10 @@ bool tms9901BitSet (int index, uint8_t state)
          * stop the timer whenever we see the int disabled
          */
         if (index == IRQ_TIMER && state == 0)
+        {
+            mprintf (LVL_INTERRUPT, "TMS9901 timer stopped\n");
             timerStop (TIMER_TMS9901);
+        }
     }
 
     return true;
@@ -183,14 +199,16 @@ bool tms9901BitSet (int index, uint8_t state)
 
 uint8_t tms9901BitGet (int index, uint8_t state)
 {
-    /*  If we are not in timer mode, then return the value of the bit as is */
+    /*  If we are in timer mode, then return the bit value of the remaining
+     *  timer bit */
     if (tms9901.timerMode)
     {
+        int timer = tms9901TimerFromNsec (timerRemain (TIMER_TMS9901));
         int bit = 1 << (index - 1);
 
-        mprintf (LVL_INTERRUPT, "TMS9901 timer %d, return bit %d as %d\n", tms9901.timer, bit,
-                tms9901.timer&bit);
-        return (tms9901.timer & bit) ? 1 : 0;
+        mprintf (LVL_INTERRUPT, "TMS9901 timer remain %04X, return bit %d as %d\n", timer, bit,
+                timer&bit);
+        return (timer & bit) ? 1 : 0;
     }
 
     /*  Otherwise return the state of the input */
@@ -209,7 +227,12 @@ bool tms9901ModeSet (int index, uint8_t state)
         tms9901.timerSnapshot = tms9901.timer;
 
     tms9901.timerMode = state ? true : false;
-    mprintf (LVL_INTERRUPT, "TMS9901 timer mode set to %d\n", tms9901.timerMode ? 1 : 0);
+
+    if (tms9901.timerMode)
+        mprintf (LVL_INTERRUPT, "TMS9901 clock mode set\n");
+    else
+        mprintf (LVL_INTERRUPT, "TMS9901 interrupt mode set\n");
+
     return false;
 }
 

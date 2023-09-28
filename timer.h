@@ -32,6 +32,7 @@
 
 void timerStart (int index, int nsec, void (*callback)(void));
 void timerStop (int index);
+int timerRemain (int index);
 void timerPoll (void);
 void timerInit (void);
 void timerClose (void);

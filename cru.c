@@ -68,17 +68,8 @@ struct _cru
      *  return that instead.
      */
     uint8_t (*readCallback) (int index, uint8_t state);
-    // int isInput;
-    bool modified;
 }
 cru[MAX_CRU_BIT];
-
-// static bool cruTimerMode;
-// static bool cruTimer;
-
-// static void bitSet (int index, uint8_t state)
-// {
-// }
 
 /*  Input bits are set by an external actuator, e.g. keyboard */
 void cruBitInput (uint16_t base, int8_t bitOffset, uint8_t state)
@@ -86,9 +77,7 @@ void cruBitInput (uint16_t base, int8_t bitOffset, uint8_t state)
     uint16_t index;
 
     index = base / 2 + bitOffset;
-
-    // if (index > 21)
-        mprintf (LVL_CRU, "CRU: bit %d (>%04X) set to %d\n", index, index<<1, state);
+    mprintf (LVL_CRU, "CRU: bit %d (>%04X) set to %d\n", index, index<<1, state);
 
     if (index >= MAX_CRU_BIT)
     {
@@ -98,17 +87,11 @@ void cruBitInput (uint16_t base, int8_t bitOffset, uint8_t state)
 
     struct _cru *c = &cru[index];
 
-    // cru[index].isInput = 1;
-    // bitSet (index, state);
-
     c->state = state;
-    c->modified = true;
 
     if (c->inputCallback)
     {
-        // mprintf (LVL_CRU, "CRU: callback for bit %d\n", index);
         c->inputCallback (index, state);
-        // mprintf (LVL_CRU, "CRU: callback return for bit %d\n", index);
     }
 }
 
@@ -129,10 +112,7 @@ void cruBitOutput (uint16_t base, int8_t bitOffset, uint8_t state)
 
     struct _cru *c = &cru[index];
 
-    c->modified = true;
     c->isOutput = true;
-
-        // mprintf (LVL_CRU, "CRU: callback for bit %d\n", index);
 
     /*  If there is no output callback or if the output callback returns false
      *  to indicate the value should be stored, then store the value
@@ -140,11 +120,7 @@ void cruBitOutput (uint16_t base, int8_t bitOffset, uint8_t state)
     if (!c->outputCallback || !c->outputCallback (index, state))
         c->state = state;
 
-    // if (index > 21)
-        mprintf (LVL_CRU, "CRU: bit %d (>%04X) set to %d\n", index, index<<1, c->state);
-
-
-        // mprintf (LVL_CRU, "CRU: callback return for bit %d\n", index);
+    mprintf (LVL_CRU, "CRU: bit %d (>%04X) set to %d\n", index, index<<1, c->state);
 }
 
 /*
@@ -167,11 +143,9 @@ uint8_t cruBitGet (uint16_t base, int8_t bitOffset)
     if (c->readCallback)
         c->state = c->readCallback (index, c->state);
 
-    if (c->modified) // && index>21)
-        mprintf (LVL_CRU, "CRU: bit %d (>%04X) get as %d\n", index, index<<1,
+    mprintf (LVL_CRU, "CRU: bit %d (>%04X) get as %d\n", index, index<<1,
                      c->state);
 
-    c->modified = false;
     return c->state;
 }
 
@@ -189,13 +163,11 @@ void cruMultiBitSet (uint16_t base, uint16_t data, int nBits)
     if (!nBits)
         nBits = 16;
 
-    if (base >40)
     mprintf(LVL_CRU, "CRU multi set base=%04X data=%04X n=%d\n", base, data, nBits);
     for (i = 0; i < nBits; i++)
     {
         cruBitOutput (base, i, (data & (1<<i)) ? 1 : 0);
     }
-    // mprintf(LVL_CRU, "CRU multi set done\n");
 }
 
 /*
@@ -209,7 +181,6 @@ uint16_t cruMultiBitGet (uint16_t base, int nBits)
     if (!nBits)
         nBits = 16;
 
-    if (base >40)
     mprintf(LVL_CRU, "CRU start multi get base=>%04X n=%d\n", base, nBits);
     for (i = 0; i < nBits; i++)
     {
@@ -219,7 +190,6 @@ uint16_t cruMultiBitGet (uint16_t base, int nBits)
         }
     }
 
-    if (base >40)
     mprintf(LVL_CRU, "CRU multi get base=>%04X d=%x n=%d\n", base, data, nBits);
     return data;
 }

@@ -323,24 +323,26 @@ void ti994aRun (int instPerInterrupt)
     {
         uint16_t opcode = cpuFetch ();
         bool shouldBlock = false;
-        cpuExecute (opcode);
-        count++;
 
-        /*  Instruction >10FF is an infinite loop.  It is used to wait for an
-         *  interrupt during cassette operations.  There is no need to actually
-         *  spin, just go straight to a blocking read on the interrupt timer.
-         *  If the PC is 0900 this is the ISR, so the instruction was
-         *  interrupted, so don't block again.
+        /*  Check if the instruction we are about to execute is >10FF, which is
+         *  an infinite loop.  It is used to wait for an interrupt during
+         *  cassette operations.  There is no need to actually spin, just go
+         *  straight to a blocking read on the interrupt timer.
          */
-        if (opcode == 0x10FF && cpuGetPC() != 0x0900)
+        if (opcode == 0x10FF)
+        {
             shouldBlock = true;
+        }
 
         /*  To approximate execution speed at around 10 clock cycles per
          *  instruction with a 3MHz clock, we expect to execute about 2000
          *  instructions per VDP interrupt so do a blocking timer read once
-         *  count reaches this value
+         *  count reaches this value.
+         *
+         *  TODO : trick, LIMI 2 is the main GPL loop but won't mess up cassette
+         *  ops.  Will this work with munchman and other ROM games?
          */
-        if (count >= instPerInterrupt)
+        if (cpuGetIntMask() == 2 && count >= instPerInterrupt)
         {
             shouldBlock = true;
             count -= instPerInterrupt;
@@ -351,6 +353,9 @@ void ti994aRun (int instPerInterrupt)
             kbdPoll ();
             timerPoll ();
         }
+
+        cpuExecute (opcode);
+        count++;
 
         watchShow();
     }
@@ -363,7 +368,7 @@ void ti994aInit (void)
     tms9901Init ();
     timerInit ();
 
-    /*  Start a 20-msec (20,000 usec / 50Hz) recurring timer to generate video interrupts */
+    /*  Start a 20-msec (20,000,000 nanosec == 50Hz) recurring timer to generate video interrupts */
     timerStart (TIMER_VDP, 20000000, ti994aVideoInterrupt);
 
     int i;

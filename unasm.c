@@ -362,6 +362,14 @@ static void postExecHook (uint16_t pc, int type, bool isByte, bool store, uint16
 
     covered[pc >> 1] = 1;
 
+#if 0
+    // TODO - show post execution state of immediate, requires opcode as param
+    if (type == OPTYPE_IMMED)
+    {
+        if ()
+    }
+    else 
+#endif
     if (store)
     {
         if (sMode)
@@ -450,7 +458,7 @@ void unasmReadText (const char *textFile)
             continue;
 
         int ix = strtoul (s, NULL, 16);
-        ix %= 4096;
+        ix %= 8192;
         if (unasmText[ix])
         {
             printf ("Already have text for %x\n", ix);

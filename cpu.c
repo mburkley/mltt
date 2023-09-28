@@ -489,6 +489,7 @@ void cpuExecute (int data)
     case OP_SBO:        cruBitOutput (REGR(12), offset, 1);        break;
 
     case OP_TB:
+        tms9900.st &= ~FLAG_EQ;
         tms9900.st |= (cruBitGet (REGR(12), offset) ? FLAG_EQ : 0);
         break;
 
