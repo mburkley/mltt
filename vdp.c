@@ -115,6 +115,7 @@ struct
 }
 vdp;
 
+static unsigned char vdpScreen[VDP_XSIZE][VDP_YSIZE];
 static bool vdpInitialised = false;
 static bool vdpRefreshNeeded = false;
 
@@ -213,8 +214,15 @@ void vdpWrite (int addr, int data, int size)
 
         mprintf (LVL_VDP, "GROM: %04X VDP: %02X -> [%04X] ", gromAddr(), data, vdp.addr);
 
+        if ((vdp.addr >= VDP_GR_COLTAB_ADDR && vdp.addr < VDP_GR_COLTAB_ADDR + 0x20) ||
+            (vdp.addr >= VDP_SCRN_IMGTAB && vdp.addr < VDP_SCRN_IMGTAB + 0x300) ||
+            (vdp.addr >= VDP_CHARPAT_TAB && vdp.addr < VDP_CHARPAT_TAB + 0x800) ||
+            (vdp.addr >= VDP_SPRITEATTR_TAB && vdp.addr < VDP_SPRITEATTR_TAB + 0x80) ||
+            (vdp.addr >= VDP_SPRITEPAT_TAB && vdp.addr < VDP_SPRITEPAT_TAB + 0x400))
+            vdpRefreshNeeded = true;
+
+
         vdp.ram[vdp.addr++] = data;
-        vdpRefreshNeeded = true;
 
         int i;
 
@@ -243,6 +251,7 @@ void vdpWrite (int addr, int data, int size)
             case 2:
                 vdp.mode = 0;
                 vdp.reg[data&7] = vdp.cmd;
+                vdpRefreshNeeded = true;
                 break;
             }
         }
@@ -284,7 +293,7 @@ void vdpInitGraphics (bool statusPane, int scale)
     glutInitWindowSize(frameBufferXSize, frameBufferYSize);
     glutCreateWindow("TI-99 emulator");
 
-    vdpInitialised = 1;
+    vdpInitialised = true;
 }
 
 /*  Raw plot, doesn't do any scaling, expects absolute coords */
@@ -312,6 +321,11 @@ static void vdpPlot (int x, int y, int col)
     /*  Col 0 is transparent, use global background */
     if (col == 0)
         col = VDP_BG_COLOUR;
+
+    if (vdpScreen[x][y] == col)
+        return;
+
+    vdpScreen[x][y] = col;
 
     /*  Draw a square block of pixels of size (scale x scale) */
     for (i = 0; i < frameBufferScale; i++)

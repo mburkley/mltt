@@ -40,6 +40,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <pthread.h>
 #include <pulse/simple.h>
 
 #include "sound.h"
@@ -58,7 +59,7 @@
 /* At 44,100Hz we need to generate 882 samples per call as we are called every
  * 20msec.
  */
-#define SAMPLE_COUNT 882 // 44,100 divided by 50
+#define SAMPLE_COUNT 441 // 44,100 divided by 100 (10 msec)
 
 /* We seem to be getting underruns.  Upping to 1000 to debug.
  */
@@ -122,7 +123,7 @@ void soundWavFileOpenRead (void)
 
     cassetteBitsPerSample = hdr.bitsSample;
 
-    cassetteSampleCount = hdr.dataSize / 2;
+    cassetteSampleCount = hdr.dataSize / (cassetteBitsPerSample / 8);
 
     /*  Initialise the synchronisation time */
     clock_gettime (CLOCK_MONOTONIC, &startAudioRead);
@@ -180,9 +181,6 @@ static toneInfo tones[4];
 
 /*  XNOR truth table */
 int xnor[4] = { 1, 0, 0, 1 };
-
-static pa_simple *pulseAudioHandle;
-static pa_sample_spec pulseAudioSpec;
 
 static short generateTone (toneInfo *tone, bool noise)
 {
@@ -267,17 +265,14 @@ static short generateSample (void)
     return sample;
 }
 
-/*  Every 20 msec, generate data to feed pulse audio device using a combination
+/*  Every 10 msec, generate data to feed pulse audio device using a combination
  *  from currently active tone and noise generators.
  */
-void soundUpdate (void)
+static bool soundUpdate (pa_simple *pulseAudioHandle)
 {
     int i;
     bool anyActive = false;
     bool cassette = false;
-
-    if (pulseAudioHandle == NULL)
-        return;
 
     for (i = 0; i < 4; i++)
     {
@@ -295,7 +290,7 @@ void soundUpdate (void)
         cassette = true;
 
     if (!anyActive && !cassette)
-        return;
+        return false;
 
     /*  Create an array of samples to play to pulse audio.    The values are
      *  signed 16-bit so for one channels we have 2 bytes for sample.
@@ -318,10 +313,31 @@ void soundUpdate (void)
     }
 
     pa_simple_write (pulseAudioHandle, sampleData, 2*SAMPLE_COUNT, NULL);
+
+    return true;
+}
+
+static bool soundThreadRunning = false;
+static pthread_t audioThread;
+
+static void *soundThread (void *arg)
+{
+    pa_simple *pulseAudioHandle = (pa_simple*) arg;
+
+    while (soundThreadRunning)
+    {
+        if (!soundUpdate (pulseAudioHandle))
+            usleep (10000);
+    }
+
+    return NULL;
 }
 
 void soundInit (void)
 {
+    pa_simple *pulseAudioHandle;
+    static pa_sample_spec pulseAudioSpec;
+
     pulseAudioSpec.format = PA_SAMPLE_S16NE;
     pulseAudioSpec.channels = 1;
     pulseAudioSpec.rate = AUDIO_FREQUENCY;
@@ -336,6 +352,20 @@ void soundInit (void)
                       NULL,               // Use default buffering attributes.
                       NULL               // Ignore error code.
                       );
+
+    if (pulseAudioHandle == NULL)
+        halt ("pulse audio handle");
+
+    soundThreadRunning = true;
+
+    if (pthread_create (&audioThread, NULL, soundThread, pulseAudioHandle) != 0)
+        halt ("create sound thread");
+}
+
+void soundClose (void)
+{
+    soundThreadRunning = false;
+    pthread_join (audioThread, NULL);
 }
 
 int soundRead (int addr, int size)
@@ -520,14 +550,15 @@ uint16_t soundModulationRead (void)
 
         double samplesPending = 1.0 * nsec * AUDIO_FREQUENCY / 1000000000.0; //  - audioReadSamplePos;
 
-        if (samplesPending >= 1.0)
+        if (sampleCount + samplesPending >= 1.0)
         {
             /*  How many samples should we read since we did the last read?  Use
              *  a double to track fractions of samples, then use an int to
              *  create the samples
              */
             sampleCount += samplesPending;
-            samples = (int) sampleCount;
+            // samples = (int) sampleCount;
+            samples = 1;
             sampleCount -= samples;
 
             /*  Reset the timestamp for the next iteration */
@@ -537,6 +568,9 @@ uint16_t soundModulationRead (void)
 
     if (samples > 0)
     {
+        static int ident;
+        static int lastBit;
+
         for (int i = 0; i < samples; i++)
         {
             short sample = 0;
@@ -557,6 +591,10 @@ uint16_t soundModulationRead (void)
             cassetteAudioHead++;
             cassetteAudioHead %= AUX_SAMPLE_FIFO;
         }
+
+        if (samples>1||lastBit != cassetteModulationNext)
+            mprintf (LVL_CASSETTE, "[CS1 smp=%d id=%d]", samples, ident++);
+        lastBit = cassetteModulationNext;
 
         cassetteSampleCount -= samples;
 

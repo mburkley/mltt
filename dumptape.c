@@ -36,18 +36,23 @@
 #include "sound.h"
 
 FILE *cassetteFp;
+static int cassetteBitsPerSample;
 static int cassetteSampleCount;
 
 bool cassetteFileOpen (const char *name)
 {
     WAV_FILE_HDR hdr;
 
-    printf ("opening file for read\n");
+    if ((cassetteFp = fopen (name, "r")) == NULL)
+    {
+        printf ("Failed to open %s\n", name);
+        return false;
+    }
 
-    cassetteFp = fopen (name, "r");
+    printf ("opened file %s for read\n", name);
     fread (&hdr, sizeof hdr, 1, cassetteFp);
 
-    if (hdr.numChannels != 1 || hdr.bitsSample != 16 || hdr.sampleRate != 44100)
+    if (hdr.numChannels != 1 || hdr.sampleRate != 44100)
     {
         printf ("Unsupported audio file format\n");
         fclose (cassetteFp);
@@ -55,7 +60,8 @@ bool cassetteFileOpen (const char *name)
         return false;
     }
 
-    cassetteSampleCount = hdr.dataSize / 2;
+    cassetteBitsPerSample = hdr.bitsSample;
+    cassetteSampleCount = hdr.dataSize / (cassetteBitsPerSample / 8);
     return true;
 }
 
@@ -84,7 +90,7 @@ struct _record
 }
 record[2];
 
- void decodeRecords (int byte)
+static void decodeRecords (int byte)
 {
     if (!haveHeader)
     {
@@ -98,34 +104,49 @@ record[2];
     }
 
     ((unsigned char *)&record[recordIndex])[recordBytes++] = byte;
-    printf("recbytes=%d ", recordBytes);
+    // printf("recbytes=%d ", recordBytes);
     if (recordBytes == 74)
     {
-        printf("adv rec\n");
+        // printf("adv rec\n");
         recordIndex++;
         recordBytes = 0;
     }
 
     if (recordIndex == 2)
     {
-        printf ("decoding\n");
+        // printf ("decoding\n");
         if (memcmp (&record[0], &record[1], 74) != 0)
             printf ("*** Record %d mismatch\n", recordCount);
 
         if (record[0].mark != 0xFF || record[0].sync[0] != 0)
-            printf ("*** Record %d mislaigned\n", recordCount);
+            printf ("*** Record %d misaligned\n", recordCount);
 
-        printf ("\nRecord %d:", recordCount);
+        if (memcmp (&record[0], &record[1], sizeof (struct _record)))
+            printf ("*** Record %d mismatch\n", recordCount);
+
+        printf ("\nRecord %d:\n", recordCount);
+
+        int sum = 0;
 
         for (int i = 0; i < 8; i++)
         {
             for (int j = 0; j < 8; j++)
-                printf ("%02X ", record[0].data[i*8+j]);
+            {
+                unsigned char byte = record[0].data[i*8+j];
+                printf ("%02X ", byte);
+                sum += byte;
+            }
+
+            for (int j = 0; j < 8; j++)
+            {
+                unsigned char byte = record[0].data[i*8+j];
+                printf ("%c", (byte >= 32 && byte < 128) ? byte : '.');
+            }
 
             printf ("\n");
         }
 
-        printf ("checksum=%02X\n", record[0].checksum);
+        printf ("checksum=%02X, expected=%02X\n", record[0].checksum, sum&0xff);
 
         recordIndex = 0;
         recordCount++;
@@ -149,7 +170,7 @@ static void decode (int bit)
 
     if (bitCount == 8)
     {
-        printf (" %02X\n", byte);
+        // printf (" %02X\n", byte);
         decodeRecords (byte);
         byte = 0;
         bitCount = 0;
@@ -166,7 +187,14 @@ static void analyse (void)
 
     for (int i = 0; i < cassetteSampleCount; i++)
     {
-        fread (&sample, 2, 1, cassetteFp);
+        if (cassetteBitsPerSample == 8)
+        {
+            fread (&sample, 1, 1, cassetteFp);
+            sample <<= 8;
+        }
+        else
+            fread (&sample, 2, 1, cassetteFp);
+
         state = (sample > 0) ? 1 : 0;
 
         if (state == lastState)
@@ -182,14 +210,14 @@ static void analyse (void)
 
             if (halfBit == 2)
             {
-                printf ("1");
+                // printf ("1");
                 decode (1);
                 halfBit = 0;
             }
         }
         else
         {
-            printf ("0");
+            // printf ("0");
             decode (0);
             halfBit = 0;
         }
@@ -204,7 +232,7 @@ int main (int argc, char *argv[])
     const char *name;
 
     if (argc < 2)
-        name = "cassette.cassette";
+        name = "cassette.wav";
     else
         name = argv[1];
 
