@@ -34,6 +34,7 @@
 #define LVL_SOUND       0x100
 #define LVL_GPL         0x200
 #define LVL_GPLDBG      0x400
+#define LVL_CASSETTE    0x800
 
 int mprintf (int level, char *s, ...);
 void halt (char *s);

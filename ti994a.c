@@ -301,7 +301,7 @@ printf("%s %s %x %x\n", __func__, file, addr, length);
 void ti994aVideoInterrupt (void)
 {
     vdpRefresh(0);
-    soundUpdate();
+    // soundUpdate();
 
     /*
      *  Clear bit 2 to indicate VDP interrupt

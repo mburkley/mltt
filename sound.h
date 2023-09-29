@@ -44,7 +44,7 @@ typedef struct
 WAV_FILE_HDR;
 
 void soundInit (void);
-void soundUpdate (void);
+// void soundUpdate (void);
 int soundRead (int addr, int size);
 void soundWrite (int addr, int data, int size);
 void soundModulation (int duration);

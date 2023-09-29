@@ -16,7 +16,6 @@
 00EA @-@-GPL CZ:@-
 0104 @-@-GPL B:@-
 010E @-@-GPL BS:@-
-0252 @+ Return @+
 011A @-@- GPL BR@-@; Fetch GPL status
 0136 @-@-GPL ABS:@-
 013A @-@-GPL NEG:@-
@@ -40,6 +39,7 @@
 01C2 @-@-GPL SRC:@-
 01CE @-@-GPL MUL:@-
 01EA @-@-GPL DIV:@-
+0252 @+ Return @+
 0270 @-@-GPL subinterpreter 0x00 to 0x1f:@-
 027A @-@-GPL RAND:@-
 029E @-@-GPL BACK:@-
@@ -102,21 +102,23 @@
 0858 @+ Return@+
 0864 @-@- Push GROM address to sub stack@-@+ Inc stack ptr
 087E @+ Return@+
-0900 @-@- Interrupt Level 1 Service Routine@-
+0900 @-@- Interrupt Level 1 Service Routine@-@+ disabled interrupts while in ISR
+0904 @+ switch to GPL workspace
+0908 @+ reset CRU base
 090A @+ Bit >0020 set - Cassette interrupt?
 090E @+ Not cassette, jump
 0914 @+ Test if VDP interrupt
 0916 @+ If low, then VDP interrupt, so jump
 094A @+ Clear and re-arm VDP interrupt
+094C @+ Get interrupt flag
+095C @+ Get # of sprites
+09EC @+ Get # of sounds bytes
 0A6A @+ Set KBD col select CRU addr
 0A6E @+ Write keyboard column select bits to CRU
 0A72 @+ WHY?
 0A74 @+ Set KBD row value CRU addr
 0A78 @+ Read keyboard row bits from CRU
 0A7A @+ Check if value is >1100 (quit key)
-094C @+ Get interrupt flag
-095C @+ Get # of sprites
-09EC @+ Get # of sounds bytes
 0A84 @+ Get VDP status
 0A8E @+ Screen timeout counter
 0A8A @+ Switch to interrupt WS
@@ -126,6 +128,7 @@
 0AB0 @+ User defined interrupt
 0ABE @+ ISR Return@+
 0B3E @+ CZC >1FFF
+1350 @+ Load timer >0011 and set clock bit
 13CA @+ Initial tape input state to 0
 13CC @+ CRU base to zero
 13D4 @+ Disable VDP interrupts
@@ -154,11 +157,11 @@
 1454 @+ Bit duration
 145C @+ Count down loop
 145E @+ End with error
-1460 @+ ?? Expected minimum preamble len=48
+1460 @+ Expected minimum preamble or block len=48
 1468 @+ double
-146E @+ CS1 Receive character, go on
-1470 @+ CS1 Receive no character, once again
-1472 @+ CS1 At least R2 character (preamble counter?)
+146E @+ CS1 Receive character (1), go on
+1470 @+ CS1 Receive no character (0), once again
+1472 @+ CS1 At least R2 character (preamble or block header sync)
 1474 @+ No, next character
 147E @+ CS1 start the timer
 1484 @+ Receive character
@@ -171,9 +174,9 @@
 1498 @+ remain *= 4
 149A @+ add remain to make it remain * 5
 149C @+ divide by 64
-149E @+ Set last bit
+149E @+ CS1 Set LSB to enable clock
 14A2 @+ Trick return
-14A6 @+ ?? Check if elapsed is full bit or half bit
+14A6 @+ Check if acceptable value
 14AC @+ Read bit
 14B0 @+ Receive 1 bit
 14B4 @+ No change
@@ -200,7 +203,7 @@
 14FC @+ Write VDP address
 1500 @+ Flag R5
 1504 @+ Once more from beginning
-1506 @+ 1 time
+1506 @+ CS1 check remaining data blocks?
 1508 @+ No, jump
 150A @+ Receive 49 character
 150E @+ New PC over interrupt
@@ -208,15 +211,15 @@
 1516 @+ All ?
 151A @+ New VDP address
 151E @+ Write address
-1528 @+ All data blocks
+1528 @+ CS1 All data blocks
 152C @+ End
 152E @+ >40 Character
 1534 @+ Receive
 1540 @+ Verify
 1544 @+ O.k. Jump
 154A @+ End of data blocks ?
-154E @+ Byte in VDP
-1552 @+ End of data blocks ?
+154E @+ CS1 Byte to VDP
+1552 @+ End of data block ?
 1558 @+ Clear condition bit GPL status
 155E @+ Clear interrupt flags
 1566 @+ CRU reset
@@ -225,17 +228,23 @@
 1574 @+ Inf loop, wait for interrupt
 1576 @+ Check bit status, update R1
 157A @+ No change from R1
+157C @+ Set flag for ISR
 1580 @+ Is it currently a 1 or 0 ? CZC R1 to >00FF
 1586 @+ Mag tape in, Wait for not zero
 158C @+ Mag tape in, Wait for zero
 1590 @+ CS1 Restart the timer
+1596 @+ Clear ISR flag
 159A @+ CS1 XOR with>00FF, flip R1
 159E @+ Return
+15A0 @-@- Receive one byte@-@+ CS1 fetch 8 bits
+15A4 @+ Initialise byte
+15A6 @+ save return
+15A8 @+ next bit
 15AA @-@-Receive byte in R4 and built check sum in R7 @+ Fetch 1 bit
 15AE @+ See TB entry
-15B0 @+ Set bit
-15B4 @+ All 8 bits?
-15B6 @+ Built check sum
+15B0 @+ CS1 Set bit
+15B4 @+ CS1 All 8 bits?
+15B6 @+ CS1 Add byte to checksum
 15B8 @+ Return
 15BA @-@- Mag tape in. Check if bit has changed from R1 (00 = clear, FF=set)@- If changed then flip R1 and return *B11 + 2
 15BC @+ jump if bit is set
