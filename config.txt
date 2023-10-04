@@ -18,7 +18,7 @@ grom roms/994agrom.bin 0x0000 0x6000
 #
 #  The Attack
 #
-grom roms/attackg.bin  0x6000 0x2000
+# grom roms/attackg.bin  0x6000 0x2000
 
 #
 #  Munchman
@@ -35,8 +35,8 @@ grom roms/attackg.bin  0x6000 0x2000
 #
 #  Parsec
 #
-# load roms/parsec-c.bin 0x6000 0x2000
-# grom roms/parsec-g.bin 0x6000 0x2000
+load roms/parsec-c.bin 0x6000 0x2000
+grom roms/parsec-g.bin 0x6000 0x2000
 
 #
 #  Tombstone City
@@ -47,8 +47,8 @@ grom roms/attackg.bin  0x6000 0x2000
 #
 #  Frogger
 #
-# load roms/FROGGERC.BIN 0x6000 0x2000
-# grom roms/FROGGERG.BIN 0x6000 0x9800
+# load roms/froggerc.bin 0x6000 0x2000
+# grom roms/froggerg.bin 0x6000 0x9800
 
 #
 #  Pacman
@@ -65,6 +65,9 @@ grom roms/attackg.bin  0x6000 0x2000
 #  breakout
 #
 # load roms/BREAKC.BIN 0x6000 0x2000
+# grom roms/AdvtureG.Bin 0x6000 0x2000
+
+# load roms/BLAKHOLC.BIN 0x6000 0x2000
 
 # Specify the keyboard input device (user read access required)
 keyboard /dev/input/event22

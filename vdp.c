@@ -57,10 +57,11 @@
 #define VDP_SCRN_IMGTAB     ((vdp.reg[2] & 0x0F) << 10)
 
 #define VDP_GR_COLTAB_ADDR  (vdp.reg[3] << 6)
-#define VDP_BM_COLTAB_ADDR  ((vdp.reg[3] & 0x80) << 6)
-#define VDP_BM_COLTAB_SIZE  ((vdp.reg[3] & 0x7F) << 6 || 0x3F)
+// #define VDP_BM_COLTAB_SIZE  ((vdp.reg[3] & 0x7F) << 6 || 0x3F)
+#define VDP_GR_CHARPAT_TAB     ((vdp.reg[4] & 0x07) << 11)
 
-#define VDP_CHARPAT_TAB     ((vdp.reg[4] & 0x07) << 11)
+#define VDP_BM_CHARPAT_TAB     ((vdp.reg[4] & 0x04) << 12)
+#define VDP_BM_COLTAB_ADDR  ((vdp.reg[3] & 0x80) << 6)
 
 #define VDP_SPRITEATTR_TAB  ((vdp.reg[5] & 0x7F) << 7)
 
@@ -68,6 +69,8 @@
 
 #define VDP_FG_COLOUR       ((vdp.reg[7] & 0xf0) >> 4)
 #define VDP_BG_COLOUR       (vdp.reg[7] & 0x0f)
+
+#define VDP_SPRITE_COINC        0x20
 
 #define MAX_ADDR 0x8002
 
@@ -115,7 +118,8 @@ struct
 }
 vdp;
 
-static unsigned char vdpScreen[VDP_XSIZE][VDP_YSIZE];
+static uint8_t vdpScreen[VDP_XSIZE][VDP_YSIZE];
+static bool vdpSpriteCoinc[VDP_XSIZE][VDP_YSIZE];
 static bool vdpInitialised = false;
 static bool vdpRefreshNeeded = false;
 
@@ -216,7 +220,7 @@ void vdpWrite (int addr, int data, int size)
 
         if ((vdp.addr >= VDP_GR_COLTAB_ADDR && vdp.addr < VDP_GR_COLTAB_ADDR + 0x20) ||
             (vdp.addr >= VDP_SCRN_IMGTAB && vdp.addr < VDP_SCRN_IMGTAB + 0x300) ||
-            (vdp.addr >= VDP_CHARPAT_TAB && vdp.addr < VDP_CHARPAT_TAB + 0x800) ||
+            (vdp.addr >= VDP_GR_CHARPAT_TAB && vdp.addr < VDP_GR_CHARPAT_TAB + 0x800) ||
             (vdp.addr >= VDP_SPRITEATTR_TAB && vdp.addr < VDP_SPRITEATTR_TAB + 0x80) ||
             (vdp.addr >= VDP_SPRITEPAT_TAB && vdp.addr < VDP_SPRITEPAT_TAB + 0x400))
             vdpRefreshNeeded = true;
@@ -312,10 +316,11 @@ static void vdpPlot (int x, int y, int col)
     int i, j;
 
     if (x < 0 || y < 0 || 
-        x >= frameBufferXSize * frameBufferScale || 
-        x >= frameBufferYSize * frameBufferScale)
+        x >= VDP_XSIZE || 
+        y >= VDP_YSIZE)
     {
-        halt ("VDP coords out of range\n");
+        // halt ("VDP coords out of range\n");
+        return;
     }
 
     /*  Col 0 is transparent, use global background */
@@ -337,25 +342,36 @@ static void vdpPlot (int x, int y, int col)
  *  (0 to 23).  ch is the character index (0 to 255).  Values are multiplied by
  *  8 (<< 3) to convert to pixel coords.
  */
-static void vdpDrawChar (int cx, int cy, int ch)
+static void vdpDrawChar (int cx, int cy, int bits, int ch)
 {
     int x, y;
-    int data;
-    int charpat = VDP_CHARPAT_TAB + (ch << 3);
-    int colour = vdp.ram[VDP_GR_COLTAB_ADDR + (ch >> 3)];
-
-    #if 0
-    if (VDP_BITMAP_MODE)
-        charpat += (cy >> 3) << ???
-    #endif
 
     for (y = 0; y < 8; y++)
     {
-        data = vdp.ram[charpat+y];
+        int charpat;
+        int colpat;
 
-        for (x = 0; x < 8; x++)
+        if (VDP_BITMAP_MODE)
         {
-            vdpPlot ((cx << 3) + x, (cy << 3) + y,
+            /*  In bitmap mode the screen is divided vertically into thirds.  Each
+             *  third has its own char set.  Each character set is 0x800 (1<<11) in
+             *  size.
+             */
+            charpat = VDP_BM_CHARPAT_TAB + (ch << 3) + ((cy >> 3) << 11) + y;
+            colpat = VDP_BM_COLTAB_ADDR + (ch << 3) + ((cy >> 3) << 11) + y;
+        }
+        else
+        {
+            charpat = VDP_GR_CHARPAT_TAB + (ch << 3) + y;
+            colpat = VDP_GR_COLTAB_ADDR + (ch >> 3);
+        }
+
+        int data = vdp.ram[charpat];
+        int colour = vdp.ram[colpat];
+
+        for (x = cx * bits; x < (cx+1) * bits; x++)
+        {
+            vdpPlot (x, (cy << 3) + y,
                      (data & 0x80) ? (colour >> 4) : (colour & 0x0F));
             data <<= 1;
         }
@@ -370,6 +386,19 @@ static void vdpDrawByte (int data, int x, int y, int col)
     {
         if (data & 0x80)
         {
+            if (x+i < 0 || y < 0 || 
+                x+i >= VDP_XSIZE || 
+                y >= VDP_YSIZE)
+            {
+                /*  This pixel of the sprite is not visible */
+                continue;
+            }
+
+            if (vdpSpriteCoinc[x+i][y])
+                vdp.st |= VDP_SPRITE_COINC;
+
+            vdpSpriteCoinc[x+i][y] = true;
+
             vdpPlot (x + i, y, col);
         }
 
@@ -385,6 +414,20 @@ static void vdpDrawByteMagnified (int data, int x, int y, int col)
     {
         if (data & 0x80)
         {
+            if (x+i*2 < 0 || y < 0 || 
+                x+i*2 >= VDP_XSIZE-1 || 
+                y >= VDP_YSIZE)
+            {
+                /*  This pixel of the sprite is not visible */
+                continue;
+            }
+
+            if (vdpSpriteCoinc[x+i*2][y] || vdpSpriteCoinc[x+i*2+1][y])
+                vdp.st |= VDP_SPRITE_COINC;
+
+            vdpSpriteCoinc[x+i*2][y] = true;
+            vdpSpriteCoinc[x+i*2+1][y] = true;
+
             vdpPlot (x+i*2, y, col);
             vdpPlot (x+i*2+1, y, col);
         }
@@ -456,6 +499,9 @@ static void vdpDrawSprites (void)
     int attr = VDP_SPRITEATTR_TAB;
     int entrySize = 8;
 
+    vdp.st &= ~VDP_SPRITE_COINC;
+    memset (vdpSpriteCoinc, 0, VDP_XSIZE * VDP_YSIZE * sizeof (bool));
+
     size = (VDP_SPRITESIZE ? 1 : 0);
     size |= (VDP_SPRITEMAG ? 2 : 0);
 
@@ -471,6 +517,9 @@ static void vdpDrawSprites (void)
             mprintf (LVL_VDP, "Sprite %d switched off\n", y);
             return;
         }
+
+        if (c & 0x80)
+            x -= 32;
 
         mprintf (LVL_VDP, "Draw sprite %d @ %d,%d pat=%d, colour=%d\n", i, x, y, p, c);
 
@@ -499,14 +548,19 @@ void vdpRefresh (int force)
 
     vdpRefreshNeeded = false;
 
-    if (VDP_BITMAP_MODE || VDP_TEXT_MODE || VDP_MULTI_MODE)
+    if (VDP_MULTI_MODE)
     {
+        printf ("mode=%s\n",
+        VDP_TEXT_MODE?"txt":(VDP_MULTI_MODE?"multi":"???"));
         halt ("unsupported VDP mode");
     }
 
-    for (sc = 0; sc < 0x300; sc++)
+    for (sc = 0; sc < (VDP_TEXT_MODE ? 0x3C0 : 0x300); sc++)
     {
-        vdpDrawChar (sc % 32, sc / 32, vdp.ram[VDP_SCRN_IMGTAB + sc]);
+        if (VDP_TEXT_MODE)
+            vdpDrawChar (sc % 40, sc / 40, 6, vdp.ram[VDP_SCRN_IMGTAB + sc]);
+        else
+            vdpDrawChar (sc % 32, sc / 32, 8, vdp.ram[VDP_SCRN_IMGTAB + sc]);
     }
 
     vdpDrawSprites ();
