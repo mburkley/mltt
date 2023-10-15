@@ -53,6 +53,7 @@
 #include "interrupt.h"
 #include "gpl.h"
 #include "cassette.h"
+#include "disk.h"
 #include "ti994a.h"
 
 typedef struct
@@ -73,17 +74,21 @@ unsigned char romDevice[BANKS_DEVICE][0x2000];
 unsigned char romCartridge[BANKS_CARTRIDGE][0x2000];
 unsigned char scratch[0x100];
 
+static int deviceSelected;
+
 static uint16_t dataRead (uint8_t *data, uint16_t addr, int size);
 static void dataWrite (uint8_t *data, uint16_t addr, uint16_t value, int size);
 static uint16_t invalidRead (uint8_t *data, uint16_t addr, int size);
 static void invalidWrite (uint8_t *data, uint16_t addr, uint16_t value, int size);
 static void bankSelect (uint8_t *data, uint16_t addr, uint16_t value, int size);
+uint16_t deviceRead (uint8_t *ptr, uint16_t addr, int size);
+void deviceWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size);
 
 memMap memory[] =
 {
     { 1, 0, 0x0000, 0x1FFF, romConsole, dataRead, invalidWrite }, // Console ROM
     { 0, 0, 0x2000, 0x1FFF, &ram[0x0000], dataRead, dataWrite }, // 32k Expn low
-    { 1, 0, 0x4000, 0x1FFF, romDevice[0], dataRead, invalidWrite }, // Device ROM (selected by CRU)
+    { 1, 0, 0x4000, 0x1FFF, romDevice[0], deviceRead, deviceWrite }, // Device ROM (selected by CRU)
     { 1, 0, 0x6000, 0x1FFF, romCartridge[0], dataRead, bankSelect }, // Cartridge ROM
     { 0, 1, 0x8000, 0x00FF, NULL, NULL, NULL }, // MMIO + scratchpad
     { 0, 0, 0xA000, 0x1FFF, &ram[0x2000], dataRead, dataWrite }, //
@@ -102,6 +107,25 @@ memMap mmio[] =
     { 0, 1, 0x9800, 0x0003, NULL   , gromRead, invalidWrite }, // GROM Read
     { 0, 1, 0x9C00, 0x0003, NULL   , invalidRead, gromWrite }, // GROM Write
 };
+
+/*  Read a device ROM.  Some devices have memory mapped I/O in their ROM address
+ *  space.  TODO add a process for devices to register this MMIO
+ */
+uint16_t deviceRead (uint8_t *ptr, uint16_t addr, int size)
+{
+    if (deviceSelected == 1 && (addr&0x1FF0)==0x1FF0)
+        return diskRead (addr&0xF, size);
+
+    return dataRead (ptr, addr, size);
+}
+
+void deviceWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size)
+{
+    if (deviceSelected == 1 && (addr&0x1FF0)==0x1FF0)
+        return diskWrite (addr&0xF, data, size);
+
+    return invalidWrite (ptr, addr, data, size);
+}
 
 static uint16_t dataRead (uint8_t *data, uint16_t addr, int size)
 {
@@ -139,7 +163,7 @@ static uint16_t invalidRead (uint8_t *data, uint16_t addr, int size)
 
 static void invalidWrite (uint8_t *data, uint16_t addr, uint16_t value, int size)
 {
-    printf ("Write %04X to %04X\n", value, addr);
+    printf ("Invalid Write %04X to %04X\n", value, addr);
     halt ("invalid write");
 }
 
@@ -155,6 +179,24 @@ static void bankSelect (uint8_t *data, uint16_t addr, uint16_t value, int size)
     #endif
 }
 
+bool ti994aDeviceRomSelect (int index, uint8_t state)
+{
+    /*  Devices are selected through CRU bits >1000 thru >1F00.  Divided by 2 is
+     *  >800 thru >F80.  We convert this to 0-15
+     */
+    deviceSelected = (index & 0x780) >> 7;
+
+    printf ("Select device ROM %d state %d\n", deviceSelected, state);
+
+    /*  For now, assume device 0 means no device */
+    if (state == 0)
+        memory[2].data = romDevice[0];
+    else
+        memory[2].data = romDevice[deviceSelected];
+
+    /*  Allow the bit state to be changed */
+    return false;
+}
 
 bool ti994aRunFlag;
 
@@ -273,6 +315,12 @@ void ti994aMemLoad (char *file, uint16_t addr, int bank)
 
     if (addr == 0x6000 && bank == 1)
         data = romCartridge[bank];
+
+    if (addr == 0x4000)
+        data = romDevice[bank];
+
+    if (addr == 0x4000)
+        data = romDevice[bank];
 
     if (fread (data, sizeof (uint8_t), ROM_FILE_SIZE, fp) != ROM_FILE_SIZE)
     {

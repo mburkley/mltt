@@ -41,7 +41,7 @@
 #include "parse.h"
 #include "ti994a.h"
 
-static const char *unasmText[65536];
+static const char *unasmText[0x10000];
 static const char *currText;
 
 extern int outputLevel;
@@ -233,9 +233,10 @@ static void unasmImmed (uint16_t opCode, uint16_t *pc, uint16_t sReg)
     {
         if (showData)
         {
+
             if (showReg)
             {
-                sprintf (out, "%-4s  R%d,>%04X",
+                sprintf (out, "%-4s  %d,>%04X",
                          name,
                          sReg,
                          memReadW(*pc));
@@ -246,12 +247,11 @@ static void unasmImmed (uint16_t opCode, uint16_t *pc, uint16_t sReg)
                          name,
                          memReadW(*pc));
             }
-
             (*pc) += 2;
         }
         else
         {
-            sprintf (out, "%-4s  R%d",
+            sprintf (out, "%-4s  %d",
                      name,
                      sReg);
         }
@@ -426,8 +426,7 @@ void unasmReadText (const char *textFile)
         if (!fgets (s, sizeof s, fp))
             continue;
 
-        int ix = strtoul (s, NULL, 16);
-        ix %= 8192;
+        uint16_t ix = strtoul (s, NULL, 16);
         if (unasmText[ix])
         {
             printf ("Already have text for %x\n", ix);
@@ -453,11 +452,14 @@ int main (int argc, char *argv[])
 
     if (argc < 3 || !parseValue (argv[2], &addr))
     {
-        printf ("Usage: %s <filename> <address>\n", argv[0]);
+        printf ("Usage: %s <filename> <address> [<comments-file>]\n", argv[0]);
         exit (1);
     }
 
     ti994aMemLoad (argv[1], addr, 0);
+
+    if (argc > 3)
+        unasmReadText (argv[3]);
 
     pc = addr;
     outputLevel = LVL_UNASM;
@@ -470,14 +472,15 @@ int main (int argc, char *argv[])
         uint16_t opcode = cpuDecode (data, &type);
         uint16_t paramWords = unasmPreExec (pc, data, type, opcode);
 
-        printf ("\n");
+        unasmPostPrint ();
+        // printf ("\n");
 
         while (paramWords)
         {
             paramWords-=2;
             data = memReadW (pc);
-            pc += 2;
             printf ("%04X:%04X\n", pc, data);
+            pc += 2;
         }
     }
 
