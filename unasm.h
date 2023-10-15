@@ -25,16 +25,10 @@
 
 #include <stdbool.h>
 
-void unasmRunTimeHookAdd (void);
 void unasmReadText (const char *textFile);
-
-extern void (*unasmPreExecHook)(uint16_t pc, uint16_t data, uint16_t opMask, int type,
-                     uint16_t sMode, uint16_t sReg, uint16_t sArg,
-                     uint16_t dMode, uint16_t dReg, uint16_t dArg,
-                     uint16_t count, uint16_t offset);
-extern void (*unasmPostExecHook)(uint16_t pc, int type, bool isByte, bool store, uint16_t sMode,
-                          uint16_t sAdddr, uint16_t dMode, uint16_t dReg, uint16_t addr,
-                          uint16_t data, uint16_t regData);
+void unasmPreExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcode);
+void unasmPostText (char *fmt, ...);
+void unasmPostPrint (void);
 
 #endif
 

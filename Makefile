@@ -16,7 +16,8 @@ sound.c \
 interrupt.c \
 gpl.c \
 status.c \
-cassette.c
+cassette.c \
+parse.c
 
 LIBS=\
 -l glut\
@@ -26,13 +27,16 @@ LIBS=\
 -lreadline \
 -lm
 
-all:  ti994a tests dumptape
+all:  ti994a tests dumptape unasm
 
 ti994a: $(SRCS) console.c ti994a.c
 	gcc -Wall -ggdb3 -o ti994a -D__GROM_DEBUG console.c ti994a.c $(SRCS) $(LIBS)
 
 tests: $(SRCS) tests.c
 	gcc -Wall -ggdb3 -o tests -D__GROM_DEBUG tests.c $(SRCS) $(LIBS)
+
+unasm: $(SRCS) unasm.c
+	gcc -Wall -ggdb3 -o unasm -D__BUILD_UNASM ti994a.c $(SRCS) $(LIBS)
 
 testkbd: $(SRCS) kbd.c trace.c
 	gcc -Wall -ggdb3 -o testkbd -D__UNIT_TEST kbd.c trace.c $(LIBS)

@@ -25,12 +25,12 @@
 
 #include "cpu.h"
 
-int gromRead (int addr, int size);
+uint16_t gromRead (uint8_t *ptr, uint16_t addr, int size);
 uint8_t gromData (int addr);
 uint16_t gromAddr (void);
-void gromWrite (int addr, int data, int size);
+void gromWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size);
 void gromShowStatus (void);
-void gromLoad (char *name, int start, int len);
+void gromLoad (char *file, uint16_t addr);
 
 #endif
 

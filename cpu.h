@@ -23,11 +23,6 @@
 #ifndef __CPU_H
 #define __CPU_H
 
-/*
- *  We can compile for 16 or 32 bit platforms.  We make use of the fact
- *  that short is 16 bit in either and long is 32 bit in either.
- */
-
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -42,50 +37,6 @@
 #define OPTYPE_JUMP     4
 #define OPTYPE_DUAL1    5
 #define OPTYPE_DUAL2    6
-
-#define OP_SZC  0x4000
-#define OP_SZCB 0x5000
-#define OP_S    0x6000
-#define OP_SB   0x7000
-#define OP_C    0x8000
-#define OP_CB   0x9000
-#define OP_A    0xA000
-#define OP_AB   0xB000
-#define OP_MOV  0xC000
-#define OP_MOVB 0xD000
-#define OP_SOC  0xE000
-#define OP_SOCB 0xF000
-
-#define OP_COC  0x2000
-#define OP_CZC  0x2400
-#define OP_XOR  0x2800
-#define OP_XOP  0x2C00
-#define OP_LDCR 0x3000
-#define OP_STCR 0x3400
-#define OP_MPY  0x3800
-#define OP_DIV  0x3C00
-
-#define OP_JMP  0x1000
-#define OP_JLT  0x1100
-#define OP_JLE  0x1200
-#define OP_JEQ  0x1300
-#define OP_JHE  0x1400
-#define OP_JGT  0x1500
-#define OP_JNE  0x1600
-#define OP_JNC  0x1700
-#define OP_JOC  0x1800
-#define OP_JNO  0x1900
-#define OP_JL   0x1A00
-#define OP_JH   0x1B00
-#define OP_JOP  0x1C00
-#define OP_SBO  0x1D00
-#define OP_SBZ  0x1E00
-#define OP_TB   0x1F00
-
-#define OP_SRA  0x0800
-#define OP_SRL  0x0900
-#define OP_SLA  0x0A00
-#define OP_SRC  0x0B00
 
 #define OP_LI   0x0200
 #define OP_AI   0x0220
@@ -114,7 +65,49 @@
 #define OP_SETO 0x0700
 #define OP_ABS	0x0740
 
+#define OP_SRA  0x0800
+#define OP_SRL  0x0900
+#define OP_SLA  0x0A00
+#define OP_SRC  0x0B00
+
+#define OP_JMP  0x1000
+#define OP_JLT  0x1100
+#define OP_JLE  0x1200
+#define OP_JEQ  0x1300
+#define OP_JHE  0x1400
+#define OP_JGT  0x1500
+#define OP_JNE  0x1600
+#define OP_JNC  0x1700
+#define OP_JOC  0x1800
+#define OP_JNO  0x1900
+#define OP_JL   0x1A00
+#define OP_JH   0x1B00
+#define OP_JOP  0x1C00
+#define OP_SBO  0x1D00
+#define OP_SBZ  0x1E00
+#define OP_TB   0x1F00
+
+#define OP_COC  0x2000
+#define OP_CZC  0x2400
 #define OP_XOR  0x2800
+#define OP_XOP  0x2C00
+#define OP_LDCR 0x3000
+#define OP_STCR 0x3400
+#define OP_MPY  0x3800
+#define OP_DIV  0x3C00
+
+#define OP_SZC  0x4000
+#define OP_SZCB 0x5000
+#define OP_S    0x6000
+#define OP_SB   0x7000
+#define OP_C    0x8000
+#define OP_CB   0x9000
+#define OP_A    0xA000
+#define OP_AB   0xB000
+#define OP_MOV  0xC000
+#define OP_MOVB 0xD000
+#define OP_SOC  0xE000
+#define OP_SOCB 0xF000
 
 #define FLAG_LGT 0x8000
 #define FLAG_AGT 0x4000
@@ -125,10 +118,12 @@
 #define FLAG_XOP 0x0200
 #define FLAG_MSK 0x000F
 
+
 uint16_t cpuRead(uint16_t addr);
 void cpuShowStatus(void);
 void cpuShowStWord(void);
-void cpuExecute (int data);
+uint16_t cpuDecode (uint16_t data, uint16_t *type);
+void cpuExecute (uint16_t data);
 uint16_t cpuFetch (void);
 uint16_t cpuGetPC (void);
 uint16_t cpuGetWP (void);

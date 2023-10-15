@@ -191,7 +191,7 @@ typedef struct
     int bytesMovedImmed;
     int addr;
 }
-operand;
+gplOperand;
 
 static struct
 {
@@ -207,15 +207,15 @@ static struct
     bool immedStored;
     bool multiByte;
     bool fmtMode;
-    operand src;
-    operand dst;
+    gplOperand src;
+    gplOperand dst;
     uint8_t operation[10];
 }
 gplState;
 
 /*  Show a src or dst address.  Could be CPU, VDP or immed
  */
-static void showAddress (operand *op)
+static void showAddress (gplOperand *op)
 {
     #if 0
     if (op->cpu && op->vdp)
@@ -285,7 +285,7 @@ static void interpret (void)
 }
 
 /*  Returns 1 byte was consumed or 0 if don't want it */
-static int decodeOperand (operand *op, uint8_t data)
+static int decodeOperand (gplOperand *op, uint8_t data)
 {
     mprintf(LVL_GPLDBG, "Process operand %s\n", op==&gplState.src ? "SRC" : "DST");
     /*  We don't do bitwise interpretation of values if they are immediate, they

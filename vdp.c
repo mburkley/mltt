@@ -164,7 +164,7 @@ int vdpReadRegister (int reg)
     return vdp.reg[reg];
 }
 
-int vdpRead (int addr, int size)
+uint16_t vdpRead (uint8_t *ptr, uint16_t addr, int size)
 {
     if (size != 1)
     {
@@ -194,11 +194,11 @@ int vdpRead (int addr, int size)
     return 0;
 }
 
-void vdpWrite (int addr, int data, int size)
+void vdpWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size)
 {
     if (size != 1)
     {
-        halt ("VDP can only write bytes\n");
+        data>>=8;
     }
 
     switch (addr)

@@ -55,51 +55,106 @@
 #include "cassette.h"
 #include "ti994a.h"
 
-typedef union
-{
-    uint8_t b[0x2000];
-}
-memPage;
-
 typedef struct
 {
     bool    rom;
     bool    mapped;
     int addr;
     int mask;
-    memPage *m;
-    int (*readHandler)(int addr, int size);
-    void (*writeHandler)(int addr, int size, int value);
+    unsigned char *data;
+    uint16_t (*readHandler)(uint8_t* ptr, uint16_t addr, int size);
+    void (*writeHandler)(uint8_t* ptr, uint16_t addr, uint16_t value, int size);
 }
 memMap;
 
-memPage ram[4];
-memPage rom[3];
-memPage scratch;
+unsigned char ram[0x8000];
+unsigned char romConsole[0x2000];
+unsigned char romDevice[BANKS_DEVICE][0x2000];
+unsigned char romCartridge[BANKS_CARTRIDGE][0x2000];
+unsigned char scratch[0x100];
+
+static uint16_t dataRead (uint8_t *data, uint16_t addr, int size);
+static void dataWrite (uint8_t *data, uint16_t addr, uint16_t value, int size);
+static uint16_t invalidRead (uint8_t *data, uint16_t addr, int size);
+static void invalidWrite (uint8_t *data, uint16_t addr, uint16_t value, int size);
+static void bankSelect (uint8_t *data, uint16_t addr, uint16_t value, int size);
 
 memMap memory[] =
 {
-    { 1, 0, 0x0000, 0x1FFF, &rom[0], NULL, NULL }, // Console ROM
-    { 0, 0, 0x2000, 0x1FFF, &ram[0], NULL, NULL }, // 32k Expn low
-    { 1, 0, 0x4000, 0x1FFF, &rom[1], NULL, NULL }, // Device ROM (selected by CRU)
-    { 1, 0, 0x6000, 0x1FFF, &rom[2], NULL, NULL }, // Cartridge ROM
-    { 0, 1, 0x8000, 0x00FF, &scratch, NULL, NULL }, // MMIO + scratchpad
-    { 0, 0, 0xA000, 0x1FFF, NULL,    NULL, NULL }, //
-    { 0, 0, 0xC000, 0x1FFF, &ram[2], NULL, NULL }, // + 32k expn high
-    { 0, 0, 0xE000, 0x1FFF, &ram[3], NULL, NULL }  //
+    { 1, 0, 0x0000, 0x1FFF, romConsole, dataRead, invalidWrite }, // Console ROM
+    { 0, 0, 0x2000, 0x1FFF, &ram[0x0000], dataRead, dataWrite }, // 32k Expn low
+    { 1, 0, 0x4000, 0x1FFF, romDevice[0], dataRead, invalidWrite }, // Device ROM (selected by CRU)
+    { 1, 0, 0x6000, 0x1FFF, romCartridge[0], dataRead, bankSelect }, // Cartridge ROM
+    { 0, 1, 0x8000, 0x00FF, NULL, NULL, NULL }, // MMIO + scratchpad
+    { 0, 0, 0xA000, 0x1FFF, &ram[0x2000], dataRead, dataWrite }, //
+    { 0, 0, 0xC000, 0x1FFF, &ram[0x4000], dataRead, dataWrite }, // + 32k expn high
+    { 0, 0, 0xE000, 0x1FFF, &ram[0x6000], dataRead, dataWrite }  //
 };
 
 memMap mmio[] =
 {
-    { 0, 0, 0x8000, 0x00FF, &scratch, NULL, NULL }, // Scratch pad RAM
+    { 0, 0, 0x8000, 0x00FF, scratch, dataRead, dataWrite }, // Scratch pad RAM
     { 0, 1, 0x8400, 0x00FF, NULL   , soundRead, soundWrite }, // Sound device
-    { 0, 1, 0x8800, 0x0003, NULL   , vdpRead, NULL }, // VDP Read
-    { 0, 1, 0x8C00, 0x0003, NULL   , NULL, vdpWrite }, // VDP Write
-    { 0, 1, 0x9000, 0x0003, NULL   , speechRead, NULL }, // Speech Read
-    { 0, 1, 0x9400, 0x0003, NULL   , NULL, speechWrite }, // Speech Write
-    { 0, 1, 0x9800, 0x0003, NULL   , gromRead, NULL }, // GROM Read
-    { 0, 1, 0x9C00, 0x0003, NULL   , NULL, gromWrite }, // GROM Write
+    { 0, 1, 0x8800, 0x0003, NULL   , vdpRead, invalidWrite }, // VDP Read
+    { 0, 1, 0x8C00, 0x0003, NULL   , invalidRead, vdpWrite }, // VDP Write
+    { 0, 1, 0x9000, 0x0003, NULL   , speechRead, invalidWrite }, // Speech Read
+    { 0, 1, 0x9400, 0x0003, NULL   , speechRead, speechWrite }, // Speech Write
+    { 0, 1, 0x9800, 0x0003, NULL   , gromRead, invalidWrite }, // GROM Read
+    { 0, 1, 0x9C00, 0x0003, NULL   , invalidRead, gromWrite }, // GROM Write
 };
+
+static uint16_t dataRead (uint8_t *data, uint16_t addr, int size)
+{
+    if (size == 2)
+    {
+        addr &= ~1; // Always round word reads to a word boundary
+        return (data[addr] << 8) | data[addr+1];
+    }
+    else
+    {
+        return data[addr];
+    }
+}
+
+static void dataWrite (uint8_t *data, uint16_t addr, uint16_t value, int size)
+{
+    if (size == 2)
+    {
+        addr &= ~1; // Always round word reads to a word boundary
+        data[addr++] = value >> 8;
+        data[addr] = value & 0xFF;
+    }
+    else
+    {
+        data[addr] = value;
+    }
+}
+
+static uint16_t invalidRead (uint8_t *data, uint16_t addr, int size)
+{
+    printf ("Read from %04X\n", addr);
+    halt ("invalid read");
+    return 0;
+}
+
+static void invalidWrite (uint8_t *data, uint16_t addr, uint16_t value, int size)
+{
+    printf ("Write %04X to %04X\n", value, addr);
+    halt ("invalid write");
+}
+
+static void bankSelect (uint8_t *data, uint16_t addr, uint16_t value, int size)
+{
+    printf ("Bank Write %04X to %04X\n", value, addr);
+
+    #if 1
+    if (addr == 2)
+        memory[3].data = romCartridge[1];
+    else
+        memory[3].data = romCartridge[0];
+    #endif
+}
+
 
 bool ti994aRunFlag;
 
@@ -114,9 +169,9 @@ static void ti994aPrintScratchMemory (uint16_t addr, int len)
         for (j = i; j < i + 16 && j < addr+len; j += 2)
         {
             if (len == 1)
-                printf ("%02X   ", scratch.b[j+1]);
+                printf ("%02X   ", scratch[j+1]);
             else
-                printf ("%02X%02X ", scratch.b[j], scratch.b[j+1]);
+                printf ("%02X%02X ", scratch[j], scratch[j+1]);
         }
 
         for (; j < i + 16; j += 2)
@@ -162,94 +217,13 @@ static memMap *memMapEntry (int addr)
 uint16_t memRead(uint16_t addr, int size)
 {
     memMap *p = memMapEntry (addr);
-
-    if (p->mapped)
-    {
-        if (p->readHandler)
-            return p->readHandler (addr & p->mask, size);
-        else
-            goto error;
-    }
-
-    if (!p->m)
-    {
-        /*
-         *  Not installed
-         */
-        goto error;
-    }
-
-    if (size == 2)
-    {
-        addr &= ~1; // Always round word reads to a word boundary?
-        mprintf (LVL_CONSOLE, "[memReadW:%04X->%02X%02X]", addr,
-        p->m->b[addr&p->mask], p->m->b[(addr&p->mask)+1]);
-
-        return (p->m->b[addr&p->mask] << 8) | p->m->b[(addr&p->mask)+1];
-    }
-    else
-    {
-        mprintf (LVL_CONSOLE, "[memReadB:%04X->%02X]", addr,
-        p->m->b[addr&p->mask]);
-
-        return p->m->b[addr&p->mask];
-    }
-
-error:
-    return 0xff;
+    return p->readHandler (p->data, addr & p->mask, size);
 }
 
 void memWrite(uint16_t addr, uint16_t data, int size)
 {
     memMap *p = memMapEntry (addr);
-
-    if (p->mapped)
-    {
-        if (p->writeHandler)
-            return p->writeHandler (addr & p->mask, data, size);
-        else
-        {
-            printf("mapped\n");
-            goto error;
-        }
-    }
-
-    if (!p->m)
-    {
-        /*
-         *  Not installed
-         */
-        printf ("no mem\n");
-        goto error;
-    }
-
-    if (p->rom)
-    {
-        printf ("addr=%04X\n", addr);
-        halt ("Attempted write to ROM");
-    }
-
-    if (size == 2)
-    {
-        addr &= ~1; // Always round word reads to a word boundary?
-
-        p->m->b[addr&p->mask] = (data >> 8) & 0xFF;
-        p->m->b[(addr&p->mask)+1] = data & 0xFF;
-        mprintf (LVL_CONSOLE, "[memWriteW:%04X<-%02X%02X]", addr,
-        p->m->b[addr&p->mask],
-                p->m->b[(addr&p->mask)+1]);
-    }
-    else
-    {
-        p->m->b[addr&p->mask] = data;
-        mprintf (LVL_CONSOLE, "[memWriteB:%04X<-%02X]", addr,
-        p->m->b[addr&p->mask]);
-    }
-    return;
-
-error:
-    printf ("write to unmapped addr %x\n", addr);
-    halt ("write");
+    p->writeHandler (p->data, addr & p->mask, data, size);
 }
 
 uint16_t memReadB(uint16_t addr)
@@ -272,27 +246,37 @@ void memWriteW(uint16_t addr, uint16_t data)
     return memWrite (addr, data, 2);
 }
 
-void ti994aMemLoad (char *file, uint16_t addr, uint16_t length)
+void ti994aMemLoad (char *file, uint16_t addr, int bank)
 {
     FILE *fp;
-    int i;
-    memMap *p;
 
-printf("%s %s %x %x\n", __func__, file, addr, length);
     if ((fp = fopen (file, "rb")) == NULL)
     {
         printf ("can't open ROM bin file '%s'\n", file);
         exit (1);
     }
 
-    for (i = addr; i < addr + length; i += 0x2000)
-    {
-        p = &memory[i>>13];
+    fseek (fp, 0, SEEK_END);
+    int len = ftell (fp);
+    fseek (fp, 0, SEEK_SET);
 
-        if (fread (p->m->b, sizeof (uint8_t), 0x2000, fp) != 0x2000)
-        {
-            halt ("ROM file read failure");
-        }
+    printf("%s %s %x %x %d\n", __func__, file, addr, len, bank);
+
+    if (len != ROM_FILE_SIZE)
+    {
+        printf ("ROM file size unsupported %04X\n", len);
+        halt ("ROM file size");
+    }
+
+    memMap *map = &memory[addr>>13];
+    uint8_t *data = map->data;
+
+    if (addr == 0x6000 && bank == 1)
+        data = romCartridge[bank];
+
+    if (fread (data, sizeof (uint8_t), ROM_FILE_SIZE, fp) != ROM_FILE_SIZE)
+    {
+        halt ("ROM file read failure");
     }
 
     fclose (fp);
@@ -301,7 +285,6 @@ printf("%s %s %x %x\n", __func__, file, addr, length);
 void ti994aVideoInterrupt (void)
 {
     vdpRefresh(0);
-    // soundUpdate();
 
     /*
      *  Clear bit 2 to indicate VDP interrupt
@@ -341,8 +324,10 @@ void ti994aRun (int instPerInterrupt)
          *
          *  TODO : trick, LIMI 2 is the main GPL loop but won't mess up cassette
          *  ops.  Will this work with munchman and other ROM games?
+         *
+         *  Messes up frogger, remove  TODO retest cassette
          */
-        if (cpuGetIntMask() == 2 && count >= instPerInterrupt)
+        if (/* cpuGetIntMask() == 2 && */ count >= instPerInterrupt)
         {
             shouldBlock = true;
             count -= instPerInterrupt;

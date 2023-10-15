@@ -23,12 +23,13 @@
 #ifndef __VDP_H
 #define __VDP_H
 
+#include <stdint.h>
 #include <stdbool.h>
 
 int vdpReadStatus (void);
 int vdpReadRegister (int reg);
-int vdpRead (int addr, int size);
-void vdpWrite (int addr, int data, int size);
+uint16_t vdpRead (uint8_t *ptr, uint16_t addr, int size);
+void vdpWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size);
 void vdpInitGraphics (bool statusPane, int scale);
 void vdpRefresh (int force);
 void vdpPlotRaw (int x, int y, int colour);

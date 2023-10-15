@@ -23,7 +23,7 @@
 /*
  *  unasm.c  - TMS9900 disassembler.
  *
- *  Contains hooks for pre and post operation execution for disassembly
+ *  Pre and post operation execution for disassembly
  *  at run time.
  *
  */
@@ -32,22 +32,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdarg.h>
 
 #include "cover.h"
 #include "cpu.h"
 #include "mem.h"
 #include "trace.h"
+#include "parse.h"
+#include "ti994a.h"
 
 static const char *unasmText[65536];
 static const char *currText;
-
-void (*unasmPreExecHook)(uint16_t pc, uint16_t data, uint16_t opMask, int type,
-                     uint16_t sMode, uint16_t sReg, uint16_t sArg,
-                     uint16_t dMode, uint16_t dReg, uint16_t dArg,
-                     uint16_t count, uint16_t offset);
-void (*unasmPostExecHook)(uint16_t pc, int type, bool isByte, bool store, uint16_t sMode,
-                          uint16_t sAddr, uint16_t dMode, uint16_t dReg, uint16_t addr,
-                          uint16_t data, uint16_t wp);
 
 extern int outputLevel;
 
@@ -78,9 +73,10 @@ static const char *parseComment (char type, int *len)
     return ret;
 }
 
-static char * printOper (uint16_t mode, uint16_t reg, uint16_t arg)
+static char * printOper (uint16_t mode, uint16_t reg, uint16_t *pc)
 {
     static char result[20];
+    uint16_t arg;
 
     switch (mode)
     {
@@ -93,6 +89,9 @@ static char * printOper (uint16_t mode, uint16_t reg, uint16_t arg)
         break;
 
     case AMODE_SYM:
+        arg = memReadW (*pc);
+        (*pc) += 2;
+
         if (reg)
         {
             sprintf (result, "@>%04X[%d]", arg, reg);
@@ -112,8 +111,8 @@ static char * printOper (uint16_t mode, uint16_t reg, uint16_t arg)
     return result;
 }
 
-static void unasmTwoOp (uint16_t opCode, uint16_t pc, uint16_t sMode, uint16_t sReg,
-                        uint16_t sAddr, uint16_t dMode, uint16_t dReg, uint16_t dAddr)
+static void unasmTwoOp (uint16_t opCode, uint16_t *pc, uint16_t sMode, uint16_t sReg,
+                        uint16_t dMode, uint16_t dReg)
 {
     char *name = "****";
     char op[20];
@@ -122,7 +121,7 @@ static void unasmTwoOp (uint16_t opCode, uint16_t pc, uint16_t sMode, uint16_t s
     if (outputLevel < 2)
         return;
 
-    if (outputCovered && covered[pc >> 1])
+    if (outputCovered && covered[*pc >> 1])
         return;
 
     switch (opCode)
@@ -154,18 +153,18 @@ static void unasmTwoOp (uint16_t opCode, uint16_t pc, uint16_t sMode, uint16_t s
 
     }
 
-    strcpy (op, printOper (sMode, sReg, sAddr));
+    strcpy (op, printOper (sMode, sReg, pc));
 
     sprintf (out, "%-4s  %s,%s",
              name,
              op,
-             printOper (dMode, dReg, dAddr));
+             printOper (dMode, dReg, pc));
 
     mprintf (LVL_UNASM, "%-30.30s", out);
 }
 
-static void unasmOneOp (uint16_t opCode, uint16_t pc, uint16_t sMode, uint16_t sReg,
-                        uint16_t sAddr)
+static void unasmOneOp (uint16_t opCode, uint16_t *pc, uint16_t sMode, uint16_t
+sReg)
 {
     char *name = "****";
     char out[31];
@@ -173,7 +172,7 @@ static void unasmOneOp (uint16_t opCode, uint16_t pc, uint16_t sMode, uint16_t s
     if (outputLevel < 2)
         return;
 
-    if (outputCovered && covered[pc >> 1])
+    if (outputCovered && covered[*pc >> 1])
         return;
 
     switch (opCode)
@@ -196,22 +195,23 @@ static void unasmOneOp (uint16_t opCode, uint16_t pc, uint16_t sMode, uint16_t s
 
     sprintf (out, "%-4s  %s",
              name,
-             printOper (sMode, sReg, sAddr));
+             printOper (sMode, sReg, pc));
 
     mprintf (LVL_UNASM, "%-30.30s", out);
 }
 
-static void unasmImmed (uint16_t opCode, uint16_t pc, uint16_t sReg)
+static void unasmImmed (uint16_t opCode, uint16_t *pc, uint16_t sReg)
 {
     char out[31];
     char *name = "****";
-    int showOper = 1;
-    int showData = 1;
+    bool showReg = true;
+    bool showOper = true;
+    bool showData = true;
 
     if (outputLevel < 2)
         return;
 
-    if (outputCovered && covered[pc >> 1])
+    if (outputCovered && covered[*pc >> 1])
         return;
 
     switch (opCode)
@@ -221,28 +221,39 @@ static void unasmImmed (uint16_t opCode, uint16_t pc, uint16_t sReg)
     case OP_ANDI: name="ANDI"; break;
     case OP_ORI: name="ORI"; break;
     case OP_CI: name="CI"; break;
-    case OP_STWP: name="STWP"; showData = 0; break;
-    case OP_STST: name="STST"; showData = 0; break;
-    case OP_LWPI: name="LWPI"; break;
-    case OP_LIMI: name="LIMI"; break;
-    case OP_RTWP: name="RTWP"; showOper = 0; break;
+    case OP_STWP: name="STWP"; showData = false; break;
+    case OP_STST: name="STST"; showData = false; break;
+    case OP_LWPI: name="LWPI"; showReg = false; break;
+    case OP_LIMI: name="LIMI"; showReg = false; break;
+    case OP_RTWP: name="RTWP"; showOper = false; break;
+    default: showOper = false; break;
     }
-
 
     if (showOper)
     {
         if (showData)
         {
-            sprintf (out, "%-4s  %s,>%04X",
-                     name,
-                     printOper (0, sReg, 0),
-                     memReadW(pc));
+            if (showReg)
+            {
+                sprintf (out, "%-4s  R%d,>%04X",
+                         name,
+                         sReg,
+                         memReadW(*pc));
+            }
+            else
+            {
+                sprintf (out, "%-4s  >%04X",
+                         name,
+                         memReadW(*pc));
+            }
+
+            (*pc) += 2;
         }
         else
         {
-            sprintf (out, "%-4s  %s",
+            sprintf (out, "%-4s  R%d",
                      name,
-                     printOper (0, sReg, 0));
+                     sReg);
         }
     }
     else
@@ -252,9 +263,9 @@ static void unasmImmed (uint16_t opCode, uint16_t pc, uint16_t sReg)
     mprintf (LVL_UNASM, "%-30.30s", out);
 }
 
-static void unasmJump (uint16_t opCode, uint16_t pc, int8_t offset, bool cond)
+static void unasmJump (uint16_t opCode, uint16_t pc, int8_t offset)
 {
-    // char out[31];
+    char out[31];
     char *name = "****";
     int pcOffset = 1;
 
@@ -286,27 +297,30 @@ static void unasmJump (uint16_t opCode, uint16_t pc, int8_t offset, bool cond)
 
     if (pcOffset)
     {
-        mprintf (LVL_UNASM, "%-4s  >%04X                    %s",
+        sprintf (out, "%-4s  >%04X",
                 name,
-                pc + (offset << 1),
-                cond ? "****" : "");
+                pc + (offset << 1));
     }
     else
     {
-        mprintf (LVL_UNASM, "%-4s  %d                    %s",
+        sprintf (out, "%-4s  %d",
                 name,
-                offset,
-                cond ? "****" : "");
+                offset);
     }
+
+    mprintf (LVL_UNASM, "%-30.30s", out);
 }
 
-static void preExecHook (uint16_t pc, uint16_t data, uint16_t opMask, int type,
-                     uint16_t sMode, uint16_t sReg, uint16_t sArg,
-                     uint16_t dMode, uint16_t dReg, uint16_t dArg,
-                     uint16_t count, uint16_t offset)
+/*  Pre execution disassembly.  Returns number of words consumed */
+uint16_t unasmPreExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcode)
 {
     const char *comment;
     int len;
+    int sReg = 0;
+    int dReg = 0;
+    int sMode = 0;
+    int dMode = 0;
+    uint16_t pcStart = pc;
 
     currText = unasmText[pc-2];
 
@@ -317,113 +331,74 @@ static void preExecHook (uint16_t pc, uint16_t data, uint16_t opMask, int type,
 
     if (!outputCovered || !covered[pc >> 1])
     {
-        mprintf (LVL_UNASM, "%04X:%04X ", pc - 2, data);
+        mprintf (LVL_UNASM, "%04X:%04X ", pc-2, data);
 
         switch (type)
         {
         case OPTYPE_IMMED:
-            unasmImmed (data & opMask, pc, sReg);
+            sReg   =  data & 0x000F;
+            unasmImmed (opcode, &pc, sReg);
             break;
 
         case OPTYPE_SINGLE:
-            unasmOneOp (data & opMask, pc, sMode, sReg, sArg);
+            sMode = (data & 0x0030) >> 4;
+            sReg     =  data & 0x000F;
+            unasmOneOp (opcode, &pc, sMode, sReg);
             break;
 
         case OPTYPE_SHIFT:
-            unasmTwoOp (data & opMask, pc, 0, sReg, 0, 0, count, 0);
+            dReg = (data & 0x00F0) >> 4;
+            sReg =  data & 0x000F;
+            unasmTwoOp (opcode, &pc, 0, sReg, 0, dReg);
             break;
 
         case OPTYPE_JUMP:
-            // TODO pass jump condition as a param, remove hardcoded 1
-            unasmJump (data & opMask, pc, offset, 1);
+            sReg = data & 0x00FF;
+            unasmJump (opcode, pc, sReg);
             break;
 
         case OPTYPE_DUAL1:
-            unasmTwoOp (data & 0xFC00, pc, sMode, sReg,
-                        sArg, dMode, dReg, dArg);
+            dReg     = (data & 0x03C0) >> 6;
+            sMode = (data & 0x0030) >> 4;
+            sReg     =  data & 0x000F;
+            unasmTwoOp (opcode, &pc, sMode, sReg, 0, dReg);
             break;
 
         case OPTYPE_DUAL2:
-            unasmTwoOp (data & 0xF000, pc, sMode, sReg,
-                        sArg, dMode, dReg, dArg);
+            dMode = (data & 0x0C00) >> 10;
+            dReg     = (data & 0x03C0) >> 6;
+            sMode = (data & 0x0030) >> 4;
+            sReg     =  data & 0x000F;
+            unasmTwoOp (opcode, &pc, sMode, sReg, dMode, dReg);
             break;
         }
     }
+
+    return pc - pcStart;
 }
 
-static void postExecHook (uint16_t pc, int type, bool isByte, bool store, uint16_t sMode,
-                          uint16_t sAddr, uint16_t dMode, uint16_t dReg, uint16_t addr,
-                          uint16_t data, uint16_t regData)
+static char unasmTextBuffer[100];
+static char *unasmTextPtr = unasmTextBuffer;
+
+void unasmPostText (char *fmt, ...)
 {
-    char text[30] = "";
+    va_list ap;
 
-    if (outputCovered && covered[pc >> 1])
-        return;
+    va_start (ap, fmt);
+    int len = vsprintf (unasmTextPtr, fmt, ap);
+    unasmTextPtr += len;
+    va_end (ap);
+}
 
-    covered[pc >> 1] = 1;
-
-#if 0
-    // TODO - show post execution state of immediate, requires opcode as param
-    if (type == OPTYPE_IMMED)
-    {
-        if ()
-    }
-    else 
-#endif
-    if (store)
-    {
-        if (sMode)
-        {
-            if (isByte)
-            {
-                sprintf (text, "B:[%04X] -> ", (unsigned) sAddr);
-            }
-            else
-            {
-                sprintf (text, "W:[%04X] -> ", (unsigned) sAddr);
-            }
-        }
-
-        if (type == OPTYPE_SINGLE)
-        {
-            if (isByte)
-            {
-                sprintf (text+strlen(text), "%02X",
-                         (unsigned) data >> 8);
-            }
-            else
-            {
-                sprintf (text+strlen(text), "%04X",
-                         (unsigned) data);
-            }
-        }
-        else if (dMode)
-        {
-            if (isByte)
-            {
-                sprintf (text+strlen(text), "%02X -> B:[%04X]",
-                         (unsigned) data >> 8,
-                         (unsigned) addr);
-            }
-            else
-            {
-                sprintf (text+strlen(text), "%04X -> W:[%04X]",
-                         (unsigned) regData,
-                         (unsigned) addr);
-            }
-        }
-        else
-        {
-            sprintf (text+strlen(text), "(R%d -> %04X)",
-                     dReg, regData);
-        }
-    }
-
-    mprintf (LVL_UNASM, "%-26.26s", text);
-
-    int len;
+void unasmPostPrint (void)
+{
     const char *comment;
     int anyComment = 0;
+    int len;
+
+    mprintf (LVL_UNASM, "%-30.30s", unasmTextBuffer);
+    unasmTextPtr = unasmTextBuffer;
+    unasmTextBuffer[0] = 0;
 
     while ((comment = parseComment ('+', &len)) != NULL)
     {
@@ -433,12 +408,6 @@ static void postExecHook (uint16_t pc, int type, bool isByte, bool store, uint16
 
     if (!anyComment)
         mprintf (LVL_UNASM, "\n");
-}
-
-void unasmRunTimeHookAdd (void)
-{
-    unasmPreExecHook = preExecHook;
-    unasmPostExecHook = postExecHook;
 }
 
 void unasmReadText (const char *textFile)
@@ -474,4 +443,46 @@ void unasmReadText (const char *textFile)
 
     fclose (fp);
 }
+
+#ifdef __BUILD_UNASM
+
+int main (int argc, char *argv[])
+{
+    int addr;
+    uint16_t pc;
+
+    if (argc < 3 || !parseValue (argv[2], &addr))
+    {
+        printf ("Usage: %s <filename> <address>\n", argv[0]);
+        exit (1);
+    }
+
+    ti994aMemLoad (argv[1], addr, 0);
+
+    pc = addr;
+    outputLevel = LVL_UNASM;
+
+    while (pc < addr+ROM_FILE_SIZE)
+    {
+        uint16_t data = memReadW (pc);
+        pc += 2;
+        uint16_t type;
+        uint16_t opcode = cpuDecode (data, &type);
+        uint16_t paramWords = unasmPreExec (pc, data, type, opcode);
+
+        printf ("\n");
+
+        while (paramWords)
+        {
+            paramWords-=2;
+            data = memReadW (pc);
+            pc += 2;
+            printf ("%04X:%04X\n", pc, data);
+        }
+    }
+
+    return 0;
+}
+
+#endif
 

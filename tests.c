@@ -141,7 +141,7 @@ int main(void)
     // outputLevel = 63;
     // cruInit ();
     // gromLoad ();
-        unasmRunTimeHookAdd();
+        // unasmRunTimeHookAdd();
      // vdpInitGraphics();
     printf ("# 1<<0 is %d\n", 1 << 0);
     result (sizeof (unsigned), 4);
