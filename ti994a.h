@@ -25,13 +25,19 @@
 
 #include "cpu.h"
 
+#define ROM_FILE_SIZE   0x2000
+
+#define BANKS_DEVICE    1
+#define BANKS_CARTRIDGE 2
+
+
 uint16_t memRead(uint16_t addr, int size);
 
 void ti994aRun (int instPerInterrupt);
 void ti994aInit (void);
 void ti994aClose (void);
 void ti994aShowScratchPad (bool showGplUsage);
-void ti994aMemLoad (char *file, uint16_t addr, uint16_t length);
+void ti994aMemLoad (char *file, uint16_t addr, int bank);
 
 #endif
 

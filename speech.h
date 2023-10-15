@@ -25,8 +25,8 @@
 
 #include "cpu.h"
 
-int speechRead (int addr, int size);
-void speechWrite (int addr, int data, int size);
+uint16_t speechRead (uint8_t *ptr, uint16_t addr, int size);
+void speechWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size);
 
 #endif
 

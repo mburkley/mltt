@@ -61,10 +61,6 @@
  */
 #define SAMPLE_COUNT 441 // 44,100 divided by 100 (10 msec)
 
-/* We seem to be getting underruns.  Upping to 1000 to debug.
- */
-// #define SAMPLE_COUNT 1000 // 44,100 divided by 50
-
 /* We are summing up to 4 sound sources to generate a value from -32768 to +32767
  * so we assume a maximum volume (minimum attenuation) of any one source to have
  * a multplier of 8191 and we divide that by 15 (0x0f) to get 546.
@@ -368,12 +364,12 @@ void soundClose (void)
     pthread_join (audioThread, NULL);
 }
 
-int soundRead (int addr, int size)
+uint16_t soundRead (uint8_t *ptr, uint16_t addr, int size)
 {
     return 0;
 }
 
-void soundWrite (int addr, int data, int size)
+void soundWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size)
 {
     static int latchedData = -1;
     int channel;

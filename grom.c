@@ -27,12 +27,14 @@
 #include "trace.h"
 #include "gpl.h"
 
+#define GROM_LEN        0x10000
+
 struct
 {
     uint16_t addr;
     uint8_t lowByteGet;
     uint8_t lowByteSet;
-    uint8_t b[0x10000];
+    uint8_t b[GROM_LEN];
 }
 gRom;
 
@@ -44,24 +46,17 @@ void gromIntegrity (void)
     }
 }
 
-int gromRead (int addr, int size)
+uint16_t gromRead (uint8_t *ptr, uint16_t addr, int size)
 {
     switch (addr)
     {
     case 0:
-        gRom.lowByteGet = 0;
-        gRom.lowByteSet = 0;
+        gRom.lowByteGet = false;
+        gRom.lowByteSet = false;
 
         uint8_t result;
 
-        if (gRom.addr > 0x7FFF)
-        {
-            result = 0;
-        }
-        else
-        {
-            result = gRom.b[gRom.addr];
-        }
+        result = gRom.b[gRom.addr];
 
         mprintf (LVL_GROM, "GROMRead: %04X : %02X\n",
                  (unsigned) gRom.addr,
@@ -74,12 +69,12 @@ int gromRead (int addr, int size)
     case 2:
         if (gRom.lowByteGet)
         {
-            gRom.lowByteGet = 0;
+            gRom.lowByteGet = false;
             mprintf (LVL_GROM, "GROMAD addr get as %04X\n", gRom.addr+1);
             return (gRom.addr+1) & 0xFF;
         }
 
-        gRom.lowByteGet = 1;
+        gRom.lowByteGet = true;
         mprintf (LVL_GROM, "GROMAD lo byte Get\n");
         return (gRom.addr+1) >> 8;
     default:
@@ -90,7 +85,7 @@ int gromRead (int addr, int size)
     return 0;
 }
 
-void gromWrite (int addr, int data, int size)
+void gromWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size)
 {
     if (size != 1)
     {
@@ -104,14 +99,14 @@ void gromWrite (int addr, int data, int size)
         if (gRom.lowByteSet)
         {
             gRom.addr = (gRom.addr & 0xFF00) | data;
-            gRom.lowByteSet = 0;
-            gRom.lowByteGet = 0;
+            gRom.lowByteSet = false;
+            gRom.lowByteGet = false;
             mprintf (LVL_GROM, "GROMAD addr set to %04X\n", gRom.addr);
         }
         else
         {
             gRom.addr = data << 8;
-            gRom.lowByteSet = 1;
+            gRom.lowByteSet = true;
             mprintf (LVL_GROM, "GROMAD lo byte Set to %x\n", data);
         }
         break;
@@ -142,19 +137,29 @@ void gromShowStatus (void)
     mprintf (LVL_GROM, "half-ad-get : %d\n", gRom.lowByteGet);
 }
 
-void gromLoad (char *name, int start, int len)
+void gromLoad (char *file, uint16_t addr)
 {
     FILE *fp;
 
-    printf("%s %s %x %x\n", __func__, name, start, len);
-
-    if ((fp = fopen (name, "rb")) == NULL)
+    if ((fp = fopen (file, "rb")) == NULL)
     {
-        printf ("can't open %s\n", name);
+        printf ("can't open %s\n", file);
         exit (1);
     }
 
-    if (fread (gRom.b + start, sizeof (uint8_t), len, fp) != len)
+    fseek (fp, 0, SEEK_END);
+    int len = ftell (fp);
+    fseek (fp, 0, SEEK_SET);
+
+    printf("%s %s %x-%x\n", __func__, file, addr, addr+len);
+
+    if (addr + len > GROM_LEN)
+    {
+        printf ("Grom end %04X\n", addr+len);
+        halt ("GROM too big");
+    }
+
+    if (fread (gRom.b + addr, sizeof (uint8_t), len, fp) != len)
     {
         halt ("GROM file read failure");
     }

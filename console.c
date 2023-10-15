@@ -36,7 +36,6 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <errno.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 
@@ -54,40 +53,13 @@
 #include "kbd.h"
 #include "sound.h"
 #include "status.h"
+#include "parse.h"
 
 static char *fileToRead;
 static bool ti994aQuitFlag;
 static int instPerInterrupt;
 static bool statusPane;
 static int pixelSize = 4;
-
-/*  Safely parses a value from a string.  Value can be hex, decimal, octal, etc.
- *  Returns true if parsed successfully.
- */
-static bool parseValue (char *s, int *result)
-{
-    int base = 0;
-
-    /*  If TI hex notation (>) is used or if x on its own is used then force
-     *  base 16.  Otherwise let strtoul figure it out.
-     */
-    if (s[0] == '>' || s[0] == 'x')
-    {
-        s++;
-        base = 16;
-    }
-
-    /*  Set errno to zero first and check it afterwards.  Slight safer than checking the
-     *  return value
-     */
-    errno = 0;
-    unsigned long conversion = strtoul (s, NULL, base);
-    if (errno != 0)
-        return false;
-
-    *result = (int) conversion;
-    return true;
-}
 
 static void sigHandler (int signo)
 {
@@ -251,12 +223,12 @@ bool consoleShow (int argc, char *argv[])
         if (grom)
         {
             printf ("GROM ");
-            data = gromRead (addr, bytes);
+            data = gromRead (NULL, addr, bytes);
         }
         else if (vdp)
         {
             printf ("VDP ");
-            data = vdpRead (addr, bytes);
+            data = vdpRead (NULL, addr, bytes);
         }
         else
         {
@@ -297,8 +269,6 @@ bool consoleBoot (int argc, char *argv[])
 
 bool consoleUnassemble (int argc, char *argv[])
 {
-    unasmRunTimeHookAdd();
-
     if (argc == 2)
     {
         if (!strncmp (argv[1], "covered", strlen(argv[1])))
@@ -358,24 +328,26 @@ bool consoleSound (int argc, char *argv[])
 bool consoleLoadRom (int argc, char *argv[])
 {
     int addr;
-    int length;
+    int bank = 0;
 
-    if (argc < 4 || !parseValue (argv[2], &addr) || !parseValue (argv[3], &length))
+    if (argc < 3 || !parseValue (argv[2], &addr))
         return false;
 
-    ti994aMemLoad (argv[1], addr, length);
+    if (argc == 4 && !parseValue (argv[3], &bank))
+        return false;
+
+    ti994aMemLoad (argv[1], addr, bank);
     return true;
 }
 
 bool consoleLoadGrom (int argc, char *argv[])
 {
     int addr;
-    int length;
 
-    if (argc < 4 || !parseValue (argv[2], &addr) || !parseValue (argv[3], &length))
+    if (argc < 3 || !parseValue (argv[2], &addr))
         return false;
 
-    gromLoad (argv[1], addr, length);
+    gromLoad (argv[1], addr);
     return true;
 }
 

@@ -56,79 +56,77 @@ typedef struct
     uint16_t index;
     uint16_t type;
     uint16_t opMask;
-    bool store;
-    bool hasDest;
-    bool isByte;
-    bool cmpZero;
 }
 OpGroup;
 
-OpGroup opGroup[64] =
+static OpGroup opGroup[64] =
 {
-    { 0x0000, OPTYPE_IMMED,   0xFFE0, 0, 0, 0, 1 },
-    { 0x0400, OPTYPE_SINGLE,  0xFFC0, 0, 0, 0, 1 },
-    { 0x0800, OPTYPE_SHIFT,   0xFF00, 0, 0, 0, 1 },
-    { 0x0C00, 0,              0xFFFF, 0, 0, 0, 0 },
-    { 0x1000, OPTYPE_JUMP,    0xFF00, 0, 0, 0, 0 },
-    { 0x1400, OPTYPE_JUMP,    0xFF00, 0, 0, 0, 0 },
-    { 0x1800, OPTYPE_JUMP,    0xFF00, 0, 0, 0, 0 },
-    { 0x1C00, OPTYPE_JUMP,    0xFF00, 0, 0, 0, 0 },
-    { 0x2000, OPTYPE_DUAL1,   0xFC00, 1, 1, 0, 1 },
-    { 0x2400, OPTYPE_DUAL1,   0xFC00, 1, 1, 0, 1 },
-    { 0x2800, OPTYPE_DUAL1,   0xFC00, 1, 1, 0, 1 },
-    { 0x2C00, OPTYPE_DUAL1,   0xFC00, 1, 1, 0, 1 },
-    { 0x3000, OPTYPE_DUAL1,   0xFC00, 1, 1, 0, 1 },
-    { 0x3400, OPTYPE_DUAL1,   0xFC00, 1, 1, 0, 1 },
-    { 0x3800, OPTYPE_DUAL1,   0xFC00, 1, 1, 0, 1 },
-    { 0x3C00, OPTYPE_DUAL1,   0xFC00, 1, 1, 0, 1 },
-    { 0x4000, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0x4400, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0x4800, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0x4C00, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0x5000, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0x5400, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0x5800, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0x5C00, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0x6000, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0x6400, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0x6800, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0x6C00, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0x7000, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0x7400, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0x7800, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0x7C00, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0x8000, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0x8400, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0x8800, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0x8C00, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0x9000, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0x9400, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0x9800, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0x9C00, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0xA000, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0xA400, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0xA800, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0xAC00, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0xB000, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0xB400, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0xB800, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0xBC00, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0xC000, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0xC400, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0xC800, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0xCC00, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0xD000, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0xD400, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0xD800, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0xDC00, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0xE000, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0xE400, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0xE800, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0xEC00, OPTYPE_DUAL2,   0xE000, 1, 1, 0, 1 },
-    { 0xF000, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0xF400, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0xF800, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 },
-    { 0xFC00, OPTYPE_DUAL2,   0xE000, 1, 1, 1, 1 }
+    { 0x0000, OPTYPE_IMMED,   0xFFE0 }, // LI, AI, ANDI, ORI, CI, STWP,
+                                        // STST, LWPI, LIMI, RTWP
+    { 0x0400, OPTYPE_SINGLE,  0xFFC0 }, // BLWP, B, X, CLR, NEG, INV,
+                                        // INC(T), DEC(T), BL, SWPB, SETO, ABS
+    { 0x0800, OPTYPE_SHIFT,   0xFF00 }, // SRA, SRL, SLA, SRC
+    { 0x0C00, 0,              0xFFFF },
+    { 0x1000, OPTYPE_JUMP,    0xFF00 }, // JMP, JLT, JLE, JEQ
+    { 0x1400, OPTYPE_JUMP,    0xFF00 }, // JHE, JGT, JNE, JNC
+    { 0x1800, OPTYPE_JUMP,    0xFF00 }, // JOC, JNO, JL, JH
+    { 0x1C00, OPTYPE_JUMP,    0xFF00 }, // JOP, SBO, SBZ, TZ
+    { 0x2000, OPTYPE_DUAL1,   0xFC00 }, // COC
+    { 0x2400, OPTYPE_DUAL1,   0xFC00 }, // CZC
+    { 0x2800, OPTYPE_DUAL1,   0xFC00 }, // XOR
+    { 0x2C00, OPTYPE_DUAL1,   0xFC00 }, // XOP
+    { 0x3000, OPTYPE_DUAL1,   0xFC00 }, // LDCR
+    { 0x3400, OPTYPE_DUAL1,   0xFC00 }, // STCR
+    { 0x3800, OPTYPE_DUAL1,   0xFC00 }, // MPY
+    { 0x3C00, OPTYPE_DUAL1,   0xFC00 }, // DIV
+    { 0x4000, OPTYPE_DUAL2,   0xF000 }, // SZC
+    { 0x4400, OPTYPE_DUAL2,   0xF000 },
+    { 0x4800, OPTYPE_DUAL2,   0xF000 },
+    { 0x4C00, OPTYPE_DUAL2,   0xF000 },
+    { 0x5000, OPTYPE_DUAL2,   0xF000 }, // SZCB
+    { 0x5400, OPTYPE_DUAL2,   0xF000 },
+    { 0x5800, OPTYPE_DUAL2,   0xF000 },
+    { 0x5C00, OPTYPE_DUAL2,   0xF000 },
+    { 0x6000, OPTYPE_DUAL2,   0xF000 }, // S
+    { 0x6400, OPTYPE_DUAL2,   0xF000 },
+    { 0x6800, OPTYPE_DUAL2,   0xF000 },
+    { 0x6C00, OPTYPE_DUAL2,   0xF000 },
+    { 0x7000, OPTYPE_DUAL2,   0xF000 }, // SB
+    { 0x7400, OPTYPE_DUAL2,   0xF000 },
+    { 0x7800, OPTYPE_DUAL2,   0xF000 },
+    { 0x7C00, OPTYPE_DUAL2,   0xF000 },
+    { 0x8000, OPTYPE_DUAL2,   0xF000 }, // C
+    { 0x8400, OPTYPE_DUAL2,   0xF000 },
+    { 0x8800, OPTYPE_DUAL2,   0xF000 },
+    { 0x8C00, OPTYPE_DUAL2,   0xF000 },
+    { 0x9000, OPTYPE_DUAL2,   0xF000 }, // CB
+    { 0x9400, OPTYPE_DUAL2,   0xF000 },
+    { 0x9800, OPTYPE_DUAL2,   0xF000 },
+    { 0x9C00, OPTYPE_DUAL2,   0xF000 },
+    { 0xA000, OPTYPE_DUAL2,   0xF000 }, // A
+    { 0xA400, OPTYPE_DUAL2,   0xF000 },
+    { 0xA800, OPTYPE_DUAL2,   0xF000 },
+    { 0xAC00, OPTYPE_DUAL2,   0xF000 },
+    { 0xB000, OPTYPE_DUAL2,   0xF000 }, // AB
+    { 0xB400, OPTYPE_DUAL2,   0xF000 },
+    { 0xB800, OPTYPE_DUAL2,   0xF000 },
+    { 0xBC00, OPTYPE_DUAL2,   0xF000 },
+    { 0xC000, OPTYPE_DUAL2,   0xF000 }, // MOV
+    { 0xC400, OPTYPE_DUAL2,   0xF000 },
+    { 0xC800, OPTYPE_DUAL2,   0xF000 },
+    { 0xCC00, OPTYPE_DUAL2,   0xF000 },
+    { 0xD000, OPTYPE_DUAL2,   0xF000 }, // MOVB
+    { 0xD400, OPTYPE_DUAL2,   0xF000 },
+    { 0xD800, OPTYPE_DUAL2,   0xF000 },
+    { 0xDC00, OPTYPE_DUAL2,   0xF000 },
+    { 0xE000, OPTYPE_DUAL2,   0xF000 }, // SOCB
+    { 0xE400, OPTYPE_DUAL2,   0xF000 },
+    { 0xE800, OPTYPE_DUAL2,   0xF000 },
+    { 0xEC00, OPTYPE_DUAL2,   0xF000 },
+    { 0xF000, OPTYPE_DUAL2,   0xF000 }, // SOCB
+    { 0xF400, OPTYPE_DUAL2,   0xF000 },
+    { 0xF800, OPTYPE_DUAL2,   0xF000 },
+    { 0xFC00, OPTYPE_DUAL2,   0xF000 }
 };
 
 #define REGR(r) memReadW(tms9900.wp+((r)<<1))
@@ -163,7 +161,7 @@ uint16_t cpuGetIntMask (void)
     return tms9900.st & FLAG_MSK;
 }
 
-static void blwp (int addr)
+static void blwp (uint16_t addr)
 {
     uint16_t owp = tms9900.wp;
     uint16_t opc = tms9900.pc;
@@ -207,57 +205,7 @@ static void jumpOr (uint16_t setMask, uint16_t clrMask, uint16_t offset)
     }
 }
 
-static void compare (uint16_t sData, uint16_t dData)
-{
-    /*
-     *  Leave int. mask and Carry flag
-     */
-
-    tms9900.st &= (FLAG_MSK | FLAG_C);
-
-    if (sData == dData)
-    {
-        tms9900.st |= FLAG_EQ;
-    }
-
-    if (sData > dData)
-    {
-        tms9900.st |= FLAG_LGT;
-    }
-
-    if ((signed short) sData > (signed short) dData)
-    {
-        tms9900.st |= FLAG_AGT;
-    }
-}
-
-static void operand (uint16_t mode, uint16_t reg, uint16_t *arg, uint16_t *addr, bool isByte)
-{
-    switch (mode)
-    {
-    case AMODE_NORMAL:
-        *addr = tms9900.wp+(reg<<1);
-        break;
-
-    case AMODE_INDIR:
-        *addr = REGR(reg);
-        break;
-
-    case AMODE_SYM:
-        *arg = cpuFetch();
-        *addr = (uint16_t) (*arg + (reg == 0 ? 0 : REGR(reg)));
-        break;
-
-    case AMODE_INDIRINC:
-        *addr = REGR(reg);
-        REGW (reg, REGR(reg) + (isByte ? 1 : 2));
-        break;
-    default:
-        halt ("Bad operand mode");
-    }
-}
-
-static void carrySet (int condition)
+static void statusCarry (bool condition)
 {
     if (condition)
         tms9900.st |= FLAG_C;
@@ -265,7 +213,7 @@ static void carrySet (int condition)
         tms9900.st &= ~FLAG_C;
 }
 
-static void overflowSet (int condition)
+static void statusOverflow (bool condition)
 {
     if (condition)
         tms9900.st |= FLAG_OV;
@@ -273,205 +221,382 @@ static void overflowSet (int condition)
         tms9900.st &= ~FLAG_OV;
 }
 
-void cpuExecute (int data)
+static void statusEqual (bool condition)
 {
-    uint16_t  sReg = 0, dReg = 0;
-    uint16_t sAddr = 0, dAddr = 0;
-    uint16_t sData = 0, dData = 0;
-    uint16_t dMode = 0, sMode = 0;
-    uint16_t sArg = 0, dArg = 0;
-    uint16_t pc = tms9900.pc;
-    bool doStore = 0;
-    bool doCmpZ = 0;
-    int8_t offset = 0;
-    uint16_t count = 0;
-    uint32_t u32 = 0;
-    int32_t i32 = 0;
-    OpGroup *o = &opGroup[data >> 10];
-    int isByte = o->isByte;
+    if (condition)
+        tms9900.st |= FLAG_EQ;
+    else
+        tms9900.st &= ~FLAG_EQ;
+}
 
-    switch (o->type)
+static void statusLogicalGreater (bool condition)
+{
+    if (condition)
+        tms9900.st |= FLAG_LGT;
+    else
+        tms9900.st &= ~FLAG_LGT;
+}
+
+static void statusArithmeticGreater (bool condition)
+{
+    if (condition)
+        tms9900.st |= FLAG_AGT;
+    else
+        tms9900.st &= ~FLAG_AGT;
+}
+
+static void compareWord (uint16_t sData, uint16_t dData)
+{
+    statusEqual (sData == dData);
+    statusLogicalGreater (sData > dData);
+    statusArithmeticGreater ((int16_t) sData > (int16_t) dData);
+}
+
+static void compareByte (uint16_t sData, uint16_t dData)
+{
+    statusEqual (sData == dData);
+    statusLogicalGreater (sData > dData);
+    statusArithmeticGreater ((int8_t) sData > (int8_t) dData);
+}
+
+static uint16_t operandDecode (uint16_t mode, uint16_t reg, bool isByte)
+{
+    uint16_t addr;
+
+    switch (mode)
     {
-    case OPTYPE_IMMED:
-        sReg   = data & 0x000F;
+    case AMODE_NORMAL:
+        addr = tms9900.wp+(reg<<1);
         break;
 
-    case OPTYPE_SINGLE:
-        sMode  = (data & 0x0030) >> 4;
-        sReg   =  data & 0x000F;
+    case AMODE_INDIR:
+        addr = REGR(reg);
         break;
 
-    case OPTYPE_SHIFT:
-        count  = (data & 0x00F0) >> 4;
-
-        if (count == 0)
-            count = REGR(0) & 0x000F;
-
-        if (count == 0)
-            count = 16;
-
-        sReg   =  data & 0x000F;
+    case AMODE_SYM:
+        addr = (uint16_t) (cpuFetch() + (reg == 0 ? 0 : REGR(reg)));
         break;
 
-    case OPTYPE_JUMP:
-        offset = data & 0x00FF;
+    case AMODE_INDIRINC:
+        addr = REGR(reg);
+        REGW (reg, REGR(reg) + (isByte ? 1 : 2));
         break;
 
-    case OPTYPE_DUAL1:
-        dReg   = (data & 0x03C0) >> 6;
-        sMode  = (data & 0x0030) >> 4;
-        sReg   =  data & 0x000F;
-        break;
-
-    case OPTYPE_DUAL2:
-        dMode  = (data & 0x0C00) >> 10;
-        dReg   = (data & 0x03C0) >> 6;
-        sMode  = (data & 0x0030) >> 4;
-        sReg   =  data & 0x000F;
-        break;
     default:
-        halt ("Bad optype");
+        halt ("Bad operand mode");
     }
 
-    if ((data & o->opMask) == OP_LDCR || (data & o->opMask) == OP_STCR)
-    {
-        mprintf(LVL_CPU, "CRU count %d, isbyte=%d force ?\n", dReg, isByte);
-        if (dReg <= 8)
-        {
-            mprintf(LVL_CPU, "CRU count %d, force byte\n", dReg);
-            isByte = 1;
-        }
-    }
-            
-    operand (sMode, sReg, &sArg, &sAddr, isByte);
+    return addr;
+}
+
+static uint16_t operandFetch (uint16_t mode, uint16_t reg, uint16_t addr, bool isByte, bool doFetch)
+{
+    uint16_t data = 0;
 
     if (isByte)
-        sData = memReadB (sAddr) << 8;
+    {
+        if (mode)
+            unasmPostText("B:[%04X]", addr);
+        else
+            unasmPostText("R%d", reg);
+
+        if (doFetch)
+        {
+            data = memReadB (addr);
+            unasmPostText("=%02X", data);
+        }
+    }
     else
-        sData = memReadW (sAddr);
-
-    if (o->hasDest)
     {
-        operand (dMode, dReg, &dArg, &dAddr, isByte);
-
-        if (isByte)
-            dData = memReadB (dAddr) << 8;
+        if (mode)
+            unasmPostText("W:[%04X]", addr);
         else
-            dData = memReadW (dAddr);
+            unasmPostText("R%d", reg);
+
+        if (doFetch)
+        {
+            data = memReadW (addr);
+            unasmPostText("=%04X", data);
+        }
     }
 
-    if (unasmPreExecHook)
+    return data;
+}
+
+/*
+ *  I M M E D I A T E S
+ */
+
+static void cpuExecuteImmediate (uint16_t opcode, uint16_t reg)
+{
+    uint16_t immed;
+    uint32_t data;
+
+    switch (opcode)
     {
-        unasmPreExecHook (pc, data, o->opMask, o->type,
-                          sMode, sReg, sArg,
-                          dMode, dReg, dArg,
-                          count, offset);
-    }
-
-    switch (data & o->opMask)
-    {
-
-    /*
-     *  D U A L   O P E R A N D
-     */
-
-    case OP_SZC: dData &= ~sData;  doStore = 1; doCmpZ = 1;      break;
-    case OP_S:
-        u32 = (uint32_t) dData - sData;
-        dData = u32 & 0xFFFF;
-        u32 >>= 16;
-
-        /* 15-AUG-23 carry flag meaning is inverted for S, SB, DEC, DECT.  Where
-         * is this documented ??????
-         */
-        // carrySet (u32 != 0);
-        carrySet (u32 == 0);
-        doStore = 1;
-        doCmpZ = 1;
-        break;
-    case OP_C:   compare (sData, dData);                                break;
-    case OP_MOV: dData = sData;           doStore = 1; doCmpZ = 1;      break;
-    case OP_SOC: dData |= sData;   doStore = 1; doCmpZ = 1;      break;
-
-    case OP_A:
-        u32 = (uint32_t) dData + sData;
-        dData = u32 & 0xFFFF;
-        u32 >>= 16;
-
-        carrySet (u32 != 0);
-
-        doStore = 1;
-        doCmpZ = 1;
-        break;
-
-    case OP_COC:  compare (sData & dData, sData);             break;
-    case OP_CZC:  compare (sData & ~dData, sData);            break;
-    case OP_XOR:  dData ^= sData;  doStore = 1; doCmpZ = 1; break;
-    case OP_XOP:  halt ("Unsupported");
-    case OP_MPY:
-        u32 = dData * sData;
-        REGW(dReg, u32 >> 16);
-        REGW(dReg+1, u32 & 0xFFFF);
-        break;
-
-    case OP_DIV:
-        if (sData <= dData)
-        {
-            overflowSet (true);
-        }
-        else
-        {
-            overflowSet (false);
-            u32 = REGR(dReg) << 16 | REGR(dReg+1);
-            REGW(dReg, u32 / sData);
-            REGW(dReg+1, u32 % sData);
-        }
-
-        break;
-
-    /*
-     *  I M M E D I A T E S
-     */
-
     case OP_LI:
-        memWriteW(sAddr, cpuFetch());
+        immed = cpuFetch();
+        REGW(reg,immed);
         break;
+
     case OP_AI:
-        u32 = sData + cpuFetch();
-        carrySet (u32 >= 0x10000);
-        sData = u32 & 0xffff;
-        doStore = 1;
-        doCmpZ = 1;
+        data = REGR(reg);
+        immed = cpuFetch();
+        unasmPostText ("R%d=%04X+%04X=%04X", reg, data, immed, data+immed);
+        data += immed;
+        statusCarry (data >= 0x10000);
+        data &= 0xffff;
+        REGW(reg,data);
+        compareWord (data, 0);
         break;
+
     case OP_ANDI:
-        sData &= cpuFetch();
-        doStore = 1;
-        doCmpZ = 1;
+        data = REGR(reg);
+        immed = cpuFetch();
+        unasmPostText ("R%d=%04X&%04X=%04X", reg, data, immed, data&immed);
+        data &= immed;
+        REGW(reg,data);
+        compareWord (data, 0);
         break;
+
     case OP_ORI:
-        sData |= cpuFetch();
-        doStore = 1;
-        doCmpZ = 1;
+        data = REGR(reg);
+        immed = cpuFetch();
+        unasmPostText ("R%d=%04X&%04X=%04X", reg, data, immed, data&immed);
+        data |= immed;
+        REGW(reg,data);
+        compareWord (data, 0);
         break;
+
     case OP_CI:
-        compare (sData, cpuFetch());
+        data = REGR(reg);
+        unasmPostText ("R%d=%04X", reg, data);
+        compareWord (data, cpuFetch());
         break;
+
     case OP_STST:
-        memWriteW(sAddr, tms9900.st);
+        immed = tms9900.st;
+        unasmPostText ("R%d=%04X", reg, immed);
+        REGW(reg,immed);
         break;
+
     case OP_STWP:
-        memWriteW(sAddr, tms9900.wp);
+        immed = tms9900.wp;
+        unasmPostText ("R%d=%04X", reg, immed);
+        REGW(reg,immed);
         break;
+
     case OP_LWPI:
-        tms9900.wp = cpuFetch();
+        immed = cpuFetch();
+        tms9900.wp = immed;
         break;
+
     case OP_LIMI:
         tms9900.st = (tms9900.st & ~FLAG_MSK) | cpuFetch();
         break;
 
-    /*
-     *  J U M P
-     */
+    case OP_RTWP:
+        rtwp ();
+        unasmPostText ("pc=%04X", tms9900.pc);
+        break;
+
+    default:
+        halt ("Bad immediate opcode");
+    }
+}
+
+static void cpuExecuteSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
+{
+    uint16_t addr;
+    uint16_t param;
+
+    addr = operandDecode (mode, reg, false);
+
+    if (mode)
+        unasmPostText("W:[%04X]", addr);
+    else
+        unasmPostText("R%d", reg);
+
+    switch (opcode)
+    {
+    case OP_BLWP:
+        unasmPostText ("=%04X", addr);
+        blwp (addr);
+        break;
+
+    case OP_B:
+        unasmPostText ("=%04X", addr);
+        tms9900.pc = addr;
+        break;
+
+    case OP_X:
+        param = memReadW (addr);
+        mprintf (LVL_CPU, "X : recurse\n");
+        cpuExecute (param);
+        break;
+
+    case OP_CLR:
+        memWriteW (addr, 0);
+        break;
+
+    case OP_NEG:
+        param = memReadW (addr);
+        unasmPostText ("=%04X", -param);
+        memWriteW (addr, -param);
+        break;
+
+    case OP_INV:
+        param = memReadW (addr);
+        unasmPostText ("=%04X", (uint16_t) ~param);
+        memWriteW (addr, ~param);
+        break;
+
+    case OP_INC:
+        param = memReadW (addr);
+        statusCarry (param == 0xFFFF);
+        param += 1;
+        unasmPostText ("=%04X", param);
+        memWriteW (addr, param);
+        compareWord (param, 0);
+        break;
+
+    case OP_INCT:
+        param = memReadW (addr);
+        statusCarry ((param & 0xFF00) == 0xFF00 || (param & 0xFF00) == 0xFE00);
+        param += 2;
+        unasmPostText ("=%04X", param);
+        memWriteW (addr, param);
+        compareWord (param, 0);
+        break;
+
+    case OP_DEC:
+        param = memReadW (addr);
+        statusCarry (param != 0);
+        param -= 1;
+        unasmPostText ("=%04X", param);
+        memWriteW (addr, param);
+        compareWord (param, 0);
+        break;
+
+    case OP_DECT:
+        param = memReadW (addr);
+        statusCarry (param != 0 && param != 1);
+        param -= 2;
+        unasmPostText ("=%04X", param);
+        memWriteW (addr, param);
+        compareWord (param, 0);
+        break;
+
+    case OP_BL:
+        REGW(11, tms9900.pc);
+        unasmPostText ("=%04X", addr);
+        tms9900.pc = addr;
+        break;
+
+    case OP_SWPB:
+        param = memReadW (addr);
+        param = SWAP(param);
+        unasmPostText ("=%04X", param);
+        memWriteW (addr, param);
+        break;
+
+    case OP_SETO:
+        memWriteW (addr, 0xFFFF);
+        break;
+
+    case OP_ABS:
+        param = memReadW (addr);
+        param = ((signed) param < 0) ? -param : param;
+        unasmPostText ("=%04X", param);
+        memWriteW (addr, param);
+        break;
+
+    default:
+        halt ("Bad single opcode");
+    }
+}
+
+static void cpuExecuteShift (uint16_t opcode, uint16_t reg, uint16_t count)
+{
+    uint32_t u32;
+    int32_t i32;
+
+    if (count == 0)
+        count = REGR(0) & 0x000F;
+
+    if (count == 0)
+        count = 16;
+
+    switch (opcode)
+    {
+    case OP_SRA:
+        i32 = REGR (reg) << 16;
+        i32 >>= count;
+
+        /* Set carry flag if last bit shifted is set */
+        statusCarry ((i32 & 0x8000) != 0);
+
+        u32 = (i32 >> 16) & 0xffff;
+        REGW (reg, u32);
+        compareWord (u32, 0);
+        break;
+
+    case OP_SRC:
+        u32 = REGR (reg);
+        u32 |= (u32 << 16);
+        mprintf (LVL_CPU, "u32=%x\n", u32);
+        u32 >>= count;
+        mprintf (LVL_CPU, "u32=%x\n", u32);
+
+        /* Set carry flag if last bit shifted is set */
+        statusCarry ((u32 & 0x8000) != 0);
+
+        u32 &= 0xffff;
+        REGW (reg, u32);
+        compareWord (u32, 0);
+        break;
+
+    case OP_SRL:
+        u32 = REGR (reg) << 16;
+        u32 >>= count;
+
+        /* Set carry flag if last bit shifted is set */
+        statusCarry ((u32 & 0x8000) != 0);
+
+        u32 >>= 16;
+        REGW (reg, u32);
+        compareWord (u32, 0);
+        break;
+
+    case OP_SLA:
+        i32 = REGR (reg);
+        u32 = i32 << count;
+
+        /* Set carry flag if last bit shifted is set */
+        statusCarry ((u32 & 0x10000) != 0);
+
+        /* Set if MSB changes */
+        statusOverflow ((u32 & 0x8000) != (i32 & 0x8000));
+
+        u32 &= 0xFFFF;
+        REGW (reg, u32);
+        compareWord (u32, 0);
+        break;
+
+    default:
+        halt ("Bad shift opcode");
+    }
+
+    unasmPostText ("%04X", u32);
+}
+
+/*
+ *  J U M P
+ */
+static void cpuExecuteJump (uint16_t opcode, int16_t offset)
+{
+    switch (opcode)
+    {
     case OP_JMP: jumpAnd (0,        0,                  offset);    break;
     case OP_JLT: jumpAnd (0,        FLAG_AGT | FLAG_EQ, offset);    break;
     case OP_JGT: jumpAnd (FLAG_AGT, FLAG_EQ,                  offset);    break;
@@ -493,151 +618,293 @@ void cpuExecute (int data)
         tms9900.st |= (cruBitGet (REGR(12), offset) ? FLAG_EQ : 0);
         break;
 
+    default:
+        halt ("Bad jump opcode");
+    }
+}
+
+static void cpuExecuteDual1 (uint16_t opcode, uint16_t dReg, uint16_t sMode, uint16_t sReg)
+{
+    uint16_t sAddr;
+    uint16_t sData;
+    uint16_t dData;
+    uint32_t u32;
+    
+    sAddr = operandDecode (sMode, sReg, false);
+    sData = operandFetch (sMode, sReg, sAddr, false, true);
+
+    switch (opcode)
+    {
+    case OP_COC:
+        dData = REGR (dReg);
+        unasmPostText ("&(R%d=%04X)=%04X", dReg, dData, sData & dData);
+        compareWord (sData & dData, sData);
+        break;
+
+    case OP_CZC:
+        dData = REGR (dReg);
+        unasmPostText ("&~(R%d=%04X)=%04X", dReg, dData, sData & ~dData);
+        compareWord (sData & ~dData, sData);
+        break;
+
+    case OP_XOR:
+        dData = REGR (dReg);
+        unasmPostText ("&~(R%d=%04X)=%04X", dReg, dData, sData ^ dData);
+        dData ^= sData;
+        REGW (dReg, dData);
+        compareWord (dData, 0);
+        break;
+
+    case OP_XOP:
+        halt ("Unsupported");
+        break;
+
+    case OP_MPY:
+        dData = REGR (dReg);
+        unasmPostText ("*(R%d=%04X)=%04X", dReg, dData, sData * dData);
+        u32 = dData * sData;
+        REGW(dReg, u32 >> 16);
+        REGW(dReg+1, u32 & 0xFFFF);
+        break;
+
+    case OP_DIV:
+        dData = REGR (dReg);
+        if (sData <= dData)
+        {
+            unasmPostText ("<(R%d=%04X)->OVF", dReg, dData);
+            statusOverflow (true);
+        }
+        else
+        {
+            statusOverflow (false);
+            u32 = REGR(dReg) << 16 | REGR(dReg+1);
+            unasmPostText ("/(R%d=%04X)=%04X/%04X", dReg, dData, u32 / sData, u32 % sData);
+            REGW(dReg, u32 / sData);
+            REGW(dReg+1, u32 % sData);
+        }
+
+        break;
+
     /*
      *  C R U
      */
     case OP_LDCR:
-        if (isByte)
-        {
-            sData >>= 8;
-        }
+        if (dReg <= 8)
+            sData = memReadB (sAddr);
 
         cruMultiBitSet (REGR(12), sData, dReg);
         mprintf(LVL_CPU, "LDCR R12=%x s=%x d=%x\n", REGR(12), sData, dReg);
         break;
+
     case OP_STCR:
-        if (isByte)
-        {
+        if (dReg <= 8)
             memWriteB(sAddr, cruMultiBitGet (REGR(12), dReg));
-        }
         else
-        {
             memWriteW(sAddr, cruMultiBitGet (REGR(12), dReg));
-        }
         break;
-
-    case OP_SRA:
-        i32 = sData << 16;
-        i32 >>= count;
-
-        /* Set carry flag if last bit shifted is set */
-        carrySet ((i32 & 0x8000) != 0);
-
-        sData = (i32 >> 16) & 0xffff;
-        doStore = 1;
-        doCmpZ = 1;
-        break;
-
-    case OP_SRC:
-        u32 = sData | (sData << 16);
-        mprintf (LVL_CPU, "u32=%x\n", u32);
-        u32 >>= count;
-        mprintf (LVL_CPU, "u32=%x\n", u32);
-
-        /* Set carry flag if last bit shifted is set */
-        carrySet ((u32 & 0x8000) != 0);
-
-        sData = u32 & 0xffff;
-        doStore = 1;
-        doCmpZ = 1;
-        break;
-
-    case OP_SRL:
-        u32 = sData << 16;
-        u32 >>= count;
-
-        /* Set carry flag if last bit shifted is set */
-        carrySet ((u32 & 0x8000) != 0);
-
-        sData = (u32 >> 16) & 0xffff;
-        doStore = 1;
-        doCmpZ = 1;
-        break;
-
-    case OP_SLA:
-        u32 = sData;
-        u32 <<= count;
-
-        /* Set carry flag if last bit shifted is set */
-        carrySet ((u32 & 0x10000) != 0);
-
-        /* Set if MSB changes */
-        overflowSet ((u32 & 0x8000) != (sData & 0x8000));
-
-        sData = u32 & 0xFFFF;
-        doStore = 1;
-        doCmpZ = 1;
-        break;
-
-    case OP_BLWP:   blwp (sAddr);                                       break;
-    case OP_RTWP:   rtwp ();                                            break;
-    case OP_B:      tms9900.pc = sAddr;                                 break;
-    case OP_X:
-        mprintf (LVL_CPU, "X : recurse\n");
-        cpuExecute (sData);
-        break;
-    case OP_CLR:    sData = 0;         doStore=1;                                 break;
-    case OP_NEG:    sData = -sData;    doStore=1;   doCmpZ = 1;         break;
-    case OP_INV:    sData = ~sData;    doStore=1;   doCmpZ = 1;         break;
-    case OP_INC:
-        carrySet (sData == 0xFFFF);
-        sData += 1;
-        doStore=1;
-        doCmpZ = 1;
-        break;
-    case OP_INCT:
-        carrySet ((sData & 0xFF00) == 0xFF00 || (sData & 0xFF00) == 0xFE00);
-        sData += 2;
-        doStore=1;
-        doCmpZ = 1;
-        break;
-    case OP_DEC:
-        carrySet (sData != 0);
-        sData -= 1;
-        doStore=1;
-        doCmpZ = 1;
-        break;
-    case OP_DECT:
-        carrySet (sData != 0 && sData != 1);
-        sData -= 2;
-        doStore=1;
-        doCmpZ = 1;
-        break;
-    case OP_BL:
-        REGW(11, tms9900.pc);
-        tms9900.pc = sAddr;
-        break;
-    case OP_SWPB:   sData = SWAP(sData); doStore=1;                     break;
-    case OP_SETO:   sData = 0xFFFF;      doStore=1;                     break;
-    case OP_ABS:    sData = ((signed) sData < 0) ? -sData : sData; doStore=1;     break;
 
     default:
-        mprintf (LVL_CPU, "%04X:%04X\n", pc, data & o->opMask);
-        halt ("Unknown opcode");
+        halt ("Bad dual1 opcode");
     }
+}
 
-    if (!o->hasDest)
+/*
+ *  D U A L   O P E R A N D
+ */
+static void cpuExecuteDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
+                             uint16_t sMode, uint16_t sReg, bool isByte)
+{
+    bool doStore = true;
+    uint16_t sAddr;
+    uint16_t sData;
+    uint16_t dAddr;
+    uint16_t dData;
+    uint32_t u32;
+
+    sAddr = operandDecode (sMode, sReg, isByte);
+    sData = operandFetch (sMode, sReg, sAddr, isByte, true);
+
+    unasmPostText (",");
+    dAddr = operandDecode (dMode, dReg, isByte);
+    /*  Don't fetch the contents of the destination if op is a MOV */
+    dData = operandFetch (dMode, dReg, dAddr, isByte,
+                          (opcode != OP_MOV && opcode != OP_MOVB));
+
+    switch (opcode)
     {
-        dAddr = sAddr;
+    case OP_SZC:
+        dData &= ~sData;
+        unasmPostText (":&~:%04X", dData);
+        compareWord (dData, 0);
+        break;
+
+    case OP_SZCB:
+        dData &= ~sData;
+        unasmPostText (":&~:%02X", dData);
+        compareByte (dData, 0);
+        break;
+
+    case OP_S:
+        u32 = (uint32_t) dData - sData;
+        dData = u32 & 0xFFFF;
+        u32 >>= 16;
+        unasmPostText (":-:%04X", dData);
+
+        /* 15-AUG-23 carry flag meaning is inverted for S, SB, DEC, DECT.  Where
+         * is this documented ??????
+         */
+        // statusCarry (u32 != 0);
+        statusCarry (u32 == 0);
+        compareWord (dData, 0);
+        break;
+
+    case OP_SB:
+        u32 = (uint32_t) dData - sData;
+        dData = u32 & 0xFF;
+        u32 >>= 8;
+        unasmPostText (":-:%02X", dData);
+
+        /* 15-AUG-23 carry flag meaning is inverted for S, SB, DEC, DECT.  Where
+         * is this documented ??????
+         */
+        // statusCarry (u32 != 0);
+        statusCarry (u32 == 0);
+        compareByte (dData, 0);
+        break;
+
+    case OP_C:
+        compareWord (sData, dData);
+        unasmPostText (":==:");
+        doStore = false;
+        break;
+
+    case OP_CB:
+        compareByte (sData, dData);
+        unasmPostText (":==:");
+        doStore = false;
+        break;
+
+    case OP_MOV:
         dData = sData;
-        dReg = sReg;
+        compareWord (dData, 0);
+        break;
+
+    case OP_MOVB:
+        dData = sData;
+        compareByte (dData, 0);
+        break;
+
+    case OP_SOC:
+        dData |= sData;
+        unasmPostText (":|:%04X", dData);
+        compareWord (dData, 0);
+        break;
+
+    case OP_SOCB:
+        dData |= sData;
+        unasmPostText (":|:%02X", dData);
+        compareByte (dData, 0);
+        break;
+
+    case OP_A:
+        u32 = (uint32_t) dData + sData;
+        dData = u32 & 0xFFFF;
+        unasmPostText (":+:%04X", dData);
+        u32 >>= 16;
+
+        statusCarry (u32 != 0);
+        compareWord (dData, 0);
+        break;
+
+    case OP_AB:
+        u32 = (uint32_t) dData + sData;
+        dData = u32 & 0xFF;
+        unasmPostText (":+:%02X", dData);
+        u32 >>= 8;
+
+        statusCarry (u32 != 0);
+        compareByte (dData, 0);
+        break;
+
+    default:
+        halt ("Bad dual2 opcode");
     }
 
     if (doStore)
     {
         if (isByte)
-            memWriteB (dAddr, (uint16_t) (dData >> 8));
+            memWriteB (dAddr, dData);
         else
             memWriteW (dAddr, dData);
     }
+}
 
-    if (doCmpZ)
-        compare (dData, 0);
+uint16_t cpuDecode (uint16_t data, uint16_t *type)
+{
+    OpGroup *o = &opGroup[data >> 10];
+    *type = o->type;
+    return (data & o->opMask);
+}
 
-    if (unasmPostExecHook)
+void cpuExecute (uint16_t data)
+{
+    int sReg = 0;
+    int sMode = 0;
+    int dReg = 0;
+    int dMode = 0;
+    int8_t offset;
+    bool isByte = false;
+    uint16_t type;
+
+    uint16_t opcode = cpuDecode (data, &type);
+
+    unasmPreExec (tms9900.pc-2, data, type, opcode);
+
+    switch (type)
     {
-        unasmPostExecHook (pc, o->type, isByte, doStore, sMode, sAddr, dMode, dReg, dAddr, dData, REGR(dReg));
+    case OPTYPE_IMMED:
+        sReg   =  data & 0x000F;
+        cpuExecuteImmediate (opcode, sReg);
+        break;
+
+    case OPTYPE_SINGLE:
+        sMode = (data & 0x0030) >> 4;
+        sReg     =  data & 0x000F;
+        cpuExecuteSingle (opcode, sMode, sReg);
+        break;
+
+    case OPTYPE_SHIFT:
+        dReg = (data & 0x00F0) >> 4;
+        sReg =  data & 0x000F;
+        cpuExecuteShift (opcode, sReg, dReg);
+        break;
+
+    case OPTYPE_JUMP:
+        offset = data & 0x00FF;
+        cpuExecuteJump (opcode, offset);
+        break;
+
+    case OPTYPE_DUAL1:
+        dReg     = (data & 0x03C0) >> 6;
+        sMode = (data & 0x0030) >> 4;
+        sReg     =  data & 0x000F;
+        cpuExecuteDual1 (opcode, dReg, sMode, sReg);
+        break;
+
+    case OPTYPE_DUAL2:
+        dMode = (data & 0x0C00) >> 10;
+        dReg     = (data & 0x03C0) >> 6;
+        sMode = (data & 0x0030) >> 4;
+        sReg     =  data & 0x000F;
+        isByte = (data & 0x1000) >> 12;
+        cpuExecuteDual2 (opcode, dMode, dReg, sMode, sReg, isByte);
+        break;
+
+    default:
+        halt ("Bad optype");
     }
+
+    unasmPostPrint();
 
     int mask = tms9900.st & FLAG_MSK;
     int level = interruptLevel (mask);
