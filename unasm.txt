@@ -255,3 +255,79 @@
 15CA @+ CZC >00FF : is R1 == >0000 ?
 15CE @+ bit set and R1=0000, change
 15D0 @+ No change, Return to caller +2
+4078 @- Get highest VDP addr
+407E @+ subtract >828 bytes from addr
+4082 @+ Write the new ram top back to reserve space
+408C @+ Allocate >828 bytes
+4090 @+ Write >00 to VDP RAM
+4096 @+ Finished?  Loop and do more
+40DA @-@- Set up address in R0 to VDP addr@-@+ Add VDP write bit
+40E0 @+ Write addr high byte
+40E4 @+ Write addr low byte
+410A @+ Track 00
+410C @+ Request track
+4114 @+ Side 0
+414A @+ Divide by 9 to get tracks and sectors
+4156 @+ Save byte to VDP
+416C @+ Write E1 (~1E = seek, head, verify, rate2)
+417A @+ Write 3F (~C0 = read ID)
+4182 @+ Read and discard track
+4186 @+ Interested in 4 of the 6 bytes
+418A @+ Read side
+4190 @+ Read sec, sec-len, crc1, crc2
+419C @+ Shift seek error bit into carry
+419E @+ jump if seek error
+41A0 @+ jump if crc error bit set
+41A4 @+ jump if track0 / lost data
+41C8 @+ Call ??? with param >23
+41E0 @+ Write 77 (~88 = read sector)
+41E6 @+ Read 256 bytes
+4214 @+ Read a byte from disk
+421A @+ Store byte to VDP
+421E @+ Read byte from disk
+4224 @+ Store byte to VDP
+422A @+ If not all 256 received then loop
+422E @+ Reenable ints and wait for not busy
+4260 @+ Write 57 (~A8 = write sector)
+4300 @+ Write A5 (~5A = step-in)
+432E @+ Write 3F (~C0 = read-ID)
+4434 @+ Write 0B (~F4 = write track)
+4480 @+ Turn on interrupts
+4482 @-@- wait until drive not busy@-@+ Read drive status
+4486 @+ Drive data bus is inverted
+4488 @+ is not ready bit set?
+448A @+ move BUSY bit into carry
+448C @+ if BUSY, go back and read status again
+448E @+ Return@+
+4526 @+ Write F5 (~0A = restore)
+4544 @-@- Read status@-
+4548 @+ bus is inverted
+454A @+ Rotate track0 bit into carry
+454C @+ Jump if track0
+4552 @+ Return@+
+4576 @+ Write 4 bytes of 00
+45B8 @+ Write 2F (~D0 = abort (don't force interrupt))
+45CA @-@- Wait for ready and write command@+cmd passed as param
+45CC @+ Fetch status byte
+45D0 @+ Shift out track0/lost data
+45D6 @+ Jump if set
+45D8 @+ Load loop counter
+45DC @+ Waste some time
+45DE @+ Waste some time
+45E0 @+ Dec loop counter
+45E2 @+ Repeat
+45E4 @+ Write the command
+45EA @+ Waste some time
+45EC @+ Waste some time
+45EE @+ return@+
+45F0 @-@- Select drive and write some addr to VDP?@-
+45F2 @+ Get drive selected?
+4600 @+ Get 2nd half DSRNAM?  >8358
+4604 @+ subtract 10
+4614 @-@+ Set up VDP WRITE addr
+4618 @+ Clear any VDP cmd bits other than R/W
+461E @+ vdp READ addr
+4624 @+ Low byte
+4628 @+ High byte
+462A @+ Clear VDP addr write flag
+462E @+ Return@+

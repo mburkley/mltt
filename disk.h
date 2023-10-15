@@ -20,24 +20,15 @@
  * SOFTWARE.
  */
 
-#ifndef __TI994A_H
-#define __TI994A_H
+#ifndef __DISK_H
+#define __DISK_H
 
-#include "cpu.h"
+#include <stdint.h>
+#include <stdbool.h>
 
-#define ROM_FILE_SIZE   0x2000
-
-#define BANKS_DEVICE    16
-#define BANKS_CARTRIDGE 2
-
-uint16_t memRead(uint16_t addr, int size);
-
-void ti994aRun (int instPerInterrupt);
-void ti994aInit (void);
-void ti994aClose (void);
-void ti994aShowScratchPad (bool showGplUsage);
-void ti994aMemLoad (char *file, uint16_t addr, int bank);
-bool ti994aDeviceRomSelect (int index, uint8_t state);
+uint16_t diskRead (uint16_t addr, uint16_t size);
+void diskWrite (uint16_t addr, uint16_t data, uint16_t size);
+void diskLoad (int drive, char *name);
+void diskInit (void);
 
 #endif
-

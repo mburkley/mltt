@@ -190,6 +190,8 @@ static void jumpAnd (uint16_t setMask, uint16_t clrMask, uint16_t offset)
     if ((tms9900.st & setMask) == setMask &&
         (~tms9900.st & clrMask) == clrMask)
     {
+        unasmPostText("st=%04X[s=%04X,c=%04X], jump", tms9900.st, setMask,
+        clrMask);
         tms9900.pc += offset << 1;
     }
 }
@@ -201,6 +203,8 @@ static void jumpOr (uint16_t setMask, uint16_t clrMask, uint16_t offset)
     if ((tms9900.st & setMask) != 0 ||
         (~tms9900.st & clrMask) != 0)
     {
+        unasmPostText("st=%04X[s=%04X,c=%04X], jump", tms9900.st, setMask,
+        clrMask);
         tms9900.pc += offset << 1;
     }
 }
@@ -245,18 +249,39 @@ static void statusArithmeticGreater (bool condition)
         tms9900.st &= ~FLAG_AGT;
 }
 
+static char *outputStatus (void)
+{
+    static char text[10];
+    int st = tms9900.st;
+
+    sprintf (text, "[%s%s%s%s%s%s%s]",
+             st & 0x8000 ? "G" : "",
+             st & 0x4000 ? "A" : "",
+             st & 0x2000 ? "=" : "",
+             st & 0x1000 ? "C" : "",
+             st & 0x0800 ? "O" : "",
+             st & 0x0400 ? "P" : "",
+             st & 0x0200 ? "X" : "");
+
+    return text;
+}
 static void compareWord (uint16_t sData, uint16_t dData)
 {
+    statusOverflow (false);
     statusEqual (sData == dData);
     statusLogicalGreater (sData > dData);
+    // unasmPostText("[AGT:%x>%x]", (int16_t)sData, (int16_t)dData);
     statusArithmeticGreater ((int16_t) sData > (int16_t) dData);
+    unasmPostText (outputStatus());
 }
 
 static void compareByte (uint16_t sData, uint16_t dData)
 {
+    statusOverflow (false);
     statusEqual (sData == dData);
     statusLogicalGreater (sData > dData);
     statusArithmeticGreater ((int8_t) sData > (int8_t) dData);
+    unasmPostText (outputStatus());
 }
 
 static uint16_t operandDecode (uint16_t mode, uint16_t reg, bool isByte)
@@ -362,7 +387,7 @@ static void cpuExecuteImmediate (uint16_t opcode, uint16_t reg)
     case OP_ORI:
         data = REGR(reg);
         immed = cpuFetch();
-        unasmPostText ("R%d=%04X&%04X=%04X", reg, data, immed, data&immed);
+        unasmPostText ("R%d=%04X|%04X=%04X", reg, data, immed, data|immed);
         data |= immed;
         REGW(reg,data);
         compareWord (data, 0);
@@ -440,15 +465,17 @@ static void cpuExecuteSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
         break;
 
     case OP_NEG:
-        param = memReadW (addr);
-        unasmPostText ("=%04X", -param);
-        memWriteW (addr, -param);
+        param = -memReadW (addr);
+        unasmPostText ("=%04X", param);
+        memWriteW (addr, param);
+        compareWord (param, 0);
         break;
 
     case OP_INV:
-        param = memReadW (addr);
-        unasmPostText ("=%04X", (uint16_t) ~param);
-        memWriteW (addr, ~param);
+        param = ~memReadW (addr);
+        unasmPostText ("=%04X", param);
+        memWriteW (addr, param);
+        compareWord (param, 0);
         break;
 
     case OP_INC:
@@ -489,7 +516,6 @@ static void cpuExecuteSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
 
     case OP_BL:
         REGW(11, tms9900.pc);
-        unasmPostText ("=%04X", addr);
         tms9900.pc = addr;
         break;
 
@@ -671,14 +697,14 @@ static void cpuExecuteDual1 (uint16_t opcode, uint16_t dReg, uint16_t sMode, uin
         dData = REGR (dReg);
         if (sData <= dData)
         {
-            unasmPostText ("<(R%d=%04X)->OVF", dReg, dData);
+            unasmPostText ("<(%04X<%04X)->OVF", sData, dData);
             statusOverflow (true);
         }
         else
         {
             statusOverflow (false);
             u32 = REGR(dReg) << 16 | REGR(dReg+1);
-            unasmPostText ("/(R%d=%04X)=%04X/%04X", dReg, dData, u32 / sData, u32 % sData);
+            unasmPostText (",(%X/%X)=>%04X,%04X", u32, sData, u32 / sData, u32 % sData);
             REGW(dReg, u32 / sData);
             REGW(dReg+1, u32 % sData);
         }
@@ -858,7 +884,7 @@ void cpuExecute (uint16_t data)
 
     uint16_t opcode = cpuDecode (data, &type);
 
-    unasmPreExec (tms9900.pc-2, data, type, opcode);
+    unasmPreExec (tms9900.pc, data, type, opcode);
 
     switch (type)
     {
@@ -947,15 +973,8 @@ void cpuShowStWord(void)
 {
     int st = tms9900.st;
 
-    mprintf (LVL_CPU, "st=%04X (%s%s%s%s%s%s%s int=%d)\n",
-             st,
-             st & 0x8000 ? "L" : "",
-             st & 0x4000 ? "A" : "",
-             st & 0x2000 ? "=" : "",
-             st & 0x1000 ? "C" : "",
-             st & 0x0800 ? "O" : "",
-             st & 0x0400 ? "P" : "",
-             st & 0x0200 ? "X" : "", st & 15);
+    mprintf (LVL_CPU, "st=%04X %s int=%d)\n",
+             st, outputStatus(), st & 15);
 }
 
 void cpuBoot (void)

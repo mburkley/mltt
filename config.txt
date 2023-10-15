@@ -10,6 +10,14 @@ load roms/994arom.bin 0x0000
 
 # Load console GROM
 grom roms/994agrom.bin 0x0000
+
+# Enable DSK
+disk roms/disk.bin
+
+# Load disk into drive
+# disk1 disks/LEATHER.dsk
+disk1 disks/PLUNDER.dsk
+
 #  Load this?
 # load ../../ti99-x/module-c.bin 0x6000
 
@@ -65,8 +73,8 @@ grom roms/994agrom.bin 0x0000
 #
 #  Frogger
 #
-load roms/froggerc.bin 0x6000
-grom roms/froggerg.bin 0x6000
+# load roms/froggerc.bin 0x6000
+# grom roms/froggerg.bin 0x6000
 
 #
 #  Misc
@@ -92,13 +100,14 @@ grom roms/froggerg.bin 0x6000
 # load roms/ParsecC.Bin 0x6000
 # grom roms/ParsecG.Bin 0x6000
 # grom roms/ZEROZAPG.BIN 0x6000
+# grom roms/diskmang.bin 0x6000
 
 #
 #  Extended Basic
 #
-# load roms/TIExtBC.Bin 0x6000
-# load roms/TIExtBD.Bin 0x6000 1
-# grom roms/TIExtBG.Bin 0x6000
+load roms/TIExtBC.Bin 0x6000
+load roms/TIExtBD.Bin 0x6000 1
+grom roms/TIExtBG.Bin 0x6000
 # load roms/XB25C.BIN 0x6000
 # load roms/XB25D.BIN 0x6000 1
 # grom roms/XB25G.BIN 0x6000
@@ -107,18 +116,19 @@ grom roms/froggerg.bin 0x6000
 keyboard /dev/input/event22
 
 # Set the debug output level, bitmasks:
-# 001=console           - show console debug info
-# 002=cpu               - show CPU debug info
-# 004=vdp               - show VDP debug info
-# 008=grom              - show GROM access debug info
-# 010=unasm             - Show disassembly as running
-# 020=cru               - show CRU debug info
-# 040=interrupts        - show interrupt debug info
-# 080=kbd               - show keyboard debug info
-# 100=sound             - show sound instructions, frequencies, etc
-# 200=gpl               - dissamble GPL instructions
-# 400=gpl debug         - show debug of GPL disassembly
-# 800=cassette          - show cassette debug
+# 0001=console           - show console debug info
+# 0002=cpu               - show CPU debug info
+# 0004=vdp               - show VDP debug info
+# 0008=grom              - show GROM access debug info
+# 0010=unasm             - Show disassembly as running
+# 0020=cru               - show CRU debug info
+# 0040=interrupts        - show interrupt debug info
+# 0080=kbd               - show keyboard debug info
+# 0100=sound             - show sound instructions, frequencies, etc
+# 0200=gpl               - dissamble GPL instructions
+# 0400=gpl debug         - show debug of GPL disassembly
+# 0800=cassette          - show cassette debug
+# 1000=disk              - show disk debug
 # level 0x070
 
 # Initialise the CPU

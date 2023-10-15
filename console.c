@@ -54,6 +54,7 @@
 #include "sound.h"
 #include "status.h"
 #include "parse.h"
+#include "disk.h"
 
 static char *fileToRead;
 static bool ti994aQuitFlag;
@@ -412,6 +413,27 @@ bool consolePixelSize (int argc, char *argv[])
     return true;
 }
 
+bool consoleEnableDisk (int argc, char *argv[])
+{
+    if (argc < 2)
+        return false;
+
+    ti994aMemLoad (argv[1], 0x4000, 1);
+    diskInit();
+
+    return true;
+}
+
+bool consoleLoadDisk1 (int argc, char *argv[])
+{
+    if (argc < 2)
+        return false;
+
+    diskLoad(1, argv[1]);
+
+    return true;
+}
+
 struct _commands
 {
     char *cmd;
@@ -466,7 +488,11 @@ commands[] =
     { "status", 1, consoleStatus, "status",
             "Display a status pane beside main display (call before enable video)" },
     { "pixelsize", 2, consolePixelSize, "pixelsize <n>",
-            "Set the magnification factor for drawing pixels.  Default 4(x4)" }
+            "Set the magnification factor for drawing pixels.  Default 4(x4)" },
+    { "disk", 2, consoleEnableDisk, "disk <rom-file>",
+            "Enable disk drive emulation, rom file must be provided as a parameter." },
+    { "disk1", 2, consoleLoadDisk1, "disk1 <disk-file>",
+            "Load <disk-file> in disk drive 1" }
 };
 
 #define NCOMMAND (sizeof (commands) / sizeof (struct _commands))
@@ -545,7 +571,7 @@ static void input (FILE *fp)
         if (!strncmp (argv[0], commands[i].cmd, strlen (argv[0])))
         {
             if (!commands[i].func (argc, argv))
-                printf (commands[i].help);
+                printf ("usage: %s\n\n%s\n", commands[i].usage, commands[i].help);
 
             return;
         }
