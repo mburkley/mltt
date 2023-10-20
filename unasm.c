@@ -34,7 +34,6 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#include "cover.h"
 #include "cpu.h"
 #include "mem.h"
 #include "trace.h"
@@ -45,6 +44,9 @@ static const char *unasmText[0x10000];
 static const char *currText;
 
 extern int outputLevel;
+static bool covered[0x8000];
+static bool outputUncovered = false;
+static bool skipCurrent = false;
 
 static const char *parseComment (char type, int *len)
 {
@@ -118,12 +120,6 @@ static void unasmTwoOp (uint16_t opCode, uint16_t *pc, uint16_t sMode, uint16_t 
     char op[20];
     char out[31];
 
-    if (outputLevel < 2)
-        return;
-
-    if (outputCovered && covered[*pc >> 1])
-        return;
-
     switch (opCode)
     {
     case OP_SZC:  name = "SZC ";  break;
@@ -146,8 +142,8 @@ static void unasmTwoOp (uint16_t opCode, uint16_t *pc, uint16_t sMode, uint16_t 
     case OP_CZC:  name = "CZC ";  break;
     case OP_XOR:  name = "XOR ";  break;
     case OP_XOP:  name = "XOP ";  break;
-    case OP_LDCR: name = "LDCR ";  break;
-    case OP_STCR: name = "STCR ";  break;
+    case OP_LDCR: name = "LDCR";  break;
+    case OP_STCR: name = "STCR";  break;
     case OP_MPY:  name = "MPY ";  break;
     case OP_DIV:  name = "DIV ";  break;
 
@@ -168,12 +164,6 @@ sReg)
 {
     char *name = "****";
     char out[31];
-
-    if (outputLevel < 2)
-        return;
-
-    if (outputCovered && covered[*pc >> 1])
-        return;
 
     switch (opCode)
     {
@@ -207,12 +197,6 @@ static void unasmImmed (uint16_t opCode, uint16_t *pc, uint16_t sReg)
     bool showReg = true;
     bool showOper = true;
     bool showData = true;
-
-    if (outputLevel < 2)
-        return;
-
-    if (outputCovered && covered[*pc >> 1])
-        return;
 
     switch (opCode)
     {
@@ -269,12 +253,6 @@ static void unasmJump (uint16_t opCode, uint16_t pc, int8_t offset)
     char *name = "****";
     int pcOffset = 1;
 
-    if (outputLevel < 2)
-        return;
-
-    if (outputCovered && covered[pc >> 1])
-        return;
-
     switch (opCode)
     {
     case OP_JMP: name="JMP"; break;
@@ -322,6 +300,21 @@ uint16_t unasmPreExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcod
     int dMode = 0;
     uint16_t pcStart = pc;
 
+    if (outputLevel < 2)
+        return 0;
+
+    if (covered[pc>>1])
+    {
+        skipCurrent = true;
+        return 0;
+    }
+
+    if (outputUncovered)
+    {
+        covered[pc>>1] = true;
+        skipCurrent = false;
+    }
+
     currText = unasmText[pc-2];
 
     while ((comment = parseComment ('-', &len)) != NULL)
@@ -329,49 +322,46 @@ uint16_t unasmPreExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcod
         mprintf (LVL_UNASM, ";%.*s\n", len, comment);
     }
 
-    if (!outputCovered || !covered[pc >> 1])
+    mprintf (LVL_UNASM, "%04X:%04X ", pc-2, data);
+
+    switch (type)
     {
-        mprintf (LVL_UNASM, "%04X:%04X ", pc-2, data);
+    case OPTYPE_IMMED:
+        sReg   =  data & 0x000F;
+        unasmImmed (opcode, &pc, sReg);
+        break;
 
-        switch (type)
-        {
-        case OPTYPE_IMMED:
-            sReg   =  data & 0x000F;
-            unasmImmed (opcode, &pc, sReg);
-            break;
+    case OPTYPE_SINGLE:
+        sMode = (data & 0x0030) >> 4;
+        sReg     =  data & 0x000F;
+        unasmOneOp (opcode, &pc, sMode, sReg);
+        break;
 
-        case OPTYPE_SINGLE:
-            sMode = (data & 0x0030) >> 4;
-            sReg     =  data & 0x000F;
-            unasmOneOp (opcode, &pc, sMode, sReg);
-            break;
+    case OPTYPE_SHIFT:
+        dReg = (data & 0x00F0) >> 4;
+        sReg =  data & 0x000F;
+        unasmTwoOp (opcode, &pc, 0, sReg, 0, dReg);
+        break;
 
-        case OPTYPE_SHIFT:
-            dReg = (data & 0x00F0) >> 4;
-            sReg =  data & 0x000F;
-            unasmTwoOp (opcode, &pc, 0, sReg, 0, dReg);
-            break;
+    case OPTYPE_JUMP:
+        sReg = data & 0x00FF;
+        unasmJump (opcode, pc, sReg);
+        break;
 
-        case OPTYPE_JUMP:
-            sReg = data & 0x00FF;
-            unasmJump (opcode, pc, sReg);
-            break;
+    case OPTYPE_DUAL1:
+        dReg     = (data & 0x03C0) >> 6;
+        sMode = (data & 0x0030) >> 4;
+        sReg     =  data & 0x000F;
+        unasmTwoOp (opcode, &pc, sMode, sReg, 0, dReg);
+        break;
 
-        case OPTYPE_DUAL1:
-            dReg     = (data & 0x03C0) >> 6;
-            sMode = (data & 0x0030) >> 4;
-            sReg     =  data & 0x000F;
-            unasmTwoOp (opcode, &pc, sMode, sReg, 0, dReg);
-            break;
-
-        case OPTYPE_DUAL2:
-            dMode = (data & 0x0C00) >> 10;
-            dReg     = (data & 0x03C0) >> 6;
-            sMode = (data & 0x0030) >> 4;
-            sReg     =  data & 0x000F;
-            unasmTwoOp (opcode, &pc, sMode, sReg, dMode, dReg);
-            break;
-        }
+    case OPTYPE_DUAL2:
+        dMode = (data & 0x0C00) >> 10;
+        dReg     = (data & 0x03C0) >> 6;
+        sMode = (data & 0x0030) >> 4;
+        sReg     =  data & 0x000F;
+        unasmTwoOp (opcode, &pc, sMode, sReg, dMode, dReg);
+        break;
     }
 
     return pc - pcStart;
@@ -383,6 +373,9 @@ static char *unasmTextPtr = unasmTextBuffer;
 void unasmPostText (char *fmt, ...)
 {
     va_list ap;
+
+    if (skipCurrent)
+        return;
 
     va_start (ap, fmt);
     int len = vsprintf (unasmTextPtr, fmt, ap);
@@ -396,7 +389,10 @@ void unasmPostPrint (void)
     int anyComment = 0;
     int len;
 
-    mprintf (LVL_UNASM, "%-30.30s", unasmTextBuffer);
+    if (skipCurrent)
+        return;
+
+    mprintf (LVL_UNASM, "%-40.40s", unasmTextBuffer);
     unasmTextPtr = unasmTextBuffer;
     unasmTextBuffer[0] = 0;
 
@@ -410,6 +406,14 @@ void unasmPostPrint (void)
         mprintf (LVL_UNASM, "\n");
 }
 
+/*  Reads comments in from a file and displays them after an instruciton that
+ *  has been executed.
+ *
+ *  NOTE : At present, the file has no way to select ROM banks for even
+ *  cartridges.  Different files should be used for different cartridges.  At
+ *  the moment, unasm.txt contains comments for console ROM, disk DSR and
+ *  extended basic (a mix of C and D).
+ */
 void unasmReadText (const char *textFile)
 {
     FILE *fp;
@@ -441,6 +445,11 @@ void unasmReadText (const char *textFile)
     }
 
     fclose (fp);
+}
+
+void unasmOutputUncovered (bool state)
+{
+    outputUncovered = state;
 }
 
 #ifdef __BUILD_UNASM

@@ -1,116 +1,120 @@
 # Uncomment this to capture ctrl-c (SIGINT) and return to consol debugger
-ctrlc
+# ctrlc
 
 # Specify the speed by setting the number of instructions per second to be
 # executed
 inspersec 150000
 
 # Load console ROM
-load roms/994arom.bin 0x0000
+load ../roms/994arom.bin 0x0000
 
 # Load console GROM
-grom roms/994agrom.bin 0x0000
+grom ../roms/994agrom.bin 0x0000
 
 # Enable DSK
-disk roms/disk.bin
+disk ../roms/disk.bin
 
 # Load disk into drive
-# disk1 disks/LEATHER.dsk
-disk1 disks/PLUNDER.dsk
-
-#  Load this?
-# load ../../ti99-x/module-c.bin 0x6000
+disk1 ../disks/LEATHER.dsk
+# disk1 ../disks/ZORK1.dsk
+# disk1 ../disks/tmp.dsk
+# disk1 ../disks/PLUNDER.dsk
+# disk1 ../disks/TEACHBASIC.DSK
+# disk1 ../disks/blankdsdd.dsk
+# disk1 ../disks/mark.dsk
 
 # Load one of the following cartridges as needed
 
 #
 #  The Attack
 #
-# grom roms/attackg.bin  0x6000
+# grom ../roms/attackg.bin  0x6000
 
 #
 #  Munchman
 #
-# load roms/munchmnc.bin 0x6000
-# grom roms/munchmng.bin  0x6000
+# load ../roms/munchmnc.bin 0x6000
+# grom ../roms/munchmng.bin  0x6000
 
 #
 #  Invaders
 #
-# load roms/ti-invac.bin 0x6000
-# grom roms/ti-invag.bin 0x6000
+# load ../roms/ti-invac.bin 0x6000
+# grom ../roms/ti-invag.bin 0x6000
 
 #
 #  Parsec
 #
-# load roms/parsec-c.bin 0x6000
-# grom roms/parsec-g.bin 0x6000
+# load ../roms/parsec-c.bin 0x6000
+# grom ../roms/parsec-g.bin 0x6000
 
 #
 #  Tombstone City
 #
-# load roms/TombCitC.Bin 0x6000
-# grom roms/TombCitG.Bin 0x6000
+load ../roms/TombCitC.Bin 0x6000
+grom ../roms/TombCitG.Bin 0x6000
 
 #
 #  Frogger
 #
-# load roms/froggerc.bin 0x6000
-# grom roms/froggerg.bin 0x6000
+# load ../roms/froggerc.bin 0x6000
+# grom ../roms/froggerg.bin 0x6000
 
 #
 #  Pacman
 #
-# load roms/PACMANC.BIN 0x6000
-# load roms/PACMAND.BIN 0x6000 1
+#  Some ROMs are "banked".  The default bank is 0.  Specify a non zero bank for
+#  additional ROMs.
+#
+# load ../roms/PACMANC.BIN 0x6000
+# load ../roms/PACMAND.BIN 0x6000 1
 
 #
 #  Supercart (edasm ?)
 #
-# load roms/SupCartC.Bin 0x6000
-# grom roms/SupCartG.Bin 0x6000
+# load ../roms/SupCartC.Bin 0x6000
+# grom ../roms/SupCartG.Bin 0x6000
 
 #
 #  Frogger
 #
-# load roms/froggerc.bin 0x6000
-# grom roms/froggerg.bin 0x6000
+# load ../roms/froggerc.bin 0x6000
+# grom ../roms/froggerg.bin 0x6000
 
 #
 #  Misc
 #
-# grom roms/AdvtureG.Bin 0x6000
-# grom roms/AmazingG.Bin 0x6000
-# load roms/BARRAGEC.BIN 0x6000
-# load roms/BARRAGED.BIN 0x6000 1
-# load roms/BEYPARSC.BIN 0x6000
-# load roms/BEYPARSD.BIN 0x6000 1
-# load roms/BLAKHOLC.BIN 0x6000
-#  Blasto goes instantly to game over
-# grom roms/BlastoG.Bin 0x6000
-# load roms/BREAKC.BIN 0x6000
-# load roms/BLAKHOLC.BIN 0x6000
-# grom roms/CarWarsG.Bin 0x6000
-# load roms/CENTIPEC.BIN 0x6000
-# load roms/CongBngC.Bin 0x6000
-# grom roms/CongBngG.Bin 0x6000
-# load roms/DEFENDC.BIN 0x6000
-# grom roms/Ed-AssmG.Bin 0x6000
-# grom roms/HtWmpusG.Bin 0x6000
-# load roms/ParsecC.Bin 0x6000
-# grom roms/ParsecG.Bin 0x6000
-# grom roms/ZEROZAPG.BIN 0x6000
-# grom roms/diskmang.bin 0x6000
+# grom ../roms/AdvtureG.Bin 0x6000
+# grom ../roms/AmazingG.Bin 0x6000
+# load ../roms/BARRAGEC.BIN 0x6000
+# load ../roms/BARRAGED.BIN 0x6000 1
+# load ../roms/BEYPARSC.BIN 0x6000
+# load ../roms/BEYPARSD.BIN 0x6000 1
+# load ../roms/BLAKHOLC.BIN 0x6000
+# grom ../roms/BlastoG.Bin 0x6000
+# load ../roms/BREAKC.BIN 0x6000
+# load ../roms/BLAKHOLC.BIN 0x6000
+# grom ../roms/CarWarsG.Bin 0x6000
+# load ../roms/CENTIPEC.BIN 0x6000
+# load ../roms/CongBngC.Bin 0x6000
+# grom ../roms/CongBngG.Bin 0x6000
+# load ../roms/DEFENDC.BIN 0x6000
+# grom ../roms/Ed-AssmG.Bin 0x6000
+# grom ../roms/HtWmpusG.Bin 0x6000
+# load ../roms/ParsecC.Bin 0x6000
+# grom ../roms/ParsecG.Bin 0x6000
+# grom ../roms/ZEROZAPG.BIN 0x6000
+# grom ../roms/diskmang.bin 0x6000
 
 #
 #  Extended Basic
 #
-load roms/TIExtBC.Bin 0x6000
-load roms/TIExtBD.Bin 0x6000 1
-grom roms/TIExtBG.Bin 0x6000
-# load roms/XB25C.BIN 0x6000
-# load roms/XB25D.BIN 0x6000 1
-# grom roms/XB25G.BIN 0x6000
+# load ../roms/TIExtBC.Bin 0x6000
+# load ../roms/TIExtBD.Bin 0x6000 1
+# grom ../roms/TIExtBG.Bin 0x6000
+# load ../roms/XB25C.BIN 0x6000
+# load ../roms/XB25D.BIN 0x6000 1
+# grom ../roms/XB25G.BIN 0x6000
 
 # Specify the keyboard input device (user read access required)
 keyboard /dev/input/event22
@@ -129,7 +133,7 @@ keyboard /dev/input/event22
 # 0400=gpl debug         - show debug of GPL disassembly
 # 0800=cassette          - show cassette debug
 # 1000=disk              - show disk debug
-# level 0x070
+# level 0x00D0
 
 # Initialise the CPU
 boot

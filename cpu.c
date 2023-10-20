@@ -38,7 +38,6 @@
 #include "cond.h"
 #include "interrupt.h"
 #include "cru.h"
-#include "cover.h"
 #include "unasm.h"
 #include "mem.h"
 #include "trace.h"
@@ -190,7 +189,7 @@ static void jumpAnd (uint16_t setMask, uint16_t clrMask, uint16_t offset)
     if ((tms9900.st & setMask) == setMask &&
         (~tms9900.st & clrMask) == clrMask)
     {
-        unasmPostText("st=%04X[s=%04X,c=%04X], jump", tms9900.st, setMask,
+        unasmPostText("st=%04X[s=%04X&&c=%04X], jump", tms9900.st, setMask,
         clrMask);
         tms9900.pc += offset << 1;
     }
@@ -203,7 +202,7 @@ static void jumpOr (uint16_t setMask, uint16_t clrMask, uint16_t offset)
     if ((tms9900.st & setMask) != 0 ||
         (~tms9900.st & clrMask) != 0)
     {
-        unasmPostText("st=%04X[s=%04X,c=%04X], jump", tms9900.st, setMask,
+        unasmPostText("st=%04X[s=%04X||c=%04X], jump", tms9900.st, setMask,
         clrMask);
         tms9900.pc += offset << 1;
     }
@@ -489,11 +488,21 @@ static void cpuExecuteSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
 
     case OP_INCT:
         param = memReadW (addr);
-        statusCarry ((param & 0xFF00) == 0xFF00 || (param & 0xFF00) == 0xFE00);
+        statusCarry ((param & 0xFFFE) == 0xFFFE);
         param += 2;
-        unasmPostText ("=%04X", param);
-        memWriteW (addr, param);
-        compareWord (param, 0);
+        if(addr&1)
+        {
+            param&=0xFF;
+            unasmPostText ("=%02X", param);
+            memWriteB(addr,param);
+            compareByte (param, 0);
+        }
+        else
+        {
+            unasmPostText ("=%04X", param);
+            memWriteW (addr, param);
+            compareWord (param, 0);
+        }
         break;
 
     case OP_DEC:
@@ -509,9 +518,24 @@ static void cpuExecuteSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
         param = memReadW (addr);
         statusCarry (param != 0 && param != 1);
         param -= 2;
-        unasmPostText ("=%04X", param);
-        memWriteW (addr, param);
-        compareWord (param, 0);
+        /*  Not sure if this is strictly necessary, but in the ROM code there
+         *  are several places where DECT is called on an odd address.  Does
+         *  this mean only the low byte should be decremented?  Assume so for
+         *  now.
+         */
+        if(addr&1)
+        {
+            param&=0xFF;
+            unasmPostText ("=%02X", param);
+            memWriteB(addr,param);
+            compareByte (param, 0);
+        }
+        else
+        {
+            unasmPostText ("=%04X", param);
+            memWriteW (addr, param);
+            compareWord (param, 0);
+        }
         break;
 
     case OP_BL:
@@ -524,6 +548,7 @@ static void cpuExecuteSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
         param = SWAP(param);
         unasmPostText ("=%04X", param);
         memWriteW (addr, param);
+        compareWord (param, 0);
         break;
 
     case OP_SETO:
@@ -532,9 +557,16 @@ static void cpuExecuteSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
 
     case OP_ABS:
         param = memReadW (addr);
-        param = ((signed) param < 0) ? -param : param;
+        /*  AGT for ABS is unusual in that it takes the sign of the source into
+         *  account and doesn't just do a comparison of the result to zero */
+        statusArithmeticGreater ((int8_t) param > 0);
+        param = ((int16_t) param < 0) ? -param : param;
         unasmPostText ("=%04X", param);
         memWriteW (addr, param);
+        statusOverflow (false);
+        statusEqual (param == 0);
+        statusLogicalGreater (param != 0);
+        unasmPostText (outputStatus());
         break;
 
     default:
@@ -557,6 +589,7 @@ static void cpuExecuteShift (uint16_t opcode, uint16_t reg, uint16_t count)
     {
     case OP_SRA:
         i32 = REGR (reg) << 16;
+        unasmPostText ("%04X=>", i32>>16);
         i32 >>= count;
 
         /* Set carry flag if last bit shifted is set */
@@ -569,6 +602,7 @@ static void cpuExecuteShift (uint16_t opcode, uint16_t reg, uint16_t count)
 
     case OP_SRC:
         u32 = REGR (reg);
+        unasmPostText ("%04X=>", u32);
         u32 |= (u32 << 16);
         mprintf (LVL_CPU, "u32=%x\n", u32);
         u32 >>= count;
@@ -584,6 +618,7 @@ static void cpuExecuteShift (uint16_t opcode, uint16_t reg, uint16_t count)
 
     case OP_SRL:
         u32 = REGR (reg) << 16;
+        unasmPostText ("%04X=>", u32>>16);
         u32 >>= count;
 
         /* Set carry flag if last bit shifted is set */
@@ -596,6 +631,7 @@ static void cpuExecuteShift (uint16_t opcode, uint16_t reg, uint16_t count)
 
     case OP_SLA:
         i32 = REGR (reg);
+        unasmPostText ("%04X=>", i32);
         u32 = i32 << count;
 
         /* Set carry flag if last bit shifted is set */

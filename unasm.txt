@@ -1,6 +1,16 @@
+000E @+ Keyboard scan
+0016 @+ GPL interpreter, if in R9 GPL-byte
+001C @+ GPL interpreter without interrupt
+0020 @+ Keyboard scanning for CLEAR
 0024 @-@- Reset vector entry point @-@+ Load GROM read data address
 0028 @+ Initialise system flags
 002C @+ Load VDP write address
+0030 @+ GROM address
+0036 @+ Turns off GPL extension
+004E @+ Push Grom address on substack
+0052 @+ The same once more
+0056 @+ Read data on substack instead of GROM address
+005A @+ New GROM read data
 005C @+ Fetch GROM data into R4
 0060 @-@- GPL interpreter, R6=GROM address@-
 006A @+ Clear GPL status condition bit
@@ -81,10 +91,10 @@
 05F8 @+ Or bit count with command LDCR *R2
 0608 @-@-GPL XML:@-
 061E @-@- GPL MOVE@-
-065E @+0456 B *6 Execute source
-0660 @-Source ROM or RAM:@+ Fetch
-0662 @+0457 B *7 Execute destination
-0664 @-Source VDP RAM:@+ Write address
+065E @+ Execute source
+0660 @-Source ROM or RAM @+ Fetch
+0662 @+ Execute destination
+0664 @-Source VDP RAM @+ Write address
 066C @+ Fetch data
 0670 @+ Execute destination
 0672 @-@- Fetch bytes from GROM@-
@@ -120,14 +130,156 @@
 0A78 @+ Read keyboard row bits from CRU
 0A7A @+ Check if value is >1100 (quit key)
 0A84 @+ Get VDP status
-0A8E @+ Screen timeout counter
 0A8A @+ Switch to interrupt WS
+0A8E @+ Screen timeout counter
 0A92 @-@- Interrupt Level 2 Service Routine@-
 0AA8 @+ Switch to GPL WS
 0AAC @+ Increment(?) VDP interrupt timer
 0AB0 @+ User defined interrupt
 0ABE @+ ISR Return@+
 0B3E @+ CZC >1FFF
+0F54 @-@- XML >01 Rounding of floating point numbers@-@+ Save ret
+0F56 @+ Decimal 50
+0F5A @+ Compare
+0F5E @+ Smaller, end
+0F68 @+ Decimal 100
+0F6C @+ +1
+0F74 @+ Smaller 100, then end
+0F76 @+ Minus 100
+0F7C @+ Next digit
+0F7E @+ Increase exponent
+0F82 @+ 1 on first digit
+0F86 @+ Fetch exponent
+0F8A @+ To big?
+0F8E @+ Overflow
+0F90 @+ Set exponent
+0F9C @+ Negative? No, end
+0F9E @+ Negate number
+0FA4 @-@- XML >03 CPU status becomes GPL status in depending of FAC(word)@-
+0FA6 @+ Fetch FAC
+0FAC @+ CPU status becomes GPL status
+0FB0 @+ Return
+0FB2 @-@-XML >02 Rounding with digit number in >8354@-@+ Save ret
+0FB4 @+ Digit number in R1
+0FB8 @+ Lbyte
+0FBA @+ Execute
+0FBC @+ Overflow +- Infinite with error code 02
+0FC0 @+ Execution
+0FC2 @-@-XML >04 Overflow@-
+0FC4 @+ Fetch sign
+0FC8 @+ Execute toward 0
+0FCA @+ Toward infinite
+0FCC @-@-XML >05 Set overflow on FAC@-
+0FCE @+ Error code 01
+0FD6 @+ Fetch sign
+0FDA @+ Positive?
+0FDE @+ FAC
+0FE2 @+ Load exponent and 1 digit
+0FE4 @+ Decimal 99- 46 -
+0FE8 @+ Write digits
+0FEE @+ Error code on >8354
+0FF2 @+ End set GPL-Status
+0FF4 @-@-FDIV (XML >09):@-
+0FF8 @-@-SDIV (XML >0E):@-
+0FFA @+ Fetch number from VDP stack
+0FFE @+ FAC
+1004 @+ ARG
+100A @+ Save sign of division
+100E @+ Check on >0000 FAC
+1010 @+ Error with code >02
+1174 @+ Remove ASCII sub >30
+11A2 @-@- XML >11 (CSN Flag >8389 0=VDP, <>0=Grom):@-@+ Check flag
+11A8 @+ From GROM
+11AE @-@-CSN (XML >10):@-@+ Fetch from VDP
+11B4 @+ Fetch address
+11B8 @+ Read 1st byte
+11BE @+ ASCII + sign
+11C4 @+ ASCII - sign
+11C8 @+ No sign
+11CA @+ Flag for minus
+11CC @+ Fix length
+11CE @+ Next sign
+11D0 @+ 0?
+11D4 @+ Then next sign
+11D6 @+ Save sign
+11DA @+ Address start string in R12
+11DC @+ Right address
+11E4 @+ Fetch character
+11E6 @+ Compare, if character 0 through 9
+11F0 @+ If yes, next character
+11F2 @+ Decimal Point?
+11F8 @+ Compute digit left of the point
+1202 @+ Next character
+1204 @+ 0?
+1208 @+ Go on
+120E @+ Fetch character
+121E @+ Set 0 and error
+1220 @+ End of number
+1224 @+ Correction
+1228 @+ E?
+122E @+ Sign exponent
+1230 @+ + sign
+1236 @+ - sign
+1242 @+ Fetch exponent in integer
+1246 @+ Negative number
+124E @+ End address
+1254 @+ Set error
+1256 @+ Correct exponent
+1260 @+ Exponent :2, Basis 100!!
+1268 @+ 8 digits of the number
+126C @+ Begin number
+1270 @+ Address, begin of the number in R6
+1278 @+ Point?
+127C @+ Next character
+127E @+ ASCII correction
+1282 @+ First, second digit
+128A @+ R9 Lbyte in R1
+128E @+ Next character
+1290 @+ R8 Lbyte add to R1
+1294 @+ R1 on FAC
+1298 @+ All digits
+129C @+ Rounding and end
+12A0 @-@-XTAB table XMLLNK 2nd Nybble (attention limit >1B)@-@+ CSN (>10)
+12A2 @+ CSN with flag on >8389 byte (0=VDP Ram, 0<>Grom) (>11)
+12A4 @+ CFI (>12)
+12A6 @+ Name from VDP OR GROM (to 00) then search in variable list(>13)
+12A8 @+ Build stack entry from variable list (>834A Pointer to entry)
+12AA @+ Assign value to a variable(stack entry) (>15)
+12AC @+ Search var name(Name on FAC, >8359 Length, GPL return ) (>16)
+12AE @+ VPUSHG (>17)
+12B0 @+ VPOP (>18)
+12B2 @+ GPL-DSRLNK (>19) Name on FAC, >8359 Length, GPL return
+12B4 @+ GSRLNK (1A) GPL return
+12B6 @+ Read byte from >8342, flag >8389 (0=VDP,1=GROM), address >832C (>1B)
+12B8 @-@-CFI (XML >12)@-
+12BC @+ End
+12CC @+ Exponent in R5
+12D0 @+ Too small
+12D4 @+ Set 0 end
+12D8 @+ 100
+12E0 @+ 10000
+12E4 @+ Overflow, error
+12E6 @+ in Lbyte R0
+12EA @+ *100
+12F0 @+ Lbyte R3
+12F6 @+ *100
+12FA @+ Overflow?
+130E @+ Round up
+1310 @+ Negative?
+1314 @+ Next byte
+1318 @+ End ?
+131C @+ Loop
+131E @+ Go on
+1320 @+ DATA 100
+1322 @+ Round up
+132A @+ Overflow
+1330 @+ Set error
+1336 @+ Return
+1338 @+ Flag negative
+133C @+ Negate
+133E @+ Integer on FAC
+1342 @+ End
+1344 @+ DATA
 1350 @+ Load timer >0011 and set clock bit
 13CA @+ Initial tape input state to 0
 13CC @+ CRU base to zero
@@ -255,6 +407,51 @@
 15CA @+ CZC >00FF : is R1 == >0000 ?
 15CE @+ bit set and R1=0000, change
 15D0 @+ No change, Return to caller +2
+15D6 @-@-XML >16 (Search variable name), leads back to GPL@+ Search name
+15DA @+ Return reset condition bit
+15DC @+ Return set condition bit
+15E0 @+ Pointer fetch var list
+15E4 @+ No list, end reset condition bit
+15E6 @+ Fetch length byte
+15EE @+ Write VDP address
+15F6 @+ VDP read data
+15FA @+ Compare length of variable
+15FC @+ Right, check name
+15FE @+ Address next variable
+1606 @+ New address in R4
+1608 @+ Go on
+160A @+ Fetch return
+160C @+ Return@+
+160E @+ Address next variable
+1618 @+ Address name of variable
+161A @+ Length byte in R7 Lbyte
+1620 @+ Write address VDP
+1626 @+ FAC
+162A @+ Compare name
+162C @+ Next variable
+1630 @+ Until length end
+1634 @+ Address on FAC shows to value of variables
+1638 @+ Return +2
+187C @-@- Read 1 byte from VDP, Entry over data address pointer@+ Fetch data
+187E @+ Fetch address param
+1880 @+ Write address
+188A @+ Read byte
+188E @+ Return@+
+1E7A @-@- Substack pointer in R9 and actual Basic byte in R8@-
+1E7C @+ Fetch Basic byte
+1E80 @+ Fetch substack pointer
+1E86 @+ Complete address substack
+1E8A @+ Return@+
+1E8C @-@- Set substack pointer and Basic byte @+ Set Basic byte
+1E94 @+ Set substack pointer
+1E9A @+ Return@+
+1FA8 @-@- Fetch 8 bytes from VDP stack(Address STACK=>836E)@+ 8 Bytes
+1FAC @+ Address ARG
+1FB0 @+ Write address
+1FB4 @+ VDPRD
+1FBC @+ STACK -8!
+1FC0 @+ Fetch bytes
+1FC6 @+ Return@+
 4078 @- Get highest VDP addr
 407E @+ subtract >828 bytes from addr
 4082 @+ Write the new ram top back to reserve space
@@ -331,3 +528,186 @@
 4628 @+ High byte
 462A @+ Clear VDP addr write flag
 462E @+ Return@+
+6054 @+ Addr in himem TBD?
+6058 @+ Move any byte into the addr
+605A @+ Is it the same as we wrote?  Check for RAM?
+605C @+ Jump if RAM
+605E @+ Otherwise different address
+6062 @+ Move any byte into the addr
+6064 @+ Is it the same as we wrote?  Check for RAM?
+6066 @+ Jump if RAM
+6068 @+ No RAM there either, clr R0
+606A @+ Store RAM addr to 8384
+606E @+ Return@+
+60AE @-@- Fetch VDP byte as word from addr in R6+@-@+ Write LSB R6 as VDP lo               
+60B2 @+ NOP
+60B4 @+ Write MSB R6 as VDP hi
+60B8 @+ Get the byte
+60BC @+ Move to word
+60BE @+ Return@+
+60F2 @-@- Fetch word in addr [SP] from GROM@-@+ inc SP
+60F6 @+ Fetch SP
+60FA @+ Get byte
+60FC @+ Fetch MSB from GROM to [SP]
+6102 @+ Fetch LSB from GROM to [SP+1]
+610C @+ Return@+
+61DC @+ Inc SP
+61DE @+ Store to SP
+61E0 @+ Store addr in FAC to FAC+4
+61E6 @+ add 6 to addr
+61EC @+ Fetch (exponent?) byte from VDP addr in 834A (FAC) into R1
+61F2 @+ Save byte (low is rubbish)
+61F6 @+ Check if >40 set
+61F8 @+ Jump if exponent is positive
+61FC @+ Jump if exponent is negative (number is negative)
+6202 @+ Check exponent >20
+6214 @+ Shift
+6216 @+ Check least significant 3 bits of exponent ?
+6220 @+ Check if >20 is set
+622C @+ Fetch word from VDP addr in >834E
+6232 @+ Store retrieved word to >834E
+6236 @+ Retrieve ret addr from stack
+6238 @+ Dec stack
+623A @+ return@+
+6278 @+ Fetch byte
+62D8 @+ Fetch byte
+6312 @+ Flag to fetch from VDP
+6316 @+ Load FAC addr
+631A @+ Save return
+631E @+ End of var name?
+6320 @+ Store byte of var name
+6322 @+ Set flag to ROM for fetch
+6326 @+ Fetch byte from ROM
+632A @+ End of var name?  Loop if not
+632C @+ Call search var name
+6332 @+ return@+
+6410 @+ Save ret
+6412 @+ Fetch byte
+6416 @+ Store byte from VDP to 8342 TBD
+641A @+ Return@+
+6420 @+ Fetch byte
+6434 @-@- Fetch float from VDP from addr in 834E@-+ Fetch addr of float
+6438 @+ Copy 8 bytes
+643C @+ Copy to FAC
+6440 @+ End of value?
+6448 @+ Set VDP lo addr
+644C @+ Set VDP hi addr
+6452 @+ Fetch byte
+6456 @+ More bytes?
+6458 @+ Return@+
+645A @+ Copy byte to FAC
+645E @+ More?
+6460 @+ Return@+
+6462 @+ Return@+
+6492 @+ Fetch byte
+64B0 @+ Set substack ptr
+64C8 @+ Get value from stack
+64CA @+ Jump if not in scratchpad?
+64CC @+ Set up GROM addr hi
+64D2 @+ Set up GROM addr lo
+64D6 @+ GROM data read addr
+64D8 @+ ?
+64DA @+ ?
+64DE @+ ?
+64E2 @+ End of table
+64E8 @+ Fetch from jump table
+64EE @+ Fetch byte
+64F2 @+ Jump to table
+6504 @+ TBD
+6508 @+ TBD
+650C @+ High byte equal zero
+6512 @+ Filter >10 ?
+652A @+ Fetch byte
+6530 @+ Fetch byte
+654E @+ CRU base to KBD col select
+6552 @+ Select column 0
+6556 @+ CRU base to KBD row
+655A @+ Read 8 rows
+655C @+ Check for >1000
+6562 @+ CRU base to KBD col select
+6566 @+ Select column 3
+656A @+ CRU base to KBD row
+656E @+ Read 8 rows
+6570 @+ Check for >1000
+6582 @+ Fetch byte
+6602 @+ Fetch byte
+6618 @+ Fetch byte
+6624 @+ Fetch byte
+66B6 @+ Fetch byte
+6716 @+ Fetch byte
+6732 @+ Fetch byte
+6764 @+ Fetch byte
+676A @+ Fetch byte
+67DA @+ Fetch byte
+67EA @+ Fetch byte
+6888 @+ Read VDP byte into 834A
+688E @+ Check >40
+68BE @+ Fetch byte
+68CC @+ Fetch byte
+68DE @+ Fetch byte
+692E @+ Fetch byte
+693A @+ Fetch byte
+6968 @+ Fetch byte
+6978 @+ Fetch byte
+6A88 @+ Fetch byte
+6C74 @-@- Fetch VDP or ROM byte value from 832C@-@+ Fetch 8389 (0=VDP, 1=ROM)
+6C78 @+ Write addr word in 832C to VDP addr
+6C7A @+ Set up VDP addr lo
+6C82 @+ Set up VDP addr hi
+6C86 @+ Inc VDP ptr
+6C8A @+ Fetch VDP byte
+6C8C @+ Return@+
+6C8E @+ Fetch VDP ptr
+6C92 @+ Inc VDP ptr
+6C96 @+ Fetch VDP byte with inc
+6C98 @+ Return@+
+6C9A @-@- Fetch word from VDP using param as addr@-@+ Fetch param addr
+6C9C @+ Fetch value
+6C9E @+ Set up VDP lo
+6CA2 @+ Set up VDP hi
+6CA4 @+ Delay
+6CA6 @+ Fetch byte from VDP into R1 MSB
+6CAA @+ Fetch byte from VDP into R1 LSB
+6CB0 @+ Return@+
+6E7A @+ Fetch byte
+6F88 @+ Fetch byte
+6FAC @+ Save ret
+6FAE @+ Call TBD
+6FB8 @+ Return@+
+6FBA @+ TBD
+6FC0 @+ TBD
+6FC2 @+ addr in >8320 to VDP addr
+6FDA @+ go again
+6FDC @+ Return@+
+7038 @+ Abs of exponent
+7054 @+ float?
+7096 @+ Fetch byte
+70A6 @+ Fetch byte
+70D4 @+ Fetch byte
+717A @+ Fetch byte
+7188 @+ Fetch byte
+71D2 @+ Fetch byte
+71DE @+ Fetch byte
+7204 @+ Fetch byte
+7210 @+ Fetch byte
+7248 @+ Push ret to stack
+72C0 @+ Fetch byte
+72D2 @+ Mult exp by 2 and shift to LSB
+72D6 @+ Is digit > 10 ?
+72FE @+ Div 10 to get digit
+730C @+ ASCII offset
+7B88 @+ Save ret
+7B8A @+ byte from GROM
+7B8C @+ TBD
+7B90 @+ clear FAC
+7B94 @+ LSB of R9
+7D38 @+ Table >81,>85,>86,>87,>88,>8E,>8F,>94...
+7CE0 @+ Fetch to LSB of R2
+7F5C @+ NOP
+7F78 @+ LSB of R1 to VDP addr
+7F7C @+ VDP write
+7F80 @+ MSB to VDP addr
+7F8A @+ Return@+
+7F8C @+ Save ret
+7F94 @+ sub >30
+7F9E @+ Return@+

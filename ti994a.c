@@ -46,7 +46,6 @@
 #include "watch.h"
 #include "cond.h"
 #include "unasm.h"
-#include "cover.h"
 #include "kbd.h"
 #include "cru.h"
 #include "timer.h"
@@ -169,14 +168,16 @@ static void invalidWrite (uint8_t *data, uint16_t addr, uint16_t value, int size
 
 static void bankSelect (uint8_t *data, uint16_t addr, uint16_t value, int size)
 {
-    printf ("Bank Write %04X to %04X\n", value, addr);
+    mprintf (LVL_CONSOLE, "Bank Write %04X to %04X\n", value, addr);
 
-    #if 1
-    if (addr == 2)
+    /*  Extended basic writes to addresses 0x0000 and 0x0002.  Pacman writes to
+     *  0x001C and 0x001E.  Can't find a standard way to select cartridge ROMs
+     *  so just checking the least significant 2 bits to cover these two caes.
+     */
+    if ((addr & 3) == 2)
         memory[3].data = romCartridge[1];
     else
         memory[3].data = romCartridge[0];
-    #endif
 }
 
 bool ti994aDeviceRomSelect (int index, uint8_t state)
@@ -186,7 +187,7 @@ bool ti994aDeviceRomSelect (int index, uint8_t state)
      */
     deviceSelected = (index & 0x780) >> 7;
 
-    printf ("Select device ROM %d state %d\n", deviceSelected, state);
+    mprintf (LVL_CONSOLE, "Select device ROM %d state %d\n", deviceSelected, state);
 
     /*  For now, assume device 0 means no device */
     if (state == 0)

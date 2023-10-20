@@ -158,11 +158,8 @@ bool kbdColumnUpdate (int index, uint8_t value)
         kbdColumn |= bit;
 
     int kbdRow;
-    // int col = (cruBitGet(0, 20)<<2)|(cruBitGet(0, 19)<<1)|cruBitGet(0, 18);
 
-    // mprintf (LVL_CONSOLE, "KBD scan col %d (%d,%d,%d)\n", col, cruBitGet(0,18),
-    // cruBitGet(0,19),cruBitGet(0,20));
-    mprintf (LVL_CONSOLE, "KBD scan col %d\n", kbdColumn);
+    mprintf (LVL_KBD, "KBD scan col %d\n", kbdColumn);
 
     for (kbdRow = 0; kbdRow < KBD_COL; kbdRow++)
     {
@@ -176,7 +173,7 @@ bool kbdColumnUpdate (int index, uint8_t value)
 
 
         if (!bit)
-            mprintf (LVL_CONSOLE, "KBD col %d, row %d active\n", kbdColumn, kbdRow);
+            mprintf (LVL_KBD, "KBD col %d, row %d active\n", kbdColumn, kbdRow);
 
         cruBitInput (0, 3+kbdRow, bit);
     }
