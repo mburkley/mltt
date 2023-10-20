@@ -21,13 +21,22 @@
  */
 
 /*
- *  Implements floppy disk controller
+ *  Implements floppy disk controller.  A very minimal implementatoin, no errors
+ *  or interrupts are ever generated.
+ *
+ *  Limitations:
+ *
+ *      * Fixed at 9 sectors per track and 40 tracks per disk
+ *      * Fixed sector size of 256 bytes
+ *      * Doesn't handle double-sided properly.  Doesn't understand negative
+ *        sector numbers or track numbers
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
 
 #include "ti994a.h"
 #include "cpu.h"
@@ -36,6 +45,10 @@
 #include "interrupt.h"
 #include "trace.h"
 
+/*  Status bits are defined here but many are not used.  We are never busy,
+ *  never not ready and we never have CRC errors or lost data.  We also never
+ *  generate interrupts.
+ */
 #define DISK_STATUS_NOT_READY           0x80
 #define DISK_STATUS_WRITE_PROTECT       0x40
 #define DISK_STATUS_HEAD_ENGAGED        0x20
@@ -48,105 +61,80 @@
 #define DISK_STATUS_DRQ                 0x02
 #define DISK_STATUS_BUSY                0x01
 
+#define DISK_TRACKS_PER_DISK 40
+#define DISK_BYTES_PER_SECTOR 256
+
 static uint8_t diskId[6];
 static uint8_t diskSector[256];
 static FILE *diskFile;
 static int sectorsPerTrack = 9;
-static int tracksPerDisk = 40;
-static int bytesPerSector = 256;
 
 static struct
 {
     uint8_t command;
-    uint8_t *dataPtr;
-    int dataLen;
-    int dataPos;
+    uint8_t data;
+    uint8_t sector;
+    uint8_t track;
+    uint8_t drive;
+    uint8_t side;
+    uint8_t *buffer;
+    int bufferLen;
+    int bufferPos;
     uint8_t status;
     bool direction; // true = inward
     bool ignoreIRQ;
-    uint8_t sectorRequest;
-    uint8_t trackRequest;
-    uint8_t sectorActual;
-    uint8_t trackActual;
-    uint8_t driveSelected;
-    uint8_t sideSelected;
     bool motorStrobe;
-} diskRegister;
-
-static bool seekActive;
-static char diskFileName[3][20];
+    char fileName[DISK_DRIVE_COUNT][DISK_FILENAME_MAX];
+} disk;
 
 static void fileReadSector (void)
 {
-    int offset = diskRegister.trackActual * sectorsPerTrack + diskRegister.sectorActual;
+    int offset = disk.track * sectorsPerTrack + disk.sector;
     mprintf (LVL_DISK, "DSK - read file offset %d\n", offset);
-    fseek (diskFile, bytesPerSector * offset, SEEK_SET);
-    fread (diskSector, bytesPerSector, 1, diskFile);
+    fseek (diskFile, DISK_BYTES_PER_SECTOR * offset, SEEK_SET);
+    fread (diskSector, DISK_BYTES_PER_SECTOR, 1, diskFile);
 }
 
 static void fileWriteSector (void)
 {
-    int offset = diskRegister.trackActual * sectorsPerTrack + diskRegister.sectorActual;
+    int offset = disk.track * sectorsPerTrack + disk.sector;
     mprintf (LVL_DISK, "DSK - write file offset %d\n", offset);
-    fseek (diskFile, bytesPerSector * offset, SEEK_SET);
-    fwrite (diskSector, bytesPerSector, 1, diskFile);
+    fseek (diskFile, DISK_BYTES_PER_SECTOR * offset, SEEK_SET);
+    fwrite (diskSector, DISK_BYTES_PER_SECTOR, 1, diskFile);
 }
 
 uint16_t diskRead (uint16_t addr, uint16_t size)
 {
-    uint16_t value;
     uint8_t data;
 
     switch(addr)
     {
     case 0:
-        mprintf (LVL_DISK, "DSK - read status=%02X\n", diskRegister.status);
-        value = diskRegister.status;
-
-        if (seekActive)
-        {
-            mprintf (LVL_DISK, "DSK - seek done, track=%d\n", diskRegister.trackRequest);
-            diskRegister.trackActual = diskRegister.trackRequest;
-            diskRegister.status &= ~DISK_STATUS_BUSY;
-            // The ISR doesn't seem to exist and therefore doesn't reset the
-            // device IRQ so disabling all ints for now
-            #if 0
-            if (!diskRegister.ignoreIRQ)
-            {
-                mprintf (LVL_DISK, "DSK - raise interrupt\n");
-                cruBitInput (0, IRQ_DEVICE, 0);
-            }
-            #endif
-            seekActive = false;
-
-            if (diskRegister.trackActual == 0)
-                diskRegister.status |= DISK_STATUS_TRACK0;
-        }
-
-        return ~value;
+        mprintf (LVL_DISK, "DSK - read status=%02X\n", disk.status);
+        return ~disk.status;
         break;
     case 2:
-        mprintf (LVL_DISK, "DSK - read track=%02X\n", diskRegister.trackActual);
-        return ~diskRegister.trackActual;
+        mprintf (LVL_DISK, "DSK - read track=%02X\n", disk.track);
+        return ~disk.track;
         break;
     case 4:
-        mprintf (LVL_DISK, "DSK - read sector=%02X\n", diskRegister.sectorActual);
-        return ~diskRegister.sectorActual;
+        mprintf (LVL_DISK, "DSK - read sector=%02X\n", disk.sector);
+        return ~disk.sector;
         break;
     case 6:
-        if (diskRegister.dataPtr)
-            data = diskRegister.dataPtr[diskRegister.dataPos++];
+        if (disk.buffer)
+            data = disk.buffer[disk.bufferPos++];
         else
-            data = 0xFF;
+            data = disk.data;
 
-        if (diskRegister.dataPos<6)
-        mprintf (LVL_DISK, "DSK - read data=%02X\n", data);
+        if (disk.bufferPos<6)
+            mprintf (LVL_DISK, "DSK - read data=%02X\n", data);
 
-        if (diskRegister.dataPos == diskRegister.dataLen)
+        if (disk.bufferPos == disk.bufferLen)
         {
             mprintf (LVL_DISK, "DSK - read finished\n");
-            diskRegister.dataPos = 0;
-            diskRegister.dataPtr = NULL;
+            disk.bufferPos = 0;
+            disk.buffer = NULL;
         }
         return ~data;
     default:
@@ -156,21 +144,18 @@ uint16_t diskRead (uint16_t addr, uint16_t size)
     return 0;
 }
 
-static void trackUpdate (bool inward, bool update)
+static void trackUpdate (bool inward)
 {
     if (inward)
     {
-        if (diskRegister.trackRequest < tracksPerDisk)
-            diskRegister.trackRequest++;
+        if (disk.track < DISK_TRACKS_PER_DISK)
+            disk.track++;
     }
     else
     {
-        if (diskRegister.trackRequest > 0)
-            diskRegister.trackRequest--;
+        if (disk.track > 0)
+            disk.track--;
     }
-
-    if (update)
-        diskRegister.trackActual = diskRegister.trackRequest;
 }
 
 void diskWrite (uint16_t addr, uint16_t data, uint16_t size)
@@ -178,13 +163,16 @@ void diskWrite (uint16_t addr, uint16_t data, uint16_t size)
     /*  Data bus is inverted in FD1771 */
     data = (~data & 0xFF);
 
-    diskRegister.status = 0;
+    disk.status = 0;
 
     switch(addr)
     {
     case 0x8:
-        mprintf (LVL_DISK, "DSK - write cmd %02X : ", data);
+        mprintf (LVL_DISK, "DSK - cmd %02X : ", data);
 
+        /*  We decode the command but we ignore many of the parameters.
+         *  Verification and speed have no meaning here for example.
+         */
         if (data < 0x80)
             mprintf (LVL_DISK, "speed %d, %s, %s, ", data&3, data&4?"verify":"no-verify",
                     data&8?"load" : "no-load");
@@ -196,71 +184,73 @@ void diskWrite (uint16_t addr, uint16_t data, uint16_t size)
         {
         case 0x00:
             mprintf (LVL_DISK, "restore\n");
-            diskRegister.trackActual = 0;
-            diskRegister.trackRequest = 0;
-            diskRegister.direction = true;
-            diskRegister.status |= DISK_STATUS_BUSY;
-            seekActive = true;
+            disk.track = 0;
+            disk.direction = true;
+            disk.status |= DISK_STATUS_TRACK0;
             break;
         case 0x10:
-            mprintf (LVL_DISK, "seek T=%d, S=%d\n", diskRegister.trackRequest, diskRegister.sectorRequest);
-            diskRegister.trackActual = diskRegister.trackRequest;
-            diskRegister.sectorActual = diskRegister.sectorRequest;
-            diskRegister.status |= DISK_STATUS_BUSY;
-            seekActive = true;
+            /*  "[Seek] assumes that the Track Register contains the track
+             *  number of the current position of the Read-Write head and the
+             *  Data Register contains the desired track number"
+             *
+             *  So we just copy the data register to the track register to
+             *  complete the seek.
+             */
+            disk.track = disk.data;
+            mprintf (LVL_DISK, "seek T=%d, S=%d\n", disk.track, disk.sector);
+            if (disk.track == 0)
+                disk.status |= DISK_STATUS_TRACK0;
             break;
         case 0x20:
-            mprintf (LVL_DISK, "step, no upd track\n");
-            trackUpdate (diskRegister.direction, false);
-            break;
         case 0x30:
-            mprintf (LVL_DISK, "step, upd track\n");
-            trackUpdate (diskRegister.direction, true);
+            /*  The update flag is meaningless since here all seeks are
+             *  instantaneous.  The track register always reflects the desired
+             *  track
+             */
+            mprintf (LVL_DISK, "step\n");
+            trackUpdate (disk.direction);
             break;
         case 0x40:
-            mprintf (LVL_DISK, "step in, no upd track\n");
-            trackUpdate (true, false);
-            break;
         case 0x50:
-            mprintf (LVL_DISK, "step in, upd track\n");
-            trackUpdate (true, true);
+            mprintf (LVL_DISK, "step in\n");
+            trackUpdate (true);
             break;
         case 0x60:
-            mprintf (LVL_DISK, "step out, no upd track\n");
-            trackUpdate (false, false);
-            break;
         case 0x70:
-            mprintf (LVL_DISK, "step out, upd track\n");
-            trackUpdate (false, true);
+            mprintf (LVL_DISK, "step out\n");
+            trackUpdate (false);
             break;
         case 0x80:
             mprintf (LVL_DISK, "read single sector\n");
             fileReadSector();
-            diskRegister.dataPtr = diskSector;
-            diskRegister.dataPos = 0;
-            diskRegister.dataLen = bytesPerSector;
+            disk.buffer = diskSector;
+            disk.bufferPos = 0;
+            disk.bufferLen = DISK_BYTES_PER_SECTOR;
             break;
-        case 0x90: mprintf (LVL_DISK, "read multiple sector\n"); break;
+        case 0x90:
+            printf ("TODO read multiple sector\n");
+            break;
         case 0xA0:
             mprintf (LVL_DISK, "write single sector mark=%d\n", data&3);
-            diskRegister.dataPtr = diskSector;
-            diskRegister.dataPos = 0;
-            diskRegister.dataLen = bytesPerSector;
+            disk.buffer = diskSector;
+            disk.bufferPos = 0;
+            disk.bufferLen = DISK_BYTES_PER_SECTOR;
             break;
-        case 0xB0: mprintf (LVL_DISK, "write multiple sector mark=%d\n", data&3); break;
+        case 0xB0:
+            printf ("TODO write multiple sector mark=%d\n", data&3);
+            break;
         case 0xC0:
             mprintf (LVL_DISK, "read ID, tr=%d, side=%d, sec=%d\n",
-            diskRegister.trackActual, diskRegister.sideSelected,
-            diskRegister.sectorActual);
-            diskRegister.dataPtr = diskId;
-            diskId[0] = diskRegister.trackActual;
-            diskId[1] = diskRegister.sideSelected;
-            diskId[2] = diskRegister.sectorActual;
+                     disk.track, disk.side, disk.sector);
+            disk.buffer = diskId;
+            diskId[0] = disk.track;
+            diskId[1] = disk.side;
+            diskId[2] = disk.sector;
             diskId[3] = 1; // statusRegister.sectorLengthCode;
             diskId[4] = 0; // crc1
             diskId[5] = 0; // crc2
-            diskRegister.dataPos = 0;
-            diskRegister.dataLen = 6;
+            disk.bufferPos = 0;
+            disk.bufferLen = 6;
             break;
         case 0xD0:
             /*   8 = issue interrupt now
@@ -271,67 +261,67 @@ void diskWrite (uint16_t addr, uint16_t data, uint16_t size)
              */
             mprintf (LVL_DISK, "force interrupt %x\n", data&0xf);
             break;
-        case 0xE0: mprintf (LVL_DISK, "read track, sync=%d\n", data&1); break;
+        case 0xE0:
+            mprintf (LVL_DISK, "TODO read track, sync=%d\n", data&1);
+            break;
         case 0xF0:
             mprintf (LVL_DISK, "write track\n");
-            diskRegister.dataPtr = NULL; // We don't care about format data
-            diskRegister.status |= DISK_STATUS_DRQ;
+            disk.buffer = NULL; // We don't care about format data
+            disk.status |= DISK_STATUS_DRQ;
             break;
         }
-        // diskRegister.status |= DISK_STATUS_HEAD_ENGAGED;
-        // diskRegister.status |= DISK_STATUS_BUSY;
-
         break;
     case 0xA:
         mprintf (LVL_DISK, "DSK - request track %02X\n", data);
-        diskRegister.trackRequest = data;
+        disk.track = data;
         break;
     case 0xC:
         mprintf (LVL_DISK, "DSK - request sector %02X\n", data);
-        diskRegister.sectorRequest = data;
+        disk.sector = data;
         break;
     case 0xE:
-        if (diskRegister.dataPos<4)
-            mprintf (LVL_DISK, "DSK - write data %02X\n", data);
-
-        if (diskRegister.dataPtr)
+        /*  If we have a buffer then put the data into that otherwise put it in
+         *  the data register.
+         */
+        if (disk.buffer)
         {
-            diskRegister.dataPtr[diskRegister.dataPos++] = data;
+            /*  For debug, we just output the first 4 bytes written */
+            if (disk.bufferPos<4)
+                mprintf (LVL_DISK, "DSK - write data %02X\n", data);
 
-            if (diskRegister.dataPos == diskRegister.dataLen)
+            disk.buffer[disk.bufferPos++] = data;
+
+            if (disk.bufferPos == disk.bufferLen)
             {
                 mprintf (LVL_DISK, "DSK - write finished\n");
                 fileWriteSector();
-                diskRegister.dataPos = 0;
-                diskRegister.dataPtr = NULL;
+                disk.bufferPos = 0;
+                disk.buffer = NULL;
             }
         }
         else
         {
-            // No sector write is active, put data into track request register
-            // for seek
-            diskRegister.trackRequest = data;
-            mprintf (LVL_DISK, "DSK - track request %02X\n", data);
+            disk.data = data;
         }
-        // diskRegister.data[diskRegister.dataPos++] = data;
-        // diskInterrupt(); // yeah that's done
-        // cruBitInput (0, IRQ_DEVICE, 0);
         break;
-    default: mprintf (LVL_DISK, "DSK - unknown data\n"); break;
+    default:
+        printf ("DSK - unknown addr\n");
+        halt ("disk address");
+        break;
     }
 }
 
 static bool diskSetStrobeMotor(int index, uint8_t state)
 {
     mprintf(LVL_DISK, "DSK set strobe motor %d\n", state);
-    diskRegister.motorStrobe = state;
+    disk.motorStrobe = state;
     return false;
 }
 
 static bool diskSetIgnoreIRQ(int index, uint8_t state)
 {
     mprintf(LVL_DISK, "DSK set ignore IRQ %d\n", state);
-    diskRegister.ignoreIRQ = state;
+    disk.ignoreIRQ = state;
     return false;
 }
 
@@ -345,19 +335,22 @@ static bool diskSetSelectDrive(int index, uint8_t state)
 {
     int drive = index - 0x883;
 
+    if (drive < 1 || drive > DISK_DRIVE_COUNT)
+        halt ("disk drive select");
+
     mprintf(LVL_DISK, "DSK drive %d selection %d\n", drive, state);
 
     if (state)
     {
-        diskRegister.driveSelected = drive;
+        disk.drive = drive;
 
         /*  TODO how to select no disk ? */
         if ((diskFile = fopen (diskFileName[drive-1], "r+")) == NULL)
             halt ("diskSelectDrive");
     }
-    else if (drive == diskRegister.driveSelected)
+    else if (drive == disk.drive)
     {
-        diskRegister.driveSelected=0;
+        disk.drive=0;
         mprintf(LVL_DISK, "DSK drive %d deselected\n", drive);
         fclose (diskFile);
         diskFile = NULL;
@@ -367,8 +360,8 @@ static bool diskSetSelectDrive(int index, uint8_t state)
 
 static bool diskSetSelectSide(int index, uint8_t state)
 {
-    mprintf(LVL_DISK, "DSK set side %d\n", diskRegister.sideSelected);
-    diskRegister.sideSelected = state;
+    mprintf(LVL_DISK, "DSK set side %d\n", disk.side);
+    disk.side = state;
     return false;
 }
 
@@ -382,19 +375,19 @@ static uint8_t diskGetDriveSelected (int index, uint8_t state)
 {
     int drive = index - 0x880;
     mprintf(LVL_DISK, "DSK test if drive %d active\n", drive);
-    return diskRegister.driveSelected == drive;
+    return disk.drive == drive;
 }
 
 static uint8_t diskGetMotorStrobeOn (int index, uint8_t state)
 {
-    mprintf(LVL_DISK, "DSK get motor strobe %d\n", diskRegister.motorStrobe);
-    return diskRegister.motorStrobe;
+    mprintf(LVL_DISK, "DSK get motor strobe %d\n", disk.motorStrobe);
+    return disk.motorStrobe;
 }
 
 static uint8_t diskGetSide (int index, uint8_t state)
 {
-    mprintf(LVL_DISK, "DSK get side %d\n", diskRegister.sideSelected);
-    return diskRegister.sideSelected;
+    mprintf(LVL_DISK, "DSK get side %d\n", disk.side);
+    return disk.side;
 }
 
 void diskLoad (int drive, char *name)
@@ -403,7 +396,7 @@ void diskLoad (int drive, char *name)
      *  that fails, halt */
     FILE *fp;
 
-    strcpy (diskFileName[drive-1], name);
+    strcpy (disk.fileName[drive-1], name);
 
     if ((fp = fopen (name, "r+")) == NULL)
     {
