@@ -49,7 +49,6 @@
 #include "watch.h"
 #include "cond.h"
 #include "unasm.h"
-#include "cover.h"
 #include "kbd.h"
 #include "sound.h"
 #include "status.h"
@@ -274,7 +273,7 @@ bool consoleUnassemble (int argc, char *argv[])
     {
         if (!strncmp (argv[1], "covered", strlen(argv[1])))
         {
-            outputCovered = 1;
+            unasmOutputUncovered (true);
             mprintf (0, "Uncovered code only will be unassembled\n");
         }
         else
@@ -582,7 +581,7 @@ static void input (FILE *fp)
         int i;
 
         for (i = 0; i < NCOMMAND; i++)
-            printf ("%s : %s\n\n", commands[i].usage, commands[i].help);
+            printf ("%s : %s\n", commands[i].usage, commands[i].help);
 
         return;
     }

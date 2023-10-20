@@ -351,6 +351,7 @@ static bool diskSetSelectDrive(int index, uint8_t state)
     {
         diskRegister.driveSelected = drive;
 
+        /*  TODO how to select no disk ? */
         if ((diskFile = fopen (diskFileName[drive-1], "r+")) == NULL)
             halt ("diskSelectDrive");
     }

@@ -6,7 +6,6 @@ watch.c \
 cond.c \
 cru.c \
 grom.c \
-cover.c \
 unasm.c \
 kbd.c \
 timer.c \
@@ -27,7 +26,7 @@ LIBS=\
 -lreadline \
 -lm
 
-all:  ti994a tests dumptape dumpdisk unasm
+all:  ti994a tests dumptape dumpdisk unasm hexed
 
 ti994a: $(SRCS) console.c ti994a.c disk.c
 	gcc -Wall -ggdb3 -o ti994a -D__GROM_DEBUG console.c disk.c ti994a.c $(SRCS) $(LIBS)
@@ -45,3 +44,5 @@ dumptape: $(SRCS) dumptape.c
 	gcc -Wall -ggdb3 -o dumptape -D__UNIT_TEST dumptape.c $(LIBS)
 dumpdisk: $(SRCS) dumpdisk.c
 	gcc -Wall -ggdb3 -o dumpdisk -D__UNIT_TEST dumpdisk.c $(LIBS)
+hexed: hexed.c parse.c
+	gcc -Wall -ggdb3 -o hexed hexed.c parse.c

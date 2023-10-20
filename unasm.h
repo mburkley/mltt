@@ -29,6 +29,7 @@ void unasmReadText (const char *textFile);
 void unasmPreExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcode);
 void unasmPostText (char *fmt, ...);
 void unasmPostPrint (void);
+void unasmOutputUncovered (bool state);
 
 #endif
 

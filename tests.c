@@ -38,7 +38,6 @@
 #include "watch.h"
 #include "cond.h"
 #include "unasm.h"
-#include "cover.h"
 #include "cru.h"
 
 static unsigned char testmem[0x200] =
