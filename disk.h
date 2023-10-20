@@ -26,6 +26,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define DISK_DRIVE_COUNT        3
+#define DISK_FILENAME_MAX       1024
+
 uint16_t diskRead (uint16_t addr, uint16_t size);
 void diskWrite (uint16_t addr, uint16_t data, uint16_t size);
 void diskLoad (int drive, char *name);

@@ -166,6 +166,10 @@ static void invalidWrite (uint8_t *data, uint16_t addr, uint16_t value, int size
     halt ("invalid write");
 }
 
+/*  Select ROM in a cartridge with multiple ROMs.  This is crude for now and
+ *  just follows the EB scheme where a write to address >6002 selects the second
+ *  ROM.
+ */
 static void bankSelect (uint8_t *data, uint16_t addr, uint16_t value, int size)
 {
     mprintf (LVL_CONSOLE, "Bank Write %04X to %04X\n", value, addr);

@@ -30,9 +30,13 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <ctype.h>
 #include <arpa/inet.h>
 
+#define BYTES_PER_SECTOR        256
+
 FILE *diskFp;
+bool showRecordDump = false;
 
 static struct
 {
@@ -104,7 +108,9 @@ static void analyseFirstSector (void)
     printf (", tracks:%d", volumeHeader.tracks);
     printf (", sides:%d", volumeHeader.sides);
     printf (", density:%02X", volumeHeader.density);
-    printf (", year:%-8.8s", volumeHeader.date);
+
+    if (volumeHeader.date[0])
+        printf (", year:%-8.8s", volumeHeader.date);
 
     printf (", Chains");
 
@@ -129,22 +135,50 @@ static void analyseFirstSector (void)
     printf ("\n");
 }
 
-static void analyse (int sector)
+static void dumpContents (int sectorStart, int sectorCount, int recLen)
 {
-    printf ("SEC-%3d:", sector);
-    fseek (diskFp, 256 * sector, SEEK_SET);
+    if (recLen == 0 || !showRecordDump)
+        return;
+
+    for (int i = sectorStart; i <= sectorStart+sectorCount; i++)
+    {
+        int8_t data[BYTES_PER_SECTOR];
+        fseek (diskFp, BYTES_PER_SECTOR * i, SEEK_SET);
+
+        fread (&data, sizeof (data), 1, diskFp);
+
+        for (int j = 0; j < BYTES_PER_SECTOR; j += recLen)
+        {
+            printf ("\n\t'");
+            for (int k = 0; k < recLen; k++)
+            {
+                printf ("%c", isalnum (data[j+k]) ? data[j+k] : '.');
+            }
+            printf ("'");
+        }
+    }
+}
+
+static void analyseFile (int sector)
+{
+    fseek (diskFp, BYTES_PER_SECTOR * sector, SEEK_SET);
 
     fread (&fileHeader, sizeof (fileHeader), 1, diskFp);
-    printf ("name='%-10.10s'", fileHeader.name);
-    printf (", len=%d", ntohs(fileHeader.len));
-    printf (", flags=%02X(%s)", fileHeader.flags,showFlags (fileHeader.flags));
-    printf (", rec/sec=%02X", fileHeader.recSec);
-    printf (", sec alloc= %02X", ntohs(fileHeader.alloc));
-    printf (", eof off=%02X", fileHeader.eof);
-    printf (", l3alloc=%d", ntohs(fileHeader.l3Alloc));
-    printf (", log rec len= %d", fileHeader.recLen);
+    printf ("%-10.10s", fileHeader.name);
 
-    printf (", Chains");
+    printf (" %6d", sector);
+
+    if (fileHeader.flags == 0x01)
+        printf (" %6d", (ntohs (fileHeader.alloc) - 1) * BYTES_PER_SECTOR + fileHeader.eof);
+    else
+        printf (" %6d", ntohs(fileHeader.len));
+
+    printf (" %02X(%s)", fileHeader.flags,showFlags (fileHeader.flags));
+    printf (" %7d", ntohs(fileHeader.alloc));
+    printf (" %8d", fileHeader.recSec * ntohs (fileHeader.alloc));
+    printf (" %10d", fileHeader.eof);
+    printf (" %7d", ntohs(fileHeader.l3Alloc));
+    printf (" %7d", fileHeader.recLen);
 
     for (int i = 0; i < 23; i++)
     {
@@ -153,7 +187,8 @@ static void analyse (int sector)
         {
             uint16_t start, len;
             decodeChain (chain, &start, &len);
-            printf (",%2d=(%d-%d)", i, start, start+len);
+            printf ("%s%2d=(%d-%d)", i!=0?",":"", i, start, start+len);
+            dumpContents (start, len, fileHeader.recLen);
         }
     }
     printf ("\n");
@@ -161,51 +196,39 @@ static void analyse (int sector)
 
 static void analyseDirectory (int sector)
 {
-    uint8_t data[128][2];
+    uint8_t data[BYTES_PER_SECTOR/2][2];
 
-    fseek (diskFp, 256 * sector, SEEK_SET);
+    fseek (diskFp, BYTES_PER_SECTOR * sector, SEEK_SET);
 
     fread (&data, sizeof (data), 1, diskFp);
 
-    for (int i = 0; i < 128; i++)
+    printf ("Name       Sector Len    Flags           #Sectors #Records EOF-offset L3Alloc Rec-Len Sectors\n");
+    printf ("========== ====== ====== =============== ======== ======== ========== ======= ======= =======\n");
+    for (int i = 0; i < BYTES_PER_SECTOR/2; i++)
     {
         sector = data[i][0] << 8 | data[i][1];
         if (sector == 0)
             break;
-        analyse (sector);
+        analyseFile (sector);
     }
 }
 
 int main (int argc, char *argv[])
 {
-    const char *name;
-
     if (argc < 2)
-        name = "disk1.dsk";
-    else
-        name = argv[1];
-
-    if ((diskFp = fopen (name, "r")) == NULL)
     {
-        printf ("Can't open %s\n", name);
+        printf ("usage: %s <dsk-file>\n", argv[0]);
+        exit(1);
+    }
+
+    if ((diskFp = fopen (argv[1], "r")) == NULL)
+    {
+        printf ("Can't open %s\n", argv[1]);
         return 0;
     }
 
     analyseFirstSector ();
     analyseDirectory (1);
-    #if 0
-    // analyse (0);
-     analyse (2);
-     analyse (2);
-     analyse (3);
-     analyse (4);
-     analyse (7);
-     analyse (8);
-     analyse (0x1d);
-     analyse (0x1e);
-     analyse (0x26);
-     analyse (0x28);
-     #endif
 
     fclose (diskFp);
 
