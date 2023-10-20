@@ -345,7 +345,7 @@ static bool diskSetSelectDrive(int index, uint8_t state)
         disk.drive = drive;
 
         /*  TODO how to select no disk ? */
-        if ((diskFile = fopen (diskFileName[drive-1], "r+")) == NULL)
+        if ((diskFile = fopen (disk.fileName[drive-1], "r+")) == NULL)
             halt ("diskSelectDrive");
     }
     else if (drive == disk.drive)
