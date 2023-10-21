@@ -89,7 +89,7 @@ static struct
 
 static void fileReadSector (void)
 {
-    int offset = disk.track * sectorsPerTrack + disk.sector;
+    int offset = disk.side * sectorsPerTrack * DISK_TRACKS_PER_DISK + disk.track * sectorsPerTrack + disk.sector;
     mprintf (LVL_DISK, "DSK - read file offset %d\n", offset);
     fseek (diskFile, DISK_BYTES_PER_SECTOR * offset, SEEK_SET);
     fread (diskSector, DISK_BYTES_PER_SECTOR, 1, diskFile);
@@ -97,7 +97,7 @@ static void fileReadSector (void)
 
 static void fileWriteSector (void)
 {
-    int offset = disk.track * sectorsPerTrack + disk.sector;
+    int offset = disk.side * sectorsPerTrack * DISK_TRACKS_PER_DISK + disk.track * sectorsPerTrack + disk.sector;
     mprintf (LVL_DISK, "DSK - write file offset %d\n", offset);
     fseek (diskFile, DISK_BYTES_PER_SECTOR * offset, SEEK_SET);
     fwrite (diskSector, DISK_BYTES_PER_SECTOR, 1, diskFile);
@@ -360,8 +360,8 @@ static bool diskSetSelectDrive(int index, uint8_t state)
 
 static bool diskSetSelectSide(int index, uint8_t state)
 {
-    mprintf(LVL_DISK, "DSK set side %d\n", disk.side);
     disk.side = state;
+    mprintf(LVL_DISK, "DSK set side %d\n", disk.side);
     return false;
 }
 
