@@ -33,10 +33,13 @@
 #include <ctype.h>
 #include <arpa/inet.h>
 
+#include "decodebasic.h"
+
 #define BYTES_PER_SECTOR        256
 
 FILE *diskFp;
-bool showRecordDump = false;
+bool showContents = false;
+bool showBasic = false;
 
 static struct
 {
@@ -98,7 +101,6 @@ static void analyseFirstSector (void)
 {
     fseek (diskFp, 0, SEEK_SET);
 
-    /*  Can't find documentatoin for first sector, decoding from examples */
     fread (&volumeHeader, sizeof (volumeHeader), 1, diskFp);
     printf ("Vol-Label='%-10.10s'", volumeHeader.name);
     printf (", sectors=%d", ntohs (volumeHeader.sectors));
@@ -114,6 +116,7 @@ static void analyseFirstSector (void)
 
     printf (", Chains");
 
+    #if 0
     int max = 0x64;
     if (volumeHeader.sides==2)
     {
@@ -132,12 +135,13 @@ static void analyseFirstSector (void)
             printf (",%2d=(%d-%d)", i, start, start+len);
         }
     }
+    #endif
     printf ("\n");
 }
 
 static void dumpContents (int sectorStart, int sectorCount, int recLen)
 {
-    if (recLen == 0 || !showRecordDump)
+    if (!showContents)
         return;
 
     for (int i = sectorStart; i <= sectorStart+sectorCount; i++)
@@ -158,9 +162,26 @@ static void dumpContents (int sectorStart, int sectorCount, int recLen)
         }
     }
 }
+    
+static int readProg (uint8_t *buff, int offset, int sectorStart, int sectorCount)
+{
+    for (int i = sectorStart; i <= sectorStart+sectorCount; i++)
+    {
+        fseek (diskFp, BYTES_PER_SECTOR * i, SEEK_SET);
+
+        fread (&buff[offset], BYTES_PER_SECTOR, 1, diskFp);
+        offset += BYTES_PER_SECTOR;
+    }
+
+    return offset;
+}
 
 static void analyseFile (int sector)
 {
+    int length;
+    uint8_t *prog = NULL;
+    int progBytes = 0;
+
     fseek (diskFp, BYTES_PER_SECTOR * sector, SEEK_SET);
 
     fread (&fileHeader, sizeof (fileHeader), 1, diskFp);
@@ -169,9 +190,15 @@ static void analyseFile (int sector)
     printf (" %6d", sector);
 
     if (fileHeader.flags == 0x01)
-        printf (" %6d", (ntohs (fileHeader.alloc) - 1) * BYTES_PER_SECTOR + fileHeader.eof);
+    {
+        length = (ntohs (fileHeader.alloc) - 1) * BYTES_PER_SECTOR + fileHeader.eof;
+        if (showBasic)
+            prog = malloc (ntohs (fileHeader.alloc) * BYTES_PER_SECTOR);
+    }
     else
-        printf (" %6d", ntohs(fileHeader.len));
+        length = ntohs(fileHeader.len);
+
+    printf (" %6d", length);
 
     printf (" %02X(%s)", fileHeader.flags,showFlags (fileHeader.flags));
     printf (" %7d", ntohs(fileHeader.alloc));
@@ -188,9 +215,19 @@ static void analyseFile (int sector)
             uint16_t start, len;
             decodeChain (chain, &start, &len);
             printf ("%s%2d=(%d-%d)", i!=0?",":"", i, start, start+len);
-            dumpContents (start, len, fileHeader.recLen);
+
+            if (prog)
+            {
+                progBytes = readProg (prog, progBytes, start, len);
+            }
+            else
+                dumpContents (start, len, fileHeader.recLen);
         }
     }
+
+    if (prog)
+        decodeBasicProgram (prog, length);
+
     printf ("\n");
 }
 
@@ -215,9 +252,30 @@ static void analyseDirectory (int sector)
 
 int main (int argc, char *argv[])
 {
+    while (1)
+    {
+        if (argc >= 2 && !strcmp (argv[1], "-d"))
+        {
+            showContents = true;
+            argc--;
+            argv[1] = argv[2];
+            continue;
+        }
+
+        if (argc >= 2 && !strcmp (argv[1], "-b"))
+        {
+            showBasic = true;
+            argc--;
+            argv[1] = argv[2];
+            continue;
+        }
+
+        break;
+    }
+
     if (argc < 2)
     {
-        printf ("usage: %s <dsk-file>\n", argv[0]);
+        printf ("usage: %s [-d] [-b] <dsk-file>\n", argv[0]);
         exit(1);
     }
 

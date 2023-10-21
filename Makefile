@@ -42,7 +42,7 @@ testkbd: $(SRCS) kbd.c trace.c
 
 dumptape: $(SRCS) dumptape.c
 	gcc -Wall -ggdb3 -o dumptape -D__UNIT_TEST dumptape.c $(LIBS)
-dumpdisk: $(SRCS) dumpdisk.c
-	gcc -Wall -ggdb3 -o dumpdisk -D__UNIT_TEST dumpdisk.c $(LIBS)
+dumpdisk: $(SRCS) dumpdisk.c decodebasic.c
+	gcc -Wall -ggdb3 -o dumpdisk -D__UNIT_TEST dumpdisk.c decodebasic.c  $(LIBS)
 hexed: hexed.c parse.c
 	gcc -Wall -ggdb3 -o hexed hexed.c parse.c

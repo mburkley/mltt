@@ -496,24 +496,6 @@ commands[] =
 
 #define NCOMMAND (sizeof (commands) / sizeof (struct _commands))
 
-/*  Break a line into word delimited by white space.  Destructive and maintains
- *  pointers to within line.  Ensure memory is not freed until all processing of
- *  args is finished.
- */
-static int parse (char *line, char *argv[])
-{
-    char *pos;
-    int argc = 0;
-
-    while ((pos = strtok (line, " \n\t")) != NULL)
-    {
-        argv[argc++] = pos;
-        line = NULL;
-    }
-
-    return argc;
-}
-
 static void input (FILE *fp)
 {
     char line[1024];
@@ -552,7 +534,7 @@ static void input (FILE *fp)
         free(input);
     }
 
-    argc = parse (line, argv);
+    argc = parseLine (line, argv);
 
     if (fp == NULL && argc == 0)
     {
