@@ -122,6 +122,8 @@ static uint8_t vdpScreen[VDP_XSIZE][VDP_YSIZE];
 static bool vdpSpriteCoinc[VDP_XSIZE][VDP_YSIZE];
 static bool vdpInitialised = false;
 static bool vdpRefreshNeeded = false;
+static bool vdpModeChanged = false;
+static bool vdpSpritesEnabled = false;
 
 /*  The framebuffer is a 2D array of pixels with 4 bytes per pixel.  The first 3
  *  bytes of each pixel are r, g, b respectively and the 4th is not
@@ -149,7 +151,6 @@ static inline struct _frameBuffer* pixel (int x, int y)
 
 static void vdpScreenUpdate (void)
 {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glDrawPixels (frameBufferXSize, frameBufferYSize, GL_RGBA, GL_UNSIGNED_BYTE, frameBuffer);
     glutSwapBuffers();
 }
@@ -196,6 +197,8 @@ uint16_t vdpRead (uint8_t *ptr, uint16_t addr, int size)
 
 void vdpWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size)
 {
+    uint8_t reg;
+
     if (size != 1)
     {
         data>>=8;
@@ -253,8 +256,14 @@ void vdpWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size)
                 break;
 
             case 2:
+                reg = data & 7;
                 vdp.mode = 0;
-                vdp.reg[data&7] = vdp.cmd;
+
+                if (reg == 1 && vdp.reg[reg] != vdp.cmd)
+                    vdpModeChanged = true;
+
+                vdp.reg[reg] = vdp.cmd;
+                mprintf (LVL_VDP, "VDP R%d=%02X\n", reg, vdp.cmd);
                 vdpRefreshNeeded = true;
                 break;
             }
@@ -278,6 +287,7 @@ void vdpInitGraphics (bool statusPane, int scale)
     char *argv[] = { "foo" };
     glutInit(&argc, argv);
     glutInitWindowPosition(10,10);
+    glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
 
     frameBufferXSize = (VDP_XSIZE * scale) + (statusPane ? VDP_STATUS_PANE_WIDTH * 8 : 0);
     frameBufferYSize = VDP_YSIZE * scale;
@@ -367,7 +377,12 @@ static void vdpDrawChar (int cx, int cy, int bits, int ch)
         }
 
         int data = vdp.ram[charpat];
-        int colour = vdp.ram[colpat];
+        int colour;
+
+        if (VDP_TEXT_MODE)
+            colour = vdp.reg[7];
+        else
+            colour = vdp.ram[colpat];
 
         for (x = cx * bits; x < (cx+1) * bits; x++)
         {
@@ -539,6 +554,26 @@ static void vdpDrawSprites (void)
     }
 }
 
+static void vdpUpdateMode (void)
+{
+    /*  In text mode, the rightmost 16 pixels are set to the background colour
+     */
+    if (VDP_TEXT_MODE)
+    {
+        for (int x = VDP_XSIZE - 16; x < VDP_XSIZE; x++)
+        {
+            for (int y = 0; y < VDP_YSIZE; y++)
+            {
+                vdpPlot (x, y, 0);
+            }
+        }
+
+        vdpSpritesEnabled = false;
+    }
+    else
+        vdpSpritesEnabled = true;
+}
+
 void vdpRefresh (int force)
 {
     int sc;
@@ -547,6 +582,12 @@ void vdpRefresh (int force)
         return;
 
     vdpRefreshNeeded = false;
+
+    if (vdpModeChanged)
+    {
+        vdpUpdateMode ();
+        vdpModeChanged = false;
+    }
 
     if (VDP_MULTI_MODE)
     {
@@ -563,7 +604,9 @@ void vdpRefresh (int force)
             vdpDrawChar (sc % 32, sc / 32, 8, vdp.ram[VDP_SCRN_IMGTAB + sc]);
     }
 
-    vdpDrawSprites ();
+    if (vdpSpritesEnabled)
+        vdpDrawSprites ();
+
     statusPaneDisplay ();
     vdpScreenUpdate();
 }
