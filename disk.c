@@ -28,8 +28,6 @@
  *
  *      * Fixed at 9 sectors per track and 40 tracks per disk
  *      * Fixed sector size of 256 bytes
- *      * Doesn't handle double-sided properly.  Doesn't understand negative
- *        sector numbers or track numbers
  */
 
 #include <stdio.h>
@@ -61,7 +59,7 @@
 #define DISK_STATUS_DRQ                 0x02
 #define DISK_STATUS_BUSY                0x01
 
-#define DISK_TRACKS_PER_DISK 40
+#define DISK_TRACKS_PER_SIDE 40
 #define DISK_BYTES_PER_SECTOR 256
 
 static uint8_t diskId[6];
@@ -87,19 +85,39 @@ static struct
     char fileName[DISK_DRIVE_COUNT][DISK_FILENAME_MAX];
 } disk;
 
+static void seekDiskFile (void)
+{
+    int sector = disk.sector;
+
+    if (disk.side)
+    {
+        /*  Add the offset for the first side */
+        sector += sectorsPerTrack * DISK_TRACKS_PER_SIDE;
+
+        /*  For double sided disks saved in a sector-dump (.dsk file), the track
+         *  number is "inverted" so track 39 is the first track on the second
+         *  side and track 0 is the last track.
+         */
+        sector += (DISK_TRACKS_PER_SIDE - 1 - disk.track) * sectorsPerTrack;
+    }
+    else
+        sector += disk.track * sectorsPerTrack;
+
+    mprintf (LVL_DISK, "DSK - access sector %d [T:%d Sec:%d Side:%d]\n", sector, 
+             disk.track, disk.sector, disk.side);
+
+    fseek (diskFile, sector * DISK_BYTES_PER_SECTOR, SEEK_SET);
+}
+
 static void fileReadSector (void)
 {
-    int offset = disk.side * sectorsPerTrack * DISK_TRACKS_PER_DISK + disk.track * sectorsPerTrack + disk.sector;
-    mprintf (LVL_DISK, "DSK - read file offset %d\n", offset);
-    fseek (diskFile, DISK_BYTES_PER_SECTOR * offset, SEEK_SET);
+    seekDiskFile();
     fread (diskSector, DISK_BYTES_PER_SECTOR, 1, diskFile);
 }
 
 static void fileWriteSector (void)
 {
-    int offset = disk.side * sectorsPerTrack * DISK_TRACKS_PER_DISK + disk.track * sectorsPerTrack + disk.sector;
-    mprintf (LVL_DISK, "DSK - write file offset %d\n", offset);
-    fseek (diskFile, DISK_BYTES_PER_SECTOR * offset, SEEK_SET);
+    seekDiskFile();
     fwrite (diskSector, DISK_BYTES_PER_SECTOR, 1, diskFile);
 }
 
@@ -148,7 +166,7 @@ static void trackUpdate (bool inward)
 {
     if (inward)
     {
-        if (disk.track < DISK_TRACKS_PER_DISK)
+        if (disk.track < DISK_TRACKS_PER_SIDE)
             disk.track++;
     }
     else
@@ -311,6 +329,9 @@ void diskWrite (uint16_t addr, uint16_t data, uint16_t size)
     }
 }
 
+/*  CRU bits for motor strobe, head load pin and signal head are trapped and
+ *  print informational messages, but have no functionality here.
+ */
 static bool diskSetStrobeMotor(int index, uint8_t state)
 {
     mprintf(LVL_DISK, "DSK set strobe motor %d\n", state);
@@ -331,6 +352,9 @@ static bool diskSetSignalHead(int index, uint8_t state)
     return false;
 }
 
+/*  Selecting a drive opens a sector dump file, or closes it if the currently
+ *  selected drive is deselected
+ */
 static bool diskSetSelectDrive(int index, uint8_t state)
 {
     int drive = index - 0x883;
