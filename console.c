@@ -54,6 +54,7 @@
 #include "status.h"
 #include "parse.h"
 #include "disk.h"
+#include "mem.h"
 
 static char *fileToRead;
 static bool ti994aQuitFlag;
@@ -336,7 +337,7 @@ bool consoleLoadRom (int argc, char *argv[])
     if (argc == 4 && !parseValue (argv[3], &bank))
         return false;
 
-    ti994aMemLoad (argv[1], addr, bank);
+    memLoad (argv[1], addr, bank);
     return true;
 }
 
@@ -417,7 +418,7 @@ bool consoleEnableDisk (int argc, char *argv[])
     if (argc < 2)
         return false;
 
-    ti994aMemLoad (argv[1], 0x4000, 1);
+    memLoad (argv[1], 0x4000, 1);
     diskInit();
 
     return true;

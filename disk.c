@@ -36,7 +36,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 
-#include "ti994a.h"
+#include "mem.h"
 #include "cpu.h"
 #include "disk.h"
 #include "cru.h"
@@ -434,7 +434,7 @@ void diskLoad (int drive, char *name)
 
 void diskInit (void)
 {
-    cruOutputCallbackSet (0x880, ti994aDeviceRomSelect);
+    cruOutputCallbackSet (0x880, memDeviceRomSelect);
     cruOutputCallbackSet (0x881, diskSetStrobeMotor);
     cruOutputCallbackSet (0x882, diskSetIgnoreIRQ);
     cruOutputCallbackSet (0x883, diskSetSignalHead);
