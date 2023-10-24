@@ -40,7 +40,7 @@
 #include "unasm.h"
 #include "cru.h"
 
-static unsigned char testmem[0x200] =
+static unsigned char testmem[0x2000] =
 {
     0x01, 0x00, // wp=0x100
     0x00, 0x04, // pc=4
@@ -96,7 +96,7 @@ static unsigned char testmem[0x200] =
 
     0x00, 0x00
 };
-
+#if 0
 uint16_t memReadB(uint16_t addr)
 {
     printf("# [%s %x=%x]\n", __func__, addr, testmem[addr]);
@@ -119,7 +119,7 @@ void memWriteW(uint16_t addr, uint16_t data)
     testmem[addr] = data >> 8;
     testmem[addr+1] = data & 0xff;
 }
-
+#endif
 static int testsRun;
 
 static void result (int a, int b)
@@ -142,6 +142,7 @@ int main(void)
     // gromLoad ();
         // unasmRunTimeHookAdd();
      // vdpInitGraphics();
+    memCopy (testmem, 0x0000, 0);
     printf ("# 1<<0 is %d\n", 1 << 0);
     result (sizeof (unsigned), 4);
     unsigned x=0xf000000;

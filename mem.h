@@ -25,12 +25,21 @@
 
 #include "cpu.h"
 
+#define ROM_FILE_SIZE   0x2000
+
+#define BANKS_DEVICE    16
+#define BANKS_CARTRIDGE 2
+
+uint16_t memRead(uint16_t addr, int size);
+void memWrite(uint16_t addr, uint16_t data, int size);
 uint16_t memReadW(uint16_t addr);
 void memWriteW(uint16_t addr, uint16_t data);
 uint16_t memReadB(uint16_t addr);
 void memWriteB(uint16_t addr, uint8_t data);
-uint16_t * memWordAddr (uint16_t addr);
-void memLoad (char *file, uint16_t addr, uint16_t length);
+void memLoad (char *file, uint16_t addr, int bank);
+void memCopy (uint8_t *copy, uint16_t addr, int bank);
+void memPrintScratchMemory (uint16_t addr, int len);
+bool memDeviceRomSelect (int index, uint8_t state);
 
 #endif
 

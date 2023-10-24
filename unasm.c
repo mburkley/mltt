@@ -465,7 +465,7 @@ int main (int argc, char *argv[])
         exit (1);
     }
 
-    ti994aMemLoad (argv[1], addr, 0);
+    memLoad (argv[1], addr, 0);
 
     if (argc > 3)
         unasmReadText (argv[3]);
