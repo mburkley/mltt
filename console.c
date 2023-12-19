@@ -485,17 +485,17 @@ bool consoleEnableSams (int argc, char *argv[])
     return true;
 }
 
-bool consoleEnableSram (int argc, char *argv[])
+bool consoleEnableMmap (int argc, char *argv[])
 {
     int addr, size;
 
-    if (!parseValue (argv[1], &addr))
+    if (!parseValue (argv[2], &addr))
         return false;
 
-    if (!parseValue (argv[2], &size))
+    if (!parseValue (argv[3], &size))
         return false;
 
-    memWriteEnable (addr, size);
+    memMapFile (argv[1], addr, size);
 
     return true;
 }
@@ -575,8 +575,8 @@ commands[] =
             "Load <disk-file> in disk drive 1" },
     { "sams", 1, consoleEnableSams, "sams",
             "Enable SuperAMS emulation" },
-    { "sram", 3, consoleEnableSram, "sram <address> <size>",
-            "Enable write to specified areas that are normally ROM" }
+    { "mmap", 4, consoleEnableMmap, "mmap <file> <address> <size>",
+            "Map a file into the console address space" }
 };
 
 #define NCOMMAND (sizeof (commands) / sizeof (struct _commands))
