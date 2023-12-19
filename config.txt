@@ -15,15 +15,17 @@ grom ../roms/994agrom.bin 0x0000
 disk ../roms/disk.bin
 
 # Load disk into drive
+# disk1 DISKDIR.dsk
 # disk1 ../disks/LEATHER.dsk
 # disk1 ../disks/ZORK1.dsk
-disk1 ../disks/HITCHHIK.dsk
+# disk1 ../disks/HITCHHIK.dsk
 # disk1 ../disks/BALLYHOO.dsk
 # disk1 ../disks/tmp.dsk
 # disk1 ../disks/PLUNDER.dsk
 # disk1 ../disks/TEACHBASIC.DSK
 # disk1 ../disks/blankdsdd.dsk
 # disk1 ../disks/mark.dsk
+disk1 Miscellaneous.tidisk
 
 # Load one of the following cartridges as needed
 
@@ -59,8 +61,8 @@ disk1 ../disks/HITCHHIK.dsk
 #
 #  Frogger
 #
-load ../roms/froggerc.bin 0x6000
-grom ../roms/froggerg.bin 0x6000
+# load ../roms/froggerc.bin 0x6000
+# grom ../roms/froggerg.bin 0x6000
 
 #
 #  Pacman
@@ -82,6 +84,12 @@ grom ../roms/froggerg.bin 0x6000
 #
 # load ../roms/froggerc.bin 0x6000
 # grom ../roms/froggerg.bin 0x6000
+
+#
+#  Minimem
+#
+load ../roms/MiniMemC.Bin 0x6000
+grom ../roms/MiniMemG.Bin 0x6000
 
 #
 #  Misc
@@ -114,9 +122,9 @@ grom ../roms/froggerg.bin 0x6000
 # load ../roms/TIExtBC.Bin 0x6000
 # load ../roms/TIExtBD.Bin 0x6000 1
 # grom ../roms/TIExtBG.Bin 0x6000
-load ../roms/XB25C.BIN 0x6000
-load ../roms/XB25D.BIN 0x6000 1
-grom ../roms/XB25G.BIN 0x6000
+# load ../roms/XB25C.BIN 0x6000
+# load ../roms/XB25D.BIN 0x6000 1
+# grom ../roms/XB25G.BIN 0x6000
 
 # Specify the keyboard input device (user read access required)
 keyboard /dev/input/event22
@@ -135,7 +143,7 @@ keyboard /dev/input/event22
 # 0400=gpl debug         - show debug of GPL disassembly
 # 0800=cassette          - show cassette debug
 # 1000=disk              - show disk debug
-# level 0x00D0
+level 0x00D0
 
 # Initialise the CPU
 boot

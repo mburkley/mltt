@@ -54,6 +54,7 @@
 #include "status.h"
 #include "parse.h"
 #include "disk.h"
+#include "sams.h"
 #include "mem.h"
 
 static char *fileToRead;
@@ -424,6 +425,13 @@ bool consoleEnableDisk (int argc, char *argv[])
     return true;
 }
 
+bool consoleEnableSams (int argc, char *argv[])
+{
+    samsInit();
+
+    return true;
+}
+
 bool consoleLoadDisk1 (int argc, char *argv[])
 {
     if (argc < 2)
@@ -492,7 +500,9 @@ commands[] =
     { "disk", 2, consoleEnableDisk, "disk <rom-file>",
             "Enable disk drive emulation, rom file must be provided as a parameter." },
     { "disk1", 2, consoleLoadDisk1, "disk1 <disk-file>",
-            "Load <disk-file> in disk drive 1" }
+            "Load <disk-file> in disk drive 1" },
+    { "sams", 2, consoleEnableSams, "sams",
+            "Enable SuperAMS emulation" }
 };
 
 #define NCOMMAND (sizeof (commands) / sizeof (struct _commands))
