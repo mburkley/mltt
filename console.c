@@ -183,7 +183,7 @@ bool consoleCondition (int argc, char *argv[])
     return true;
 }
 
-bool consoleShow (int argc, char *argv[])
+bool consolePeek (int argc, char *argv[])
 {
     bool memory = false;
     bool grom = false;
@@ -215,6 +215,7 @@ bool consoleShow (int argc, char *argv[])
         int addr;
         int bytes = 1;
         uint16_t data;
+        int count = 1;
 
         if (argc < 3 || !parseValue (argv[2], &addr))
             return false;
@@ -222,25 +223,77 @@ bool consoleShow (int argc, char *argv[])
         if (argc > 3 && !parseValue (argv[3], &bytes))
             return false;
 
-        if (grom)
+        if (argc > 4 && !parseValue (argv[4], &count))
+            return false;
+
+        for (int i = 0; i < count; i++)
         {
-            printf ("GROM ");
-            data = gromRead (NULL, addr, bytes);
-        }
-        else if (vdp)
-        {
-            printf ("VDP ");
-            data = vdpRead (NULL, addr, bytes);
-        }
-        else
-        {
-            data = memRead (addr, bytes);
+            if ((i%16)==0)
+                printf ("%04X :", addr);
+            if (grom)
+            {
+                data = gromRead (NULL, addr, bytes);
+            }
+            else if (vdp)
+            {
+                data = vdpRead (NULL, addr, bytes);
+            }
+            else
+            {
+                data = memRead (addr, bytes);
+            }
+
+            if (bytes == 1)
+                printf (" %02X", data);
+            else
+                printf (" %04X", data);
+
+            addr += bytes;
+            if (((i+1)%16)==0)
+                printf ("\n");
         }
 
-        if (bytes == 1)
-            printf ("%04X = %02X\n", addr, data);
+        printf ("\n");
+    }
+
+    return true;
+}
+
+bool consolePoke (int argc, char *argv[])
+{
+    bool vdp = false;
+
+    if (!strncmp (argv[1], "vdp", strlen(argv[1])))
+    {
+        vdp = true;
+    }
+    else if (strncmp (argv[1], "mem", strlen(argv[1])))
+        return false;
+
+    int addr;
+    int bytes = 1;
+
+    if (!parseValue (argv[2], &addr))
+        return false;
+
+    if (!parseValue (argv[3], &bytes))
+        return false;
+
+    for (int i = 0; i < argc-4; i++)
+    {
+        int value;
+        if (!parseValue (argv[4+i], &value))
+            return false;
+
+        if (vdp)
+        {
+            vdpWrite (NULL, addr++, value, bytes);
+        }
         else
-            printf ("%04X = %04X\n", addr, data);
+        {
+            memWrite (addr, value, bytes);
+            addr+= bytes;
+        }
     }
 
     return true;
@@ -432,6 +485,21 @@ bool consoleEnableSams (int argc, char *argv[])
     return true;
 }
 
+bool consoleEnableSram (int argc, char *argv[])
+{
+    int addr, size;
+
+    if (!parseValue (argv[1], &addr))
+        return false;
+
+    if (!parseValue (argv[2], &size))
+        return false;
+
+    memWriteEnable (addr, size);
+
+    return true;
+}
+
 bool consoleLoadDisk1 (int argc, char *argv[])
 {
     if (argc < 2)
@@ -460,12 +528,16 @@ commands[] =
             "Add, list or remove a conditional break on a memory location. "
             "<cond> can be EQ, NE, or CH for equal, not equal and change "
             "respectively" },
-    { "show", 2, consoleShow, "show [ cpu | pad | padgpl | (mem|grom|vdp) <addr> [ <size> ]]",
-            "Show various things.  Show cpu shows CPU registers, internal and "
-            "workspace.  Show pad dumps the scratchpad memory.  Show padgpl shows "
-            "the scratchpad memory with GPL annotations.  Show mem, grom and vdp "
-            "reads a number of bytes from CPU memory, GROM memory and VDP memory "
-            "respectively" },
+    { "peek", 2, consolePeek, "peek [ cpu | pad | padgpl | (mem|grom|vdp) <addr> [<size> [<count>]]]",
+            "Peek at various things.  Show cpu shows CPU registers, internal and\n" 
+            "workspace.  Show pad dumps the scratchpad memory.  Show padgpl shows\n"
+            "the scratchpad memory with GPL annotations.  Show  mem, grom and vdp\n"
+            "reads a number of bytes from CPU memory, GROM  memory and VDP memory\n"
+            "respectively.  Number of bytes defaults to 1 for VDP or GROM and 2\n"
+            "for CPU memory.  If count is given, a number of bytes or words are\n"
+            "displayed" },
+    { "poke", 5, consolePoke, "poke [ (mem | vdp) <addr> <size> <value> [<values>...]]",
+            "Pokes one or more values into cpu or vdp memory" },
     { "@", 2, consoleReadInput, "@ <file>",
             "Reads input commands from a file" },
     { "go", 1, consoleGo, "go",
@@ -483,7 +555,7 @@ commands[] =
     { "sound", 1, consoleSound, "sound", "Enable audio output" },
     { "comments", 2, consoleComments, "comments <file>",
             "Load disassembly comments from a file" },
-    { "load", 2, consoleLoadRom, "load <file> <addr> <length>",
+    { "load", 3, consoleLoadRom, "load <file> <addr> [<length>]",
             "Load a ROM binary file to the specified CPU memory address" },
     { "grom", 2, consoleLoadGrom, "grom <file>",
             "Load a GROM binary file to the specified GROM memory address" },
@@ -501,8 +573,10 @@ commands[] =
             "Enable disk drive emulation, rom file must be provided as a parameter." },
     { "disk1", 2, consoleLoadDisk1, "disk1 <disk-file>",
             "Load <disk-file> in disk drive 1" },
-    { "sams", 2, consoleEnableSams, "sams",
-            "Enable SuperAMS emulation" }
+    { "sams", 1, consoleEnableSams, "sams",
+            "Enable SuperAMS emulation" },
+    { "sram", 3, consoleEnableSram, "sram <address> <size>",
+            "Enable write to specified areas that are normally ROM" }
 };
 
 #define NCOMMAND (sizeof (commands) / sizeof (struct _commands))
@@ -562,7 +636,8 @@ static void input (FILE *fp)
     {
         if (!strncmp (argv[0], commands[i].cmd, strlen (argv[0])))
         {
-            if (!commands[i].func (argc, argv))
+            if ((argc < commands[i].paramCount) ||
+               (!commands[i].func (argc, argv)))
                 printf ("usage: %s\n\n%s\n", commands[i].usage, commands[i].help);
 
             return;

@@ -55,14 +55,14 @@ unsigned char romConsole[0x2000];
 unsigned char romDevice[BANKS_DEVICE][0x2000];
 unsigned char romCartridge[BANKS_CARTRIDGE][0x2000];
 unsigned char scratch[0x100];
-
+static bool romAreaWriteEnable[16];
 static int deviceSelected;
 
 static uint16_t dataRead (uint8_t *data, uint16_t addr, int size);
 static void dataWrite (uint8_t *data, uint16_t addr, uint16_t value, int size);
 static uint16_t invalidRead (uint8_t *data, uint16_t addr, int size);
 static void invalidWrite (uint8_t *data, uint16_t addr, uint16_t value, int size);
-static void bankSelect (uint8_t *data, uint16_t addr, uint16_t value, int size);
+static void cartridgeWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size);
 uint16_t deviceRead (uint8_t *ptr, uint16_t addr, int size);
 void deviceWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size);
 
@@ -71,7 +71,7 @@ memMap memory[] =
     { 1, 0, 0x0000, 0x1FFF, romConsole, dataRead, invalidWrite }, // Console ROM
     { 0, 0, 0x2000, 0x1FFF, &ram[0x0000], dataRead, dataWrite }, // 32k Expn low
     { 1, 0, 0x4000, 0x1FFF, romDevice[0], deviceRead, deviceWrite }, // Device ROM (selected by CRU)
-    { 1, 0, 0x6000, 0x1FFF, romCartridge[0], dataRead, bankSelect }, // Cartridge ROM
+    { 1, 0, 0x6000, 0x1FFF, romCartridge[0], dataRead, cartridgeWrite }, // Cartridge ROM
     { 0, 1, 0x8000, 0x00FF, NULL, NULL, NULL }, // MMIO + scratchpad
     { 0, 0, 0xA000, 0x1FFF, &ram[0x2000], dataRead, dataWrite }, //
     { 0, 0, 0xC000, 0x1FFF, &ram[0x4000], dataRead, dataWrite }, // + 32k expn high
@@ -153,20 +153,27 @@ static void invalidWrite (uint8_t *data, uint16_t addr, uint16_t value, int size
 
 /*  Select ROM in a cartridge with multiple ROMs.  This is crude for now and
  *  just follows the EB scheme where a write to address >6002 selects the second
- *  ROM.
+ *  ROM.  Addr is relative to 0x6000
  */
-static void bankSelect (uint8_t *data, uint16_t addr, uint16_t value, int size)
+static void cartridgeWrite (uint8_t *data, uint16_t addr, uint16_t value, int size)
 {
-    mprintf (LVL_CONSOLE, "Bank Write %04X to %04X\n", value, addr);
+    if (romAreaWriteEnable [(addr>>12)+6])
+        dataWrite (data, addr, value, size);
+    else if (addr < 0x1000)
+    {
+        mprintf (LVL_CONSOLE, "Bank Write %04X to %04X\n", value, addr);
 
-    /*  Extended basic writes to addresses 0x0000 and 0x0002.  Pacman writes to
-     *  0x001C and 0x001E.  Can't find a standard way to select cartridge ROMs
-     *  so just checking the least significant 2 bits to cover these two caes.
-     */
-    if ((addr & 3) == 2)
-        memory[3].data = romCartridge[1];
+        /*  Extended basic writes to addresses 0x0000 and 0x0002.  Pacman writes to
+         *  0x001C and 0x001E.  Can't find a standard way to select cartridge ROMs
+         *  so just checking the least significant 2 bits to cover these two caes.
+         */
+        if ((addr & 3) == 2)
+            memory[3].data = romCartridge[1];
+        else
+            memory[3].data = romCartridge[0];
+    }
     else
-        memory[3].data = romCartridge[0];
+        invalidWrite (data, addr, value, size);
 }
 
 bool memDeviceRomSelect (int index, uint8_t state)
@@ -187,7 +194,6 @@ bool memDeviceRomSelect (int index, uint8_t state)
     /*  Allow the bit state to be changed */
     return false;
 }
-
 
 static memMap *memMapEntry (int addr)
 {
@@ -266,6 +272,24 @@ void memLoad (char *file, uint16_t addr, int bank)
     }
 
     fclose (fp);
+}
+
+/*  Write enable areas normally reserved for ROM.  e.g. minimemory 0x7000-0x7FFF
+ */
+void memWriteEnable (uint16_t addr, uint16_t size)
+{
+    addr>>=12;
+    size>>=12;
+
+    for (int i = addr; i < addr+size; i++)
+    {
+        if (i == 8 || i == 9)
+        {
+            halt ("Can't enable write to memory mapped areas\n");
+        }
+        printf("enabled %x\n", i);
+        romAreaWriteEnable[i] = true;
+    }
 }
 
 void memCopy (uint8_t *copy, uint16_t addr, int bank)
