@@ -90,6 +90,7 @@ disk1 Miscellaneous.tidisk
 #
 load ../roms/MiniMemC.Bin 0x6000
 grom ../roms/MiniMemG.Bin 0x6000
+sram 0x7000 0x1000
 
 #
 #  Misc
