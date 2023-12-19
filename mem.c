@@ -28,6 +28,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/mman.h>
 
 #include "trace.h"
 #include "mem.h"
@@ -38,12 +41,12 @@
 #include "disk.h"
 #include "sams.h"
 
-typedef struct
+typedef struct _memMap
 {
-    bool    rom;
-    bool    mapped;
     int addr;
     int mask;
+    struct _memMap *submap;
+    int bits;
     unsigned char *data;
     uint16_t (*readHandler)(uint8_t* ptr, uint16_t addr, int size);
     void (*writeHandler)(uint8_t* ptr, uint16_t addr, uint16_t value, int size);
@@ -55,39 +58,49 @@ unsigned char romConsole[0x2000];
 unsigned char romDevice[BANKS_DEVICE][0x2000];
 unsigned char romCartridge[BANKS_CARTRIDGE][0x2000];
 unsigned char scratch[0x100];
-static bool romAreaWriteEnable[16];
+static unsigned char *mmapRegion;
 static int deviceSelected;
 
 static uint16_t dataRead (uint8_t *data, uint16_t addr, int size);
 static void dataWrite (uint8_t *data, uint16_t addr, uint16_t value, int size);
 static uint16_t invalidRead (uint8_t *data, uint16_t addr, int size);
 static void invalidWrite (uint8_t *data, uint16_t addr, uint16_t value, int size);
-static void cartridgeWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size);
+static void mmapWrite (uint8_t *data, uint16_t addr, uint16_t value, int size);
+static void bankSelect (uint8_t *data, uint16_t addr, uint16_t value, int size);
 uint16_t deviceRead (uint8_t *ptr, uint16_t addr, int size);
 void deviceWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size);
 
-memMap memory[] =
+/*  Memory mapped I/O region.  0x2000 in size with 0x400 byte pages */
+memMap mapMmio[] =
 {
-    { 1, 0, 0x0000, 0x1FFF, romConsole, dataRead, invalidWrite }, // Console ROM
-    { 0, 0, 0x2000, 0x1FFF, &ram[0x0000], dataRead, dataWrite }, // 32k Expn low
-    { 1, 0, 0x4000, 0x1FFF, romDevice[0], deviceRead, deviceWrite }, // Device ROM (selected by CRU)
-    { 1, 0, 0x6000, 0x1FFF, romCartridge[0], dataRead, cartridgeWrite }, // Cartridge ROM
-    { 0, 1, 0x8000, 0x00FF, NULL, NULL, NULL }, // MMIO + scratchpad
-    { 0, 0, 0xA000, 0x1FFF, &ram[0x2000], dataRead, dataWrite }, //
-    { 0, 0, 0xC000, 0x1FFF, &ram[0x4000], dataRead, dataWrite }, // + 32k expn high
-    { 0, 0, 0xE000, 0x1FFF, &ram[0x6000], dataRead, dataWrite }  //
+    { 0x8000, 0x00FF, NULL, 0, scratch, dataRead, dataWrite }, // Scratch pad RAM
+    { 0x8400, 0x00FF, NULL, 0, NULL   , soundRead, soundWrite }, // Sound device
+    { 0x8800, 0x0003, NULL, 0, NULL   , vdpRead, invalidWrite }, // VDP Read
+    { 0x8C00, 0x0003, NULL, 0, NULL   , invalidRead, vdpWrite }, // VDP Write
+    { 0x9000, 0x0003, NULL, 0, NULL   , speechRead, invalidWrite }, // Speech Read
+    { 0x9400, 0x0003, NULL, 0, NULL   , speechRead, speechWrite }, // Speech Write
+    { 0x9800, 0x0003, NULL, 0, NULL   , gromRead, invalidWrite }, // GROM Read
+    { 0x9C00, 0x0003, NULL, 0, NULL   , invalidRead, gromWrite }, // GROM Write
 };
 
-memMap mmio[] =
+/*  Cartridge area.  Split into two 4k blocks for minimem */
+memMap mapCart[] =
 {
-    { 0, 0, 0x8000, 0x00FF, scratch, dataRead, dataWrite }, // Scratch pad RAM
-    { 0, 1, 0x8400, 0x00FF, NULL   , soundRead, soundWrite }, // Sound device
-    { 0, 1, 0x8800, 0x0003, NULL   , vdpRead, invalidWrite }, // VDP Read
-    { 0, 1, 0x8C00, 0x0003, NULL   , invalidRead, vdpWrite }, // VDP Write
-    { 0, 1, 0x9000, 0x0003, NULL   , speechRead, invalidWrite }, // Speech Read
-    { 0, 1, 0x9400, 0x0003, NULL   , speechRead, speechWrite }, // Speech Write
-    { 0, 1, 0x9800, 0x0003, NULL   , gromRead, invalidWrite }, // GROM Read
-    { 0, 1, 0x9C00, 0x0003, NULL   , invalidRead, gromWrite }, // GROM Write
+    { 0x6000, 0x0FFF, NULL, 0, romCartridge[0], dataRead, bankSelect }, // Cartridge ROM
+    { 0x7000, 0x0FFF, NULL, 0, &romCartridge[0][0x1000], dataRead, mmapWrite }, // Cartridge ROM
+};
+
+/*  Main memory map in 8k pages */
+memMap mapMain[] =
+{
+    { 0x0000, 0x1FFF, NULL,     0, romConsole, dataRead, invalidWrite }, // Console ROM
+    { 0x2000, 0x1FFF, NULL,     0, &ram[0x0000], dataRead, dataWrite }, // 32k Expn low
+    { 0x4000, 0x1FFF, NULL,     0, romDevice[0], deviceRead, deviceWrite }, // Device ROM (selected by CRU)
+    { 0x6000, 0x1FFF, mapCart, 12, NULL, NULL, NULL }, // Cartridge ROM
+    { 0x8000, 0x1FFF, mapMmio, 10, NULL, NULL, NULL }, // MMIO + scratchpad
+    { 0xA000, 0x1FFF, NULL,     0, &ram[0x2000], dataRead, dataWrite }, //
+    { 0xC000, 0x1FFF, NULL,     0, &ram[0x4000], dataRead, dataWrite }, // + 32k expn high
+    { 0xE000, 0x1FFF, NULL,     0, &ram[0x6000], dataRead, dataWrite }  //
 };
 
 /*  Read a device ROM.  Some devices have memory mapped I/O in their ROM address
@@ -105,7 +118,7 @@ void deviceWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size)
 {
     if (deviceSelected == 1 && (addr&0x1FF0)==0x1FF0)
         diskWrite (addr&0xF, data, size);
-    else if (deviceSelected == 14) // SAMS card - paging TBD
+    else if (deviceSelected == 14) // SAMS card - paging TODO
         dataWrite (ptr, addr, data, size);
     else
         invalidWrite (ptr, addr, data, size);
@@ -151,29 +164,33 @@ static void invalidWrite (uint8_t *data, uint16_t addr, uint16_t value, int size
     halt ("invalid write");
 }
 
+static void mmapWrite (uint8_t *data, uint16_t addr, uint16_t value, int size)
+{
+    if (!mmapRegion)
+    {
+        printf ("Invalid Write unmapped %04X to %04X\n", value, addr);
+        halt ("invalid write");
+    }
+
+    dataWrite (mmapRegion, addr, value, size);
+}
+
 /*  Select ROM in a cartridge with multiple ROMs.  This is crude for now and
  *  just follows the EB scheme where a write to address >6002 selects the second
  *  ROM.  Addr is relative to 0x6000
  */
-static void cartridgeWrite (uint8_t *data, uint16_t addr, uint16_t value, int size)
+static void bankSelect (uint8_t *data, uint16_t addr, uint16_t value, int size)
 {
-    if (romAreaWriteEnable [(addr>>12)+6])
-        dataWrite (data, addr, value, size);
-    else if (addr < 0x1000)
-    {
-        mprintf (LVL_CONSOLE, "Bank Write %04X to %04X\n", value, addr);
+    mprintf (LVL_CONSOLE, "Bank Write %04X to %04X\n", value, addr);
 
-        /*  Extended basic writes to addresses 0x0000 and 0x0002.  Pacman writes to
-         *  0x001C and 0x001E.  Can't find a standard way to select cartridge ROMs
-         *  so just checking the least significant 2 bits to cover these two caes.
-         */
-        if ((addr & 3) == 2)
-            memory[3].data = romCartridge[1];
-        else
-            memory[3].data = romCartridge[0];
-    }
+    /*  Extended basic writes to addresses 0x0000 and 0x0002.  Pacman writes to
+     *  0x001C and 0x001E.  Can't find a standard way to select cartridge ROMs
+     *  so just checking the least significant 2 bits to cover these two caes.
+     */
+    if ((addr & 3) == 2)
+        mapMain[3].data = romCartridge[1];
     else
-        invalidWrite (data, addr, value, size);
+        mapMain[3].data = romCartridge[0];
 }
 
 bool memDeviceRomSelect (int index, uint8_t state)
@@ -187,9 +204,9 @@ bool memDeviceRomSelect (int index, uint8_t state)
 
     /*  For now, assume device 0 means no device */
     if (state == 0)
-        memory[2].data = romDevice[0];
+        mapMain[2].data = romDevice[0];
     else
-        memory[2].data = romDevice[deviceSelected];
+        mapMain[2].data = romDevice[deviceSelected];
 
     /*  Allow the bit state to be changed */
     return false;
@@ -197,10 +214,18 @@ bool memDeviceRomSelect (int index, uint8_t state)
 
 static memMap *memMapEntry (int addr)
 {
-    if ((addr & 0xE000) == 0x8000)
-        return &mmio[(addr & 0x1FFF) >> 10];
+    memMap *m = &mapMain[addr>>13];
 
-    return &memory[addr>>13];
+    while (1)
+    {
+        if (!m->submap)
+            break;
+
+        addr &= m->mask;
+        m = &m->submap[addr>>m->bits];
+    }
+
+    return m;
 }
 
 uint16_t memRead(uint16_t addr, int size)
@@ -251,13 +276,15 @@ void memLoad (char *file, uint16_t addr, int bank)
 
     printf("%s %s %x %x %d\n", __func__, file, addr, len, bank);
 
+    #if 0
     if (len != ROM_FILE_SIZE)
     {
         printf ("ROM file size unsupported %04X\n", len);
         halt ("ROM file size");
     }
+    #endif
 
-    memMap *map = &memory[addr>>13];
+    memMap *map = memMapEntry (addr);
     uint8_t *data = map->data;
 
     if (addr == 0x6000 && bank == 1)
@@ -266,35 +293,53 @@ void memLoad (char *file, uint16_t addr, int bank)
     if (addr == 0x4000)
         data = romDevice[bank];
 
-    if (fread (data, sizeof (uint8_t), ROM_FILE_SIZE, fp) != ROM_FILE_SIZE)
+    int got;
+    if ((got=fread (data, sizeof (uint8_t), len, fp)) != len)
     {
+        printf ("%s expected len=%04X, got=%04X\n", file, len, got);
+        perror("fread");
         halt ("ROM file read failure");
     }
 
     fclose (fp);
 }
 
-/*  Write enable areas normally reserved for ROM.  e.g. minimemory 0x7000-0x7FFF
- */
-void memWriteEnable (uint16_t addr, uint16_t size)
+/*  Mmap a file into the region 0x7000 to 0x7FFF to emulate minimemory */
+void memMapFile (const char *name, uint16_t addr, uint16_t size)
 {
-    addr>>=12;
-    size>>=12;
-
-    for (int i = addr; i < addr+size; i++)
+    if (addr != 0x7000 || size != 0x1000)
     {
-        if (i == 8 || i == 9)
-        {
-            halt ("Can't enable write to memory mapped areas\n");
-        }
-        printf("enabled %x\n", i);
-        romAreaWriteEnable[i] = true;
+        printf ("addr=%04X\n", addr);
+        halt ("unsupported mmap address");
     }
+
+    if (mmapRegion)
+        halt ("mmap already mapped");
+
+    int fd = open (name, O_RDWR);
+
+    if (fd < 0)
+    {
+        printf ("file %s\n", name);
+        halt ("open failure");
+    }
+
+    mmapRegion = mmap (NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+
+    if (!mmapRegion)
+    {
+        printf ("mmap failed to map %s len %d\n", name, size);
+        halt ("mmap failure");
+    }
+
+    close (fd);
+    mapCart[1].data = mmapRegion;
+    printf ("%s mapped\n", name);
 }
 
 void memCopy (uint8_t *copy, uint16_t addr, int bank)
 {
-    memMap *map = &memory[addr>>13];
+    memMap *map = &mapMain[addr>>13];
     uint8_t *data = map->data;
 
     if (addr == 0x6000 && bank == 1)
