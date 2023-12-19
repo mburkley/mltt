@@ -36,6 +36,7 @@
 #include "vdp.h"
 #include "speech.h"
 #include "disk.h"
+#include "sams.h"
 
 typedef struct
 {
@@ -104,6 +105,8 @@ void deviceWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size)
 {
     if (deviceSelected == 1 && (addr&0x1FF0)==0x1FF0)
         diskWrite (addr&0xF, data, size);
+    else if (deviceSelected == 14) // SAMS card - paging TBD
+        dataWrite (ptr, addr, data, size);
     else
         invalidWrite (ptr, addr, data, size);
 }
