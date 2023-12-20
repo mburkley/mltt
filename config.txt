@@ -26,7 +26,8 @@ disk ../roms/disk.bin
 # diskfile 1 ../disks/blankdsdd.dsk
 diskfile 1 ../disks/mark.dsk
 diskfile 2 ../disks/Miscellaneous.tidisk
-diskfile 3 ../disks/EdAsmA.dsk
+# diskfile 3 ../disks/EdAsmA.dsk
+diskdir 3 DISKDIR
 
 # Load one of the following cartridges as needed
 
@@ -145,7 +146,7 @@ keyboard /dev/input/event22
 # 0400=gpl debug         - show debug of GPL disassembly
 # 0800=cassette          - show cassette debug
 # 1000=disk              - show disk debug
-level 0x1000
+# level 0x1000
 
 # Initialise the CPU
 boot

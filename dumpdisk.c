@@ -80,9 +80,9 @@ volumeHeader;
 
 static char * showFlags (uint8_t flags)
 {
-    static char str[16];
+    static char str[18];
 
-    sprintf (str, "%s%s%s%s", 
+    sprintf (str, "(%s%s%s%s)", 
         (flags & 0x80) ? "VAR":"FIX",
         (flags & 0x08) ? "-WP" : "",
         (flags & 0x02) ? "-BIN" : "-ASC",
@@ -114,27 +114,40 @@ static void analyseFirstSector (void)
     if (volumeHeader.date[0])
         printf (", year:%-8.8s", volumeHeader.date);
 
-    printf (", Chains");
+    printf (", FAT sectors used");
 
-    #if 0
+    #if 1
     int max = 0x64;
     if (volumeHeader.sides==2)
     {
-        if (volumeHeader.density == 2)
+        if (volumeHeader.density == 1)
             max = 0x91;
         else
             max = 0xeb;
     }
-    for (int i = 0; i < max - 0x38; i+=2)
+
+    bool inuse = false;
+    for (int i = 0; i <= max - 0x38; i++)
     {
-        uint8_t *chain=&volumeHeader.bitmap[i];
-        if (chain[0] != 0 || chain[1] != 0 || chain[2] !=0)
+        uint8_t map=volumeHeader.bitmap[i];
+
+        for (int j = 0; j < 8; j++)
         {
-            uint16_t start, len;
-            decodeChain (chain, &start, &len);
-            printf (",%2d=(%d-%d)", i, start, start+len);
+            bool bit = (map & (1<<j));
+
+            if (!inuse && bit)
+            {
+                printf ("[%d-", i*8+j);
+                inuse = true;
+            }
+            else if (inuse && !bit)
+            {
+                printf ("%d]", i*8+j-1);
+                inuse = false;
+            }
         }
     }
+    if (inuse) printf ("%d]",(max-0x38+1)*8);
     #endif
     printf ("\n");
 }
@@ -189,7 +202,7 @@ static void analyseFile (int sector)
 
     printf (" %6d", sector);
 
-    if (fileHeader.flags == 0x01)
+    if (fileHeader.flags & 0x01)
     {
         length = (ntohs (fileHeader.alloc) - 1) * BYTES_PER_SECTOR + fileHeader.eof;
         if (showBasic)
@@ -200,8 +213,8 @@ static void analyseFile (int sector)
 
     printf (" %6d", length);
 
-    printf (" %02X(%s)", fileHeader.flags,showFlags (fileHeader.flags));
-    printf (" %7d", ntohs(fileHeader.alloc));
+    printf (" %02X%-17.17s", fileHeader.flags,showFlags (fileHeader.flags));
+    printf (" %8d", ntohs(fileHeader.alloc));
     printf (" %8d", fileHeader.recSec * ntohs (fileHeader.alloc));
     printf (" %10d", fileHeader.eof);
     printf (" %7d", ntohs(fileHeader.l3Alloc));
@@ -239,8 +252,8 @@ static void analyseDirectory (int sector)
 
     fread (&data, sizeof (data), 1, diskFp);
 
-    printf ("Name       Sector Len    Flags           #Sectors #Records EOF-offset L3Alloc Rec-Len Sectors\n");
-    printf ("========== ====== ====== =============== ======== ======== ========== ======= ======= =======\n");
+    printf ("Name       Sector Len    Flags               #Sectors #Records EOF-offset L3Alloc Rec-Len Sectors\n");
+    printf ("========== ====== ====== =================== ======== ======== ========== ======= ======= =======\n");
     for (int i = 0; i < BYTES_PER_SECTOR/2; i++)
     {
         sector = data[i][0] << 8 | data[i][1];
