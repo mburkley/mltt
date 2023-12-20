@@ -19,6 +19,8 @@ cassette.c \
 parse.c \
 mem.c \
 disk.c \
+diskfile.c \
+diskdir.c \
 sams.c \
 decodebasic.c
 
@@ -30,7 +32,7 @@ LIBS=\
 -lreadline \
 -lm
 
-all:  ti994a tests dumptape dumpdisk unasm hexed diskdir
+all:  ti994a tests dumptape dumpdisk unasm hexed
 
 ti994a: $(SRCS) console.c ti994a.c
 	gcc -Wall -ggdb3 -o ti994a -D__GROM_DEBUG console.c ti994a.c $(SRCS) $(LIBS)
@@ -48,7 +50,5 @@ dumptape: $(SRCS) dumptape.c
 	gcc -Wall -ggdb3 -o dumptape -D__UNIT_TEST dumptape.c $(LIBS)
 dumpdisk: $(SRCS) dumpdisk.c decodebasic.c
 	gcc -Wall -ggdb3 -o dumpdisk -D__UNIT_TEST dumpdisk.c decodebasic.c  $(LIBS)
-diskdir: $(SRCS) diskdir.c
-	gcc -Wall -ggdb3 -o diskdir -D__UNIT_TEST diskdir.c $(LIBS)
 hexed: hexed.c parse.c
 	gcc -Wall -ggdb3 -o hexed hexed.c parse.c
