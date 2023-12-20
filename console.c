@@ -54,6 +54,8 @@
 #include "status.h"
 #include "parse.h"
 #include "disk.h"
+#include "diskfile.h"
+#include "diskdir.h"
 #include "sams.h"
 #include "mem.h"
 
@@ -469,9 +471,6 @@ bool consolePixelSize (int argc, char *argv[])
 
 bool consoleEnableDisk (int argc, char *argv[])
 {
-    if (argc < 2)
-        return false;
-
     memLoad (argv[1], 0x4000, 1);
     diskInit();
 
@@ -500,12 +499,44 @@ bool consoleEnableMmap (int argc, char *argv[])
     return true;
 }
 
-bool consoleLoadDisk1 (int argc, char *argv[])
+bool consoleLoadDiskFile (int argc, char *argv[])
 {
-    if (argc < 2)
+    int drive;
+    bool readOnly = true;
+
+    if (!parseValue (argv[1], &drive))
         return false;
 
-    diskLoad(1, argv[1]);
+    if (argc > 3)
+    {
+        if (strcmp (argv[3], "RW"))
+            return false;
+
+        readOnly = false;
+    }
+
+    diskFileLoad (drive, readOnly, argv[2]);
+
+    return true;
+}
+
+bool consoleLoadDiskDir (int argc, char *argv[])
+{
+    int drive;
+    bool readOnly = true;
+
+    if (!parseValue (argv[1], &drive))
+        return false;
+
+    if (argc > 3)
+    {
+        if (strcmp (argv[3], "RW"))
+            return false;
+
+        readOnly = false;
+    }
+
+    diskDirLoad (drive, readOnly, argv[2]);
 
     return true;
 }
@@ -571,8 +602,12 @@ commands[] =
             "Set the magnification factor for drawing pixels.  Default 4(x4)" },
     { "disk", 2, consoleEnableDisk, "disk <rom-file>",
             "Enable disk drive emulation, rom file must be provided as a parameter." },
-    { "disk1", 2, consoleLoadDisk1, "disk1 <disk-file>",
-            "Load <disk-file> in disk drive 1" },
+    { "diskfile", 3, consoleLoadDiskFile, "diskfile <drive-number> <disk-file> [RW]",
+            "Load sector dump <disk-file> in disk drive <drive-number>.  Default\n"
+            "is read only.  Add RW at end of command to enable read and write." },
+    { "diskdir", 3, consoleLoadDiskDir, "diskdir <drive-number> <disk-dir> [RW]",
+            "Load directory <disk-dir> in disk drive <drive-number>.  Default\n"
+            "is read only.  Add RW at end of command to enable read and write." },
     { "sams", 1, consoleEnableSams, "sams",
             "Enable SuperAMS emulation" },
     { "mmap", 4, consoleEnableMmap, "mmap <file> <address> <size>",

@@ -21,7 +21,7 @@
  */
 
 /*
- *  Create a virtual disk from a directory
+ *  Create a virtual disk in memory from a directory
  */
 
 #include <stdio.h> 
@@ -32,10 +32,11 @@
 #include <sys/stat.h>
 #include <arpa/inet.h>
 
-#define BYTES_PER_SECTOR        256
-#define SECTORS_PER_DISK         720
+#include "trace.h"
+#include "diskdir.h"
 
-unsigned char diskData[SECTORS_PER_DISK][BYTES_PER_SECTOR];
+static unsigned char diskData[SECTORS_PER_DISK][DISK_BYTES_PER_SECTOR];
+static int dirSector;
 
 typedef struct
 {
@@ -97,7 +98,7 @@ static void encodeChain (uint8_t chain[], uint16_t p1, uint16_t p2)
     chain[2] = p2 >> 4;
 }
 
-// static uint8_t dirData[BYTES_PER_SECTOR/2][2];
+// static uint8_t dirData[DISK_BYTES_PER_SECTOR/2][2];
 // static int fileSectorsAlloc = 0;
 static int dataSectorsAlloc = 32;
 static int fileCount;
@@ -110,9 +111,9 @@ static void buildDirEnt (const char *name, const char *fname, int len)
     fileHeader *f = (fileHeader*) diskData[fileCount+2];
     f->flags = 0x01;
     strncpy (f->name, name, 10);
-    int fileSecCount = len / BYTES_PER_SECTOR;
+    int fileSecCount = len / DISK_BYTES_PER_SECTOR;
     f->alloc = htons(fileSecCount+1);
-    f->eof = len - fileSecCount * BYTES_PER_SECTOR;
+    f->eof = len - fileSecCount * DISK_BYTES_PER_SECTOR;
     // recSec
     // l3Alloc
     // recLen
@@ -133,6 +134,7 @@ static void buildDirEnt (const char *name, const char *fname, int len)
     dataSectorsAlloc += fileSecCount;
 }
 
+#if 0
 static void writeDisk (const char *name)
 {
     FILE *fp;
@@ -145,28 +147,37 @@ static void writeDisk (const char *name)
         exit(1);
     }
 
-    fwrite (diskData, BYTES_PER_SECTOR, SECTORS_PER_DISK, fp);
+    fwrite (diskData, DISK_BYTES_PER_SECTOR, SECTORS_PER_DISK, fp);
     fclose (fp);
 }
+#endif
 
-int main (int argc, char *argv[])
+static void dirSeek (int sector)
 {
-    if (argc < 2)
-    {
-        fprintf(stderr, "directory?\n");
-        exit(1);
-    }
+    dirSector = sector;
+}
 
+static void dirRead (unsigned char *buffer)
+{
+    memcpy (buffer, diskData, DISK_BYTES_PER_SECTOR);
+}
+
+static void dirWrite (unsigned char *buffer)
+{
+    memcpy (diskData, buffer, DISK_BYTES_PER_SECTOR);
+
+    // TODO detect that a file is being written and write a physical file
+}
+
+static void dirSelect (const char *name, bool readOnly)
+{
     DIR *d;
     struct dirent *dir;
     struct stat st;
     int size = 0;
-    d = opendir(argv[1]);
-    if (!d)
-    {
-        fprintf(stderr, "Can't read %s\n", argv[1]);
-        exit(1);
-    }
+    d = opendir(name);
+    ASSERT (d != NULL, "open directory");
+
     while ((dir = readdir(d)) != NULL)
     {
         char fname[512];
@@ -177,11 +188,11 @@ int main (int argc, char *argv[])
         if (!strcmp (dir->d_name, ".."))
             continue;
 
-        sprintf (fname, "%s/%s", argv[1], dir->d_name);
+        sprintf (fname, "%s/%s", name, dir->d_name);
         if (stat(fname, &st) != 0)
         {
             perror("stat");
-            exit(1);
+            ASSERT (false, "can't stat file");
         }
         size += st.st_size;
         printf("%s %d %d\n", dir->d_name, (int) st.st_size, size);
@@ -190,14 +201,35 @@ int main (int argc, char *argv[])
     closedir(d);
     printf ("total %d\n", size);
 
-    if (size > (720-32)*BYTES_PER_SECTOR)
+    if (size > (720-32)*DISK_BYTES_PER_SECTOR)
     {
-        fprintf(stderr, "%s won't fit on a DSDD\n", argv[1]);
-        exit(1);
+        fprintf(stderr, "%s won't fit on a DSDD\n", name);
+        ASSERT (false, "dir too big");
     }
-    buildVolumeHeader(argv[1]);
-
-    writeDisk (argv[1]);
-    return 0;
+    buildVolumeHeader(name);
 }
+
+static void dirDeselect(void)
+{
+// TODO
+}
+
+void diskDirLoad (int drive, bool readOnly, char *name)
+{
+    diskDriveHandler handler =
+    {
+        .seek = dirSeek,
+        .read = dirRead,
+        .write = dirWrite,
+        .select = dirSelect,
+        .deselect = dirDeselect,
+        .readOnly = readOnly,
+        .name = ""
+    };
+
+    strcpy (handler.name, name);
+
+    diskRegisterDriveHandler (drive, &handler);
+}
+
 

@@ -28,10 +28,26 @@
 
 #define DISK_DRIVE_COUNT        3
 #define DISK_FILENAME_MAX       1024
+#define DISK_TRACKS_PER_SIDE 40
+#define DISK_BYTES_PER_SECTOR 256
+#define SECTORS_PER_DISK         720
+
+typedef struct
+{
+    void (*seek) (int sector);
+    void (*read) (unsigned char *buffer);
+    void (*write) (unsigned char *buffer);
+    void (*select) (const char *name, bool readOnly);
+    void (*deselect) (void);
+    bool readOnly;
+    char name[DISK_FILENAME_MAX];
+}
+diskDriveHandler;
 
 uint16_t diskRead (uint16_t addr, uint16_t size);
 void diskWrite (uint16_t addr, uint16_t data, uint16_t size);
 void diskLoad (int drive, char *name);
 void diskInit (void);
+void diskRegisterDriveHandler (int drive, diskDriveHandler *handler);
 
 #endif

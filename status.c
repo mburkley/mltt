@@ -175,8 +175,8 @@ void statusPaneDisplay (void)
     {
         struct _statusSpriteInfo *s = &statusSpriteInfo[i];
 
-        if (s->colour == 0)
-            continue;
+        // if (s->colour == 0)
+        //     continue;
 
         statusPrintf ("  %2d @ %d,%d p=%X c=%X\n",
                       i, s->x, s->y, s->pat, s->colour);

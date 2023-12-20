@@ -59,13 +59,13 @@
 #define DISK_STATUS_DRQ                 0x02
 #define DISK_STATUS_BUSY                0x01
 
-#define DISK_TRACKS_PER_SIDE 40
-#define DISK_BYTES_PER_SECTOR 256
-
 static uint8_t diskId[6];
 static uint8_t diskSector[256];
-static FILE *diskFile;
 static int sectorsPerTrack = 9;
+
+/*  Declare one extra drive handler as drives are numbered 1 to 3 and 0 means no
+ *  drive selected */
+static diskDriveHandler driveHandler[DISK_DRIVE_COUNT+1];
 
 static struct
 {
@@ -82,10 +82,9 @@ static struct
     bool direction; // true = inward
     bool ignoreIRQ;
     bool motorStrobe;
-    char fileName[DISK_DRIVE_COUNT][DISK_FILENAME_MAX];
 } disk;
 
-static void seekDiskFile (void)
+static void seekDisk (void)
 {
     int sector = disk.sector;
 
@@ -106,19 +105,8 @@ static void seekDiskFile (void)
     mprintf (LVL_DISK, "DSK - access sector %d [T:%d Sec:%d Side:%d]\n", sector, 
              disk.track, disk.sector, disk.side);
 
-    fseek (diskFile, sector * DISK_BYTES_PER_SECTOR, SEEK_SET);
-}
-
-static void fileReadSector (void)
-{
-    seekDiskFile();
-    fread (diskSector, DISK_BYTES_PER_SECTOR, 1, diskFile);
-}
-
-static void fileWriteSector (void)
-{
-    seekDiskFile();
-    fwrite (diskSector, DISK_BYTES_PER_SECTOR, 1, diskFile);
+    if (driveHandler[disk.drive].seek)
+        driveHandler[disk.drive].seek (sector);
 }
 
 uint16_t diskRead (uint16_t addr, uint16_t size)
@@ -240,7 +228,11 @@ void diskWrite (uint16_t addr, uint16_t data, uint16_t size)
             break;
         case 0x80:
             mprintf (LVL_DISK, "read single sector\n");
-            fileReadSector();
+            seekDisk();
+
+            if (driveHandler[disk.drive].read)
+                driveHandler[disk.drive].read (diskSector);
+
             disk.buffer = diskSector;
             disk.bufferPos = 0;
             disk.bufferLen = DISK_BYTES_PER_SECTOR;
@@ -312,7 +304,11 @@ void diskWrite (uint16_t addr, uint16_t data, uint16_t size)
             if (disk.bufferPos == disk.bufferLen)
             {
                 mprintf (LVL_DISK, "DSK - write finished\n");
-                fileWriteSector();
+                seekDisk();
+
+                if (driveHandler[disk.drive].write)
+                    driveHandler[disk.drive].write (diskSector);
+
                 disk.bufferPos = 0;
                 disk.buffer = NULL;
             }
@@ -366,18 +362,21 @@ static bool diskSetSelectDrive(int index, uint8_t state)
 
     if (state)
     {
-        disk.drive = drive;
+        if (disk.drive != drive)
+        {
+            disk.drive = drive;
 
-        /*  TODO how to select no disk ? */
-        if ((diskFile = fopen (disk.fileName[drive-1], "r+")) == NULL)
-            halt ("diskSelectDrive");
+            if (driveHandler[drive].select)
+                driveHandler[drive].select (driveHandler[drive].name, driveHandler[drive].readOnly);
+        }
     }
     else if (drive == disk.drive)
     {
+        if (driveHandler[drive].deselect)
+            driveHandler[drive].deselect ();
+
         disk.drive=0;
         mprintf(LVL_DISK, "DSK drive %d deselected\n", drive);
-        fclose (diskFile);
-        diskFile = NULL;
     }
     return false;
 }
@@ -414,22 +413,13 @@ static uint8_t diskGetSide (int index, uint8_t state)
     return disk.side;
 }
 
-void diskLoad (int drive, char *name)
+void diskRegisterDriveHandler (int drive, diskDriveHandler *handler)
 {
-    /*  Open the file with read with update.  If that fails, create the fle.  If
-     *  that fails, halt */
-    FILE *fp;
+    if (drive < 1 || drive > DISK_DRIVE_COUNT)
+        halt ("invalid drive for handler");
 
-    strcpy (disk.fileName[drive-1], name);
-
-    if ((fp = fopen (name, "r+")) == NULL)
-    {
-        printf ("Create new disk file '%s'\n", name);
-        if ((fp = fopen (name, "w+")) == NULL)
-            halt ("disk load");
-    }
-
-    fclose (fp);
+    driveHandler[drive] = *handler;
+    mprintf(LVL_DISK, "Handler registered for drive %d\n", drive);
 }
 
 void diskInit (void)

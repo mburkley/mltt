@@ -527,7 +527,7 @@ static void vdpDrawSprites (void)
         p = vdp.ram[attr + i*4 + 2] * entrySize + VDP_SPRITEPAT_TAB;
         c = vdp.ram[attr + i*4 + 3];
 
-        if (y == 0xD0)
+        if (y == 0xD1)
         {
             mprintf (LVL_VDP, "Sprite %d switched off\n", y);
             return;
