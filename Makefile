@@ -22,6 +22,8 @@ disk.c \
 diskfile.c \
 diskdir.c \
 sams.c \
+wav.c \
+files.c \
 decodebasic.c
 
 LIBS=\
@@ -30,9 +32,10 @@ LIBS=\
 -lpulse-simple\
 -lpulse\
 -lreadline \
--lm
+-lm \
+-lfftw3
 
-all:  ti994a tests dumptape dumpdisk unasm hexed
+all:  ti994a tests tapetool disktool unasm hexed fir
 
 ti994a: $(SRCS) console.c ti994a.c
 	gcc -Wall -ggdb3 -o ti994a -D__GROM_DEBUG console.c ti994a.c $(SRCS) $(LIBS)
@@ -46,9 +49,11 @@ unasm: $(SRCS) unasm.c
 testkbd: $(SRCS) kbd.c trace.c
 	gcc -Wall -ggdb3 -o testkbd -D__UNIT_TEST kbd.c trace.c $(LIBS)
 
-dumptape: $(SRCS) dumptape.c
-	gcc -Wall -ggdb3 -o dumptape -D__UNIT_TEST dumptape.c $(LIBS)
-dumpdisk: $(SRCS) dumpdisk.c decodebasic.c
-	gcc -Wall -ggdb3 -o dumpdisk -D__UNIT_TEST dumpdisk.c decodebasic.c  $(LIBS)
+tapetool: $(SRCS) tapetool.c decodebasic.c
+	gcc -Wall -ggdb3 -o tapetool tapetool.c $(SRCS) $(LIBS)
+disktool: $(SRCS) disktool.c decodebasic.c
+	gcc -Wall -ggdb3 -o disktool disktool.c $(SRCS) $(LIBS)
 hexed: hexed.c parse.c
 	gcc -Wall -ggdb3 -o hexed hexed.c parse.c
+fir: $(SRCS) fir.c
+	gcc -Wall -ggdb3 -o fir fir.c $(SRCS) $(LIBS)

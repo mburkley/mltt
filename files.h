@@ -20,15 +20,13 @@
  * SOFTWARE.
  */
 
-#ifndef __SOUND_H
-#define __SOUND_H
+#ifndef __FILES_H
+#define __FILES_H
 
-#include "cpu.h"
-
-void soundInit (void);
-uint16_t soundRead (uint8_t *ptr, uint16_t addr, int size);
-void soundWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size);
-void soundAuxData (int16_t sample);
+void filesReadProgram (FILE *fp, uint8_t *data, int length);
+int filesReadBinary(const char *name, uint8_t *data, int maxLength);
+int filesReadTIFiles(const char *name, uint8_t *data, int maxLength);
+char *filesShowFlags (uint8_t flags);
 
 #endif
 

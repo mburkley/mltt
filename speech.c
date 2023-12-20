@@ -20,7 +20,7 @@
  * SOFTWARE.
  */
 
-#include <stdint.h>
+#include "types.h"
 
 int speechRead (uint8_t *ptr, uint16_t addr, int size)
 {

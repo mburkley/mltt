@@ -30,13 +30,13 @@
  */
 
 #include <stdio.h>
-#include <stdbool.h>
 
+#include "types.h"
 #include "trace.h"
 #include "cru.h"
 #include "interrupt.h"
 #include "timer.h"
-#include "sound.h"
+#include "cassette.h"
 
 static struct
 {
@@ -132,7 +132,10 @@ static void timerCallback (void)
         mprintf (LVL_INTERRUPT, "TMS9901 timer expired, raise interrupt\n");
 
         cruBitInput (0, IRQ_TIMER, 0);
-        soundModulation (tms9901TimerToNsec ());
+        /*  TODO this is not a good dependency.  9901 should know nothing about
+         *  cassettes
+         */
+        cassetteModulation (tms9901TimerToNsec ());
     }
 }
 

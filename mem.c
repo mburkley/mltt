@@ -25,13 +25,12 @@
  */
 
 #include <stdio.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
 
+#include "types.h"
 #include "trace.h"
 #include "mem.h"
 #include "sound.h"
@@ -260,7 +259,7 @@ void memWriteW(uint16_t addr, uint16_t data)
     return memWrite (addr, data, 2);
 }
 
-void memLoad (char *file, uint16_t addr, int bank)
+int memLoad (char *file, uint16_t addr, int bank)
 {
     FILE *fp;
 
@@ -277,11 +276,14 @@ void memLoad (char *file, uint16_t addr, int bank)
     printf("%s %s %x %x %d\n", __func__, file, addr, len, bank);
 
     #if 0
-    if (len != ROM_FILE_SIZE)
+    if (len > ROM_FILE_SIZE)
     {
         printf ("ROM file size unsupported %04X\n", len);
         halt ("ROM file size");
     }
+    #else
+    if (len > ROM_FILE_SIZE)
+        len = ROM_FILE_SIZE;
     #endif
 
     memMap *map = memMapEntry (addr);
@@ -302,6 +304,7 @@ void memLoad (char *file, uint16_t addr, int bank)
     }
 
     fclose (fp);
+    return len;
 }
 
 /*  Mmap a file into the region 0x7000 to 0x7FFF to emulate minimemory */

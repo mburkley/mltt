@@ -29,8 +29,6 @@ void ti994aRun (int instPerInterrupt);
 void ti994aInit (void);
 void ti994aClose (void);
 void ti994aShowScratchPad (bool showGplUsage);
-// void ti994aMemLoad (char *file, uint16_t addr, int bank);
-// bool ti994aDeviceRomSelect (int index, uint8_t state);
 
 #endif
 

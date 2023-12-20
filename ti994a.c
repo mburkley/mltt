@@ -27,7 +27,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <unistd.h>
 #include <errno.h>
 #include <poll.h>
@@ -35,6 +34,7 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 
+#include "types.h"
 #include "cpu.h"
 #include "mem.h"
 #include "sound.h"

@@ -31,9 +31,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 #include <stdarg.h>
 
+#include "types.h"
 #include "cpu.h"
 #include "mem.h"
 #include "trace.h"
@@ -465,7 +465,7 @@ int main (int argc, char *argv[])
         exit (1);
     }
 
-    memLoad (argv[1], addr, 0);
+    int len = memLoad (argv[1], addr, 0);
 
     if (argc > 3)
         unasmReadText (argv[3]);
@@ -473,7 +473,7 @@ int main (int argc, char *argv[])
     pc = addr;
     outputLevel = LVL_UNASM;
 
-    while (pc < addr+ROM_FILE_SIZE)
+    while (pc < addr+len)
     {
         uint16_t data = memReadW (pc);
         pc += 2;

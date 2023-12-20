@@ -26,8 +26,7 @@
 #define KBD_ROW 8
 #define KBD_COL 8
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "types.h"
 
 void kbdPoll (void);
 int kbdGet (int row, int col);

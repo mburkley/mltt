@@ -23,7 +23,7 @@
 #ifndef __TIMER_H
 #define __TIMER_H
 
-#include <stdbool.h>
+#include "types.h"
 
 #define MAX_TIMERS 2
 

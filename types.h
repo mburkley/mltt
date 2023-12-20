@@ -20,15 +20,17 @@
  * SOFTWARE.
  */
 
-#ifndef __SOUND_H
-#define __SOUND_H
+#ifndef __TYPES_H
+#define __TYPES_H
 
-#include "cpu.h"
+#include <stdbool.h>
+#include <stdint.h>
+#include <endian.h>
 
-void soundInit (void);
-uint16_t soundRead (uint8_t *ptr, uint16_t addr, int size);
-void soundWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size);
-void soundAuxData (int16_t sample);
+#define WORD(a,b) (((a)<<8)|(b))
+#define SWAP(w)  (((w) >> 8) | (((w) & 0xFF) << 8))
+#define ABS(x) ((x)<0?-(x):(x))
 
 #endif
+
 

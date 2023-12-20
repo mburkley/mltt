@@ -11,6 +11,10 @@ load ../roms/994arom.bin 0x0000
 # Load console GROM
 grom ../roms/994agrom.bin 0x0000
 
+# load my ROM
+# load /home/mark/tms9900-gcc/test/test.bin 0x6000
+# load ../CROSS-LIB/build/XSTINGER1 0x6000
+
 # Enable DSK
 disk ../roms/disk.bin
 
@@ -47,12 +51,6 @@ diskdir 3 DISKDIR
 #
 # load ../roms/ti-invac.bin 0x6000
 # grom ../roms/ti-invag.bin 0x6000
-
-#
-#  Parsec
-#
-# load ../roms/parsec-c.bin 0x6000
-# grom ../roms/parsec-g.bin 0x6000
 
 #
 #  Tombstone City
@@ -114,8 +112,8 @@ diskdir 3 DISKDIR
 # load ../roms/DEFENDC.BIN 0x6000
 # grom ../roms/Ed-AssmG.Bin 0x6000
 # grom ../roms/HtWmpusG.Bin 0x6000
-# load ../roms/ParsecC.Bin 0x6000
-# grom ../roms/ParsecG.Bin 0x6000
+load ../roms/ParsecC.Bin 0x6000
+grom ../roms/ParsecG.Bin 0x6000
 # grom ../roms/ZEROZAPG.BIN 0x6000
 grom ../roms/diskmang.bin 0x6000
 

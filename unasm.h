@@ -23,7 +23,7 @@
 #ifndef __UNASM_H
 #define __UNASM_H
 
-#include <stdbool.h>
+#include "types.h"
 
 void unasmReadText (const char *textFile);
 void unasmPreExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcode);

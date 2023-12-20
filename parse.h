@@ -23,9 +23,10 @@
 #ifndef __PARSE_H
 #define __PARSE_H
 
-#include <stdbool.h>
+#include "types.h"
 
 bool parseValue (char *s, int *result);
 int parseLine (char *line, char *argv[]);
+void parseRemoveArg (int *argc, char **argv);
 
 #endif
