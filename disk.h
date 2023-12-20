@@ -31,6 +31,7 @@
 #define DISK_TRACKS_PER_SIDE 40
 #define DISK_BYTES_PER_SECTOR 256
 #define SECTORS_PER_DISK         720
+#define MAX_FILE_CHAINS         76
 
 typedef struct
 {
