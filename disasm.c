@@ -20,16 +20,60 @@
  * SOFTWARE.
  */
 
-#ifndef __UNASM_H
-#define __UNASM_H
+/*
+ *  disasm.c  - standalone TMS9900 disassembler.
+ *
+ */
 
-#include "types.h"
+#include <stdio.h>
+#include <stdlib.h>
 
-void unasmReadText (const char *textFile);
-uint16_t unasmPreExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcode);
-void unasmPostText (char *fmt, ...);
-void unasmPostPrint (void);
-void unasmOutputUncovered (bool state);
+#include "trace.h"
+#include "parse.h"
+#include "unasm.h"
+#include "mem.h"
+#include "cpu.h"
 
-#endif
+int main (int argc, char *argv[])
+{
+    int addr;
+    uint16_t pc;
+
+    if (argc < 3 || !parseValue (argv[2], &addr))
+    {
+        printf ("Usage: %s <filename> <address> [<comments-file>]\n", argv[0]);
+        exit (1);
+    }
+
+    int len = memLoad (argv[1], addr, 0);
+
+    if (argc > 3)
+        unasmReadText (argv[3]);
+
+    pc = addr;
+    outputLevel = LVL_UNASM;
+
+    while (pc < addr+len)
+    {
+        uint16_t data = memReadW (pc);
+        pc += 2;
+        uint16_t type;
+        uint16_t opcode = cpuDecode (data, &type);
+        uint16_t paramWords = unasmPreExec (pc, data, type, opcode);
+
+        unasmPostPrint ();
+        // printf ("\n");
+
+        while (paramWords)
+        {
+            paramWords-=2;
+            data = memReadW (pc);
+            printf ("%04X:%04X\n", pc, data);
+            pc += 2;
+        }
+    }
+
+    return 0;
+}
+
 

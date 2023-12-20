@@ -1,30 +1,30 @@
 
-SRCS=cpu.c \
-vdp.c \
-break.c \
-watch.c \
-cond.c \
-cru.c \
-grom.c \
-unasm.c \
-kbd.c \
-timer.c \
-trace.c \
-speech.c \
-sound.c \
-interrupt.c \
-gpl.c \
-status.c \
-cassette.c \
-parse.c \
-mem.c \
-disk.c \
-diskfile.c \
-diskdir.c \
-sams.c \
-wav.c \
-files.c \
-decodebasic.c
+OBJECTS=cpu.o \
+vdp.o \
+break.o \
+watch.o \
+cond.o \
+cru.o \
+grom.o \
+unasm.o \
+kbd.o \
+timer.o \
+trace.o \
+speech.o \
+sound.o \
+interrupt.o \
+gpl.o \
+status.o \
+cassette.o \
+parse.o \
+mem.o \
+disk.o \
+diskfile.o \
+diskdir.o \
+sams.o \
+wav.o \
+files.o \
+decodebasic.o
 
 LIBS=\
 -l glut\
@@ -35,25 +35,25 @@ LIBS=\
 -lm \
 -lfftw3
 
-all:  ti994a tests tapetool disktool unasm hexed fir
+TOOLS=disasm tapetool disktool hexed fir
 
-ti994a: $(SRCS) console.c ti994a.c
-	gcc -Wall -ggdb3 -o ti994a -D__GROM_DEBUG console.c ti994a.c $(SRCS) $(LIBS)
+CFLAGS=-Wall -ggdb3
+# LDFLAGS=
 
-tests: $(SRCS) tests.c
-	gcc -Wall -ggdb3 -o tests -D__GROM_DEBUG tests.c $(SRCS) $(LIBS)
+all:  ti994a tests $(TOOLS)
 
-unasm: $(SRCS) unasm.c
-	gcc -Wall -ggdb3 -o unasm -D__BUILD_UNASM ti994a.c $(SRCS) $(LIBS)
+ti994a: $(OBJECTS) console.o ti994a.o
+	@echo "\t[LD] $@..."
+	@$(CC) $(LDFLAGS) -o $@ console.o ti994a.o $(OBJECTS) $(LIBS)
 
-testkbd: $(SRCS) kbd.c trace.c
-	gcc -Wall -ggdb3 -o testkbd -D__UNIT_TEST kbd.c trace.c $(LIBS)
+tests: $(OBJECTS) tests.o
+	@echo "\t[LD] $@..."
+	@$(CC) $(LDFLAGS) -o $@ tests.o $(OBJECTS) $(LIBS)
 
-tapetool: $(SRCS) tapetool.c decodebasic.c
-	gcc -Wall -ggdb3 -o tapetool tapetool.c $(SRCS) $(LIBS)
-disktool: $(SRCS) disktool.c decodebasic.c
-	gcc -Wall -ggdb3 -o disktool disktool.c $(SRCS) $(LIBS)
-hexed: hexed.c parse.c
-	gcc -Wall -ggdb3 -o hexed hexed.c parse.c
-fir: $(SRCS) fir.c
-	gcc -Wall -ggdb3 -o fir fir.c $(SRCS) $(LIBS)
+$(TOOLS): %: $(OBJECTS) %.o
+	@echo "\t[LD] $@..."
+	@$(CC) $(LDFLAGS) $^ -o $@ $(LIBS)
+
+%.o: %.c
+	@echo "\t[CC] $<..."
+	@$(CC) -c $(CCFLAGS) $< -o $@
