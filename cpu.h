@@ -23,8 +23,7 @@
 #ifndef __CPU_H
 #define __CPU_H
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "types.h"
 
 #define AMODE_NORMAL    0
 #define AMODE_INDIR     1
@@ -132,7 +131,6 @@ uint16_t cpuGetIntMask (void);
 void cpuInterrupt (int level);
 void cpuBoot (void);
 
-#define SWAP(w)  ((w >> 8) | ((w & 0xFF) << 8))
 
 #endif
 

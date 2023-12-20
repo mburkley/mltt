@@ -58,6 +58,14 @@ bool parseValue (char *s, int *result)
     return true;
 }
 
+void parseRemoveArg (int *argc, char **argv)
+{
+    for (int i = 1; i < *argc; i++)
+        argv[i] = argv[i+1];
+
+    (*argc)--;
+}
+
 /*  Break a line into word delimited by white space.  Destructive and maintains
  *  pointers to within line.  Ensure memory is not freed until all processing of
  *  args is finished.

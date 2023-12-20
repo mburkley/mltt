@@ -27,7 +27,6 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
-#include <stdbool.h>
 
 #include "vdp.h"
 #include "grom.h"

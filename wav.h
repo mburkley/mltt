@@ -20,15 +20,21 @@
  * SOFTWARE.
  */
 
-#ifndef __SOUND_H
-#define __SOUND_H
+#ifndef __WAV_H
+#define __WAV_H
 
-#include "cpu.h"
+#include "types.h"
 
-void soundInit (void);
-uint16_t soundRead (uint8_t *ptr, uint16_t addr, int size);
-void soundWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size);
-void soundAuxData (int16_t sample);
+typedef struct _wavState wavState;
+
+wavState *wavFileOpenRead (const char *name, bool showParams);
+wavState *wavFileOpenWrite (const char *name, int bits);
+void wavFileClose (wavState *state);
+int wavSampleCount (wavState *state);
+bool wavIsOpenWrite (wavState *state);
+bool wavSampleRate (wavState *state);
+int16_t wavReadSample (wavState *state);
+void wavWriteSample (wavState *state, int16_t sample);
 
 #endif
 

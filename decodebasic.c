@@ -1,6 +1,10 @@
+
+/*
+ *  Using https://www.unige.ch/medecine/nouspikel/ti99/basic.htm
+ */
+
 #include <stdio.h>
 #include "decodebasic.h"
-#define WORD(a,b) (((a)<<8)|(b))
 
 static int decodeQuotedString (uint8_t *data)
 {
@@ -65,6 +69,8 @@ static void decodeLine (uint8_t *data)
         case 0x08: printf ("SAVE"); break;
         case 0x09: printf ("EDIT"); break;
         case 0x81: printf ("ELSE "); break;
+        case 0x82: printf (" :: "); break;
+        case 0x83: printf ("!"); break;
         case 0x84: printf ("IF "); break;
         case 0x85: printf ("GO "); break;
         case 0x86: printf ("GOTO "); break;
@@ -96,6 +102,11 @@ static void decodeLine (uint8_t *data)
         case 0xA0: printf ("CLOSE "); break;
         case 0xA1: printf ("SUB "); break;
         case 0xA2: printf ("DISPLAY "); break;
+        case 0xA4: printf ("ACCEPT "); break;
+        case 0xA6: printf ("WARNING "); break;
+        case 0xA7: printf ("SUBEXIT"); break;
+        case 0xA8: printf ("SUBEND"); break;
+        case 0xA9: printf ("RUN "); break;
         case 0xB0: printf (" THEN "); break;
         case 0xB1: printf (" TO "); break;
         case 0xB2: printf ("STEP "); break;
@@ -105,6 +116,9 @@ static void decodeLine (uint8_t *data)
         case 0xB6: printf (")"); break;
         case 0xB7: printf ("("); break;
         case 0xB8: printf ("&"); break;
+        case 0xBA: printf (" OR "); break;
+        case 0xBB: printf (" AND "); break;
+        case 0xBD: printf (" NOT "); break;
         case 0xBE: printf ("="); break;
         case 0xBF: printf ("<"); break;
         case 0xC0: printf (">"); break;
@@ -136,6 +150,16 @@ static void decodeLine (uint8_t *data)
         case 0xDB: printf ("STR$"); break;
         case 0xDC: printf ("ASC"); break;
         case 0xDE: printf ("REC"); break;
+        case 0xE0: printf ("MIN"); break;
+        case 0xE1: printf ("RPT$"); break;
+        case 0xE8: printf ("NUMERIC"); break;
+        case 0xE9: printf ("DIGIT"); break;
+        case 0xEB: printf ("SIZE"); break;
+        case 0xEC: printf ("ALL "); break;
+        case 0xED: printf (" USING "); break;
+        case 0xEE: printf ("BEEP "); break;
+        case 0xEF: printf ("ERASE "); break;
+        case 0xF0: printf ("AT"); break;
         case 0xF1: printf ("BASE"); break;
         case 0xF3: printf ("VARIABLE"); break;
         case 0xF4: printf ("RELATIVE"); break;
@@ -148,7 +172,8 @@ static void decodeLine (uint8_t *data)
         case 0xFB: printf ("PERMANENT"); break;
         case 0xFC: printf ("TAB"); break;
         case 0xFD: printf ("#"); break;
-        default: printf ("[%02X[", *data); break;
+        case 0xFE: printf ("VALIDATE "); break;
+        default: printf ("[??? %02X]", *data); break;
         }
         data += stlen;
         // len -= stlen;
@@ -162,17 +187,17 @@ static void decodeLine (uint8_t *data)
 void decodeBasicProgram (uint8_t *data, int len)
 {
     int codeLen = WORD (data[0], data[1]);
-    int lineNumbersTopAddr = WORD (data[2], data[3]);
-    int addr2 = WORD (data[4], data[5]);
-    int programTopAddr = WORD (data[6], data[7]);
+    int addrLineNumbersTop = WORD (data[2], data[3]);
+    int addrLineNumbersEnd = WORD (data[4], data[5]);
+    int addrProgramTop = WORD (data[6], data[7]);
     printf ("\ncodeLen = %04X\n", codeLen);
-    printf ("top of line numbers = %04X\n", lineNumbersTopAddr);
-    printf ("addr2 = %04X\n", addr2);
-    printf ("program top = %04X\n", programTopAddr);
+    printf ("top of line numbers = %04X\n", addrLineNumbersTop);
+    printf ("addrLineNumbersEnd = %04X\n", addrLineNumbersEnd);
+    printf ("program top = %04X\n", addrProgramTop);
 
-    printf ("line number table size %04X\n", lineNumbersTopAddr - addr2);
-    int lineCount = (lineNumbersTopAddr - addr2 + 1) / 4;
-    int codeOffset = programTopAddr - lineNumbersTopAddr;
+    printf ("line number table size %04X\n", addrLineNumbersTop - addrLineNumbersEnd);
+    int lineCount = (addrLineNumbersTop - addrLineNumbersEnd + 1) / 4;
+    int codeOffset = addrProgramTop - addrLineNumbersTop;
     printf ("code offset=%04X\n", codeOffset);
     data += 8;
     len -= 8;
@@ -185,8 +210,8 @@ void decodeBasicProgram (uint8_t *data, int len)
         int address = WORD (data[i*4+2], data[i*4+3]);
         // printf ("L%d %04X\n", line, address);
         printf ("%d ", line);
-        address = address - addr2 - 1;
-        // programTopAddr - address + lineNumbersTopAddr - addr2;
+        address = address - addrLineNumbersEnd - 1;
+        // addrProgramTop - address + addrLineNumbersTop - addrLineNumbersEnd;
 
         // printf ("decode %04X(%d)\n", address, address);
         decodeLine (&data[address]);

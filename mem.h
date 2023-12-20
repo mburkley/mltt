@@ -36,7 +36,7 @@ uint16_t memReadW(uint16_t addr);
 void memWriteW(uint16_t addr, uint16_t data);
 uint16_t memReadB(uint16_t addr);
 void memWriteB(uint16_t addr, uint8_t data);
-void memLoad (char *file, uint16_t addr, int bank);
+int memLoad (char *file, uint16_t addr, int bank);
 void memMapFile (const char *name, uint16_t addr, uint16_t size);
 void memCopy (uint8_t *copy, uint16_t addr, int bank);
 void memPrintScratchMemory (uint16_t addr, int len);

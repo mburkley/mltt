@@ -23,8 +23,7 @@
 #ifndef __VDP_H
 #define __VDP_H
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "types.h"
 
 int vdpReadStatus (void);
 int vdpReadRegister (int reg);

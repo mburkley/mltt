@@ -31,8 +31,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 
+#include "types.h"
 #include "trace.h"
 #include "gpl.h"
 

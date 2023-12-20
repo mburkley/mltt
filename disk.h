@@ -23,8 +23,7 @@
 #ifndef __DISK_H
 #define __DISK_H
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "types.h"
 
 #define DISK_DRIVE_COUNT        3
 #define DISK_FILENAME_MAX       1024

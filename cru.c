@@ -21,9 +21,9 @@
  */
 
 #include <stdio.h>
-#include <stdbool.h>
 #include <time.h>
 
+#include "types.h"
 #include "trace.h"
 #include "cru.h"
 

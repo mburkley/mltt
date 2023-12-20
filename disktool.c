@@ -28,18 +28,19 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include <ctype.h>
 #include <arpa/inet.h>
 
+#include "types.h"
+#include "parse.h"
+#include "files.h"
 #include "decodebasic.h"
 
 #define BYTES_PER_SECTOR        256
 
-FILE *diskFp;
-bool showContents = false;
-bool showBasic = false;
+static FILE *diskFp;
+static bool showContents = false;
+static bool showBasic = false;
 
 static struct
 {
@@ -80,10 +81,12 @@ volumeHeader;
 
 static char * showFlags (uint8_t flags)
 {
-    static char str[18];
+    static char str[26];
 
-    sprintf (str, "(%s%s%s%s)", 
+    sprintf (str, "(%s%s%s%s%s%s)", 
         (flags & 0x80) ? "VAR":"FIX",
+        (flags & 0x20) ? "-EMU" : "",
+        (flags & 0x10) ? "-MOD" : "",
         (flags & 0x08) ? "-WP" : "",
         (flags & 0x02) ? "-BIN" : "-ASC",
         (flags & 0x01) ? "-PROG" : "-DATA");
@@ -265,25 +268,23 @@ static void analyseDirectory (int sector)
 
 int main (int argc, char *argv[])
 {
-    while (1)
+    char c;
+
+    while ((c = getopt(argc, argv, "db")) != -1)
     {
-        if (argc >= 2 && !strcmp (argv[1], "-d"))
+        switch (c)
         {
-            showContents = true;
-            argc--;
-            argv[1] = argv[2];
-            continue;
+            case 'd' : showContents = true; break;
+            case 'b' : showBasic = true; break;
+            default: printf ("Unknown option '%c'\n", c);
         }
+    }
 
-        if (argc >= 2 && !strcmp (argv[1], "-b"))
-        {
-            showBasic = true;
-            argc--;
-            argv[1] = argv[2];
-            continue;
-        }
-
-        break;
+    if (argc - optind < 1)
+    {
+        printf ("usage: %s [-d] [-b] [-r] <wav-file>\n", argv[0]);
+        printf ("\t where -d=dump HEX, -b=decode basic, -r=raw bits, -w=wav hdr\n");
+        return 1;
     }
 
     if (argc < 2)

@@ -25,16 +25,12 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
-#include <stdio.h>
-#include <time.h>
-#include <stdlib.h>
-#include <string.h>
 #include <math.h>
 #include <unistd.h>
-#include <stdbool.h>
 #include <GL/glut.h>
 #include <GL/gl.h>
 
+#include "types.h"
 #include "vdp.h"
 #include "grom.h"
 #include "trace.h"

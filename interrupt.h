@@ -23,8 +23,7 @@
 #ifndef __INTERRUPT_H
 #define __INTERRUPT_H
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "types.h"
 
 #define IRQ_DEVICE      1
 #define IRQ_VDP         2
