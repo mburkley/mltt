@@ -127,9 +127,9 @@ void ti994aRun (int instPerInterrupt)
          *  TODO : trick, LIMI 2 is the main GPL loop but won't mess up cassette
          *  ops.  Will this work with munchman and other ROM games?
          *
-         *  Messes up frogger, remove  TODO retest cassette
+         *  Messes up frogger, TODO
          */
-        if (/* cpuGetIntMask() == 2 && */ count >= instPerInterrupt)
+        if (cpuGetIntMask() == 2 && count >= instPerInterrupt)
         {
             shouldBlock = true;
             count -= instPerInterrupt;

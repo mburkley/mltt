@@ -32,7 +32,7 @@ wavState *wavFileOpenWrite (const char *name, int bits);
 void wavFileClose (wavState *state);
 int wavSampleCount (wavState *state);
 bool wavIsOpenWrite (wavState *state);
-bool wavSampleRate (wavState *state);
+int wavSampleRate (wavState *state);
 int16_t wavReadSample (wavState *state);
 void wavWriteSample (wavState *state, int16_t sample);
 

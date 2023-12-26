@@ -69,35 +69,19 @@ char *filesShowFlags (uint8_t flags)
     return str;
 }
 
-
 void filesReadProgram (FILE *fp, uint8_t *data, int length)
 {
-
-    #if 0
-    int codeLen = WORD (data[0], data[1]);
-    int addrLineNumbersTop = WORD (data[2], data[3]);
-    int addrLineNumbersEnd = WORD (data[4], data[5]);
-    int addrProgramTop = WORD (data[6], data[7]);
-    printf ("length=%d\n", length);
-    printf ("\ncodeLen = %04X\n", codeLen);
-    printf ("top of line numbers = %04X\n", addrLineNumbersTop);
-    printf ("addrLineNumbersEnd = %04X\n", addrLineNumbersEnd);
-    printf ("program top = %04X\n", addrProgramTop);
-
-    printf ("line number table size %04X\n", addrLineNumbersTop - addrLineNumbersEnd);
-    int lineCount = (addrLineNumbersTop - addrLineNumbersEnd + 1) / 4;
-    #endif
     decodeBasicProgram (data, length);
 }
 
-int filesReadBinary (const char *name, uint8_t *data, int maxLength)
+int filesReadBinary (const char *name, uint8_t *data, int maxLength, bool verbose)
 {
     FILE *fp;
     int programSize;
 
     if ((fp = fopen (name, "r")) == NULL)
     {
-        printf ("Failed to open %s\n", name);
+        fprintf (stderr, "Failed to open %s\n", name);
         return -1;
     }
 
@@ -107,23 +91,28 @@ int filesReadBinary (const char *name, uint8_t *data, int maxLength)
 
     if (fileSize > maxLength)
     {
-        printf ("Binary file too big\n");
+        fprintf (stderr, "Binary file too big\n");
         fclose (fp);
         return -1;
     }
 
     int count = fread (&tifiles, 1, sizeof (tifiles), fp);
 
-    printf ("Read %d bytes\n", count);
+    if (verbose)
+        fprintf (stderr, "Read %d bytes\n", count);
 
     if (count < 128 || tifiles.marker != 0x07 ||
         strncmp (tifiles.ident, "TIFILES", 7))
     {
-        printf ("TIFILES identifier not seen, assume binary\n");
         memcpy (data, &tifiles, count);
         programSize = fread (data+count, sizeof (uint8_t), fileSize-count, fp);
         programSize += count;
-        printf ("read %d/%d\n", programSize, fileSize);
+
+        if (verbose)
+        {
+            fprintf (stderr, "TIFILES identifier not seen, assume binary\n");
+            fprintf (stderr, "read %d/%d\n", programSize, fileSize);
+        }
     }
     else
     {
@@ -132,17 +121,25 @@ int filesReadBinary (const char *name, uint8_t *data, int maxLength)
         tifiles.l3Alloc = be16toh (tifiles.l3Alloc);
         tifiles.extHeader = be16toh (tifiles.extHeader);
 
-        printf ("TIFILES header found\n");
-        printf ("secCount=%d\n", tifiles.secCount);
-        printf ("eof=%d\n", tifiles.eof);
+        if (verbose)
+        {
+            fprintf (stderr, "TIFILES header found\n");
+            fprintf (stderr, "secCount=%d\n", tifiles.secCount);
+            fprintf (stderr, "eof=%d\n", tifiles.eof);
+        }
+
         programSize = tifiles.secCount * 256;
 
         if (tifiles.eof != 0)
             programSize -= (256 - tifiles.eof);
         
-        printf ("flags=%s\n", filesShowFlags (tifiles.flags));
+        if (verbose)
+            fprintf (stderr, "flags=%s\n", filesShowFlags (tifiles.flags));
+
         count = fread (data, sizeof (uint8_t), programSize, fp);
-        printf ("read %d/%d\n", count+128, fileSize);
+
+        if (verbose)
+            fprintf (stderr, "read %d/%d\n", count+128, fileSize);
     }
 
     return programSize;

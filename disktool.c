@@ -282,18 +282,13 @@ int main (int argc, char *argv[])
 
     if (argc - optind < 1)
     {
-        printf ("usage: %s [-d] [-b] [-r] <wav-file>\n", argv[0]);
-        printf ("\t where -d=dump HEX, -b=decode basic, -r=raw bits, -w=wav hdr\n");
+        printf ("\nSector dump disk file read tool\n\n"
+                "usage: %s [-d] [-b] <dsk-file>\n"
+                "\t where -d=dump HEX, -b=decode basic\n\n", argv[0]);
         return 1;
     }
 
-    if (argc < 2)
-    {
-        printf ("usage: %s [-d] [-b] <dsk-file>\n", argv[0]);
-        exit(1);
-    }
-
-    if ((diskFp = fopen (argv[1], "r")) == NULL)
+    if ((diskFp = fopen (argv[optind], "r")) == NULL)
     {
         printf ("Can't open %s\n", argv[1]);
         return 0;

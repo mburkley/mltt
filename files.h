@@ -24,7 +24,7 @@
 #define __FILES_H
 
 void filesReadProgram (FILE *fp, uint8_t *data, int length);
-int filesReadBinary(const char *name, uint8_t *data, int maxLength);
+int filesReadBinary (const char *name, uint8_t *data, int maxLength, bool verbose);
 int filesReadTIFiles(const char *name, uint8_t *data, int maxLength);
 char *filesShowFlags (uint8_t flags);
 

@@ -186,23 +186,33 @@ static void decodeLine (uint8_t *data)
 
 void decodeBasicProgram (uint8_t *data, int len)
 {
-    int codeLen = WORD (data[0], data[1]);
+    int xorCheck = WORD (data[0], data[1]);
     int addrLineNumbersTop = WORD (data[2], data[3]);
     int addrLineNumbersEnd = WORD (data[4], data[5]);
     int addrProgramTop = WORD (data[6], data[7]);
-    printf ("\ncodeLen = %04X\n", codeLen);
-    printf ("top of line numbers = %04X\n", addrLineNumbersTop);
-    printf ("addrLineNumbersEnd = %04X\n", addrLineNumbersEnd);
-    printf ("program top = %04X\n", addrProgramTop);
+    // printf ("\ncodeLen = %04X\n", xorCheck);
+    if (xorCheck < 0)
+    {
+        fprintf (stderr, "** Protected\n\n");
+        xorCheck = -xorCheck;
+    }
+    xorCheck -= (addrLineNumbersTop ^ addrLineNumbersEnd);
+    if (xorCheck != 0)
+    {
+        fprintf (stderr, "** Checksum invalid\n\n");
+    }
+    // printf ("top of line numbers = %04X\n", addrLineNumbersTop);
+    // printf ("addrLineNumbersEnd = %04X\n", addrLineNumbersEnd);
+    // printf ("program top = %04X\n", addrProgramTop);
 
-    printf ("line number table size %04X\n", addrLineNumbersTop - addrLineNumbersEnd);
+    // printf ("line number table size %04X\n", addrLineNumbersTop - addrLineNumbersEnd);
     int lineCount = (addrLineNumbersTop - addrLineNumbersEnd + 1) / 4;
     int codeOffset = addrProgramTop - addrLineNumbersTop;
-    printf ("code offset=%04X\n", codeOffset);
+    // printf ("code offset=%04X\n", codeOffset);
     data += 8;
     len -= 8;
 
-    printf ("prog len=%d\n", len);
+    // printf ("prog len=%d\n", len);
     /*  Decode line number table */
     for (int i = lineCount - 1; i >= 0; i--)
     {

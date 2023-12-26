@@ -32,10 +32,9 @@ LIBS=\
 -lpulse-simple\
 -lpulse\
 -lreadline \
--lm \
--lfftw3
+-lm 
 
-TOOLS=disasm tapetool disktool hexed fir
+TOOLS=disasm tapetool disktool hexed fir filetool
 
 CFLAGS=-Wall -ggdb3
 # LDFLAGS=
