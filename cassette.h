@@ -35,7 +35,7 @@ bool cassetteAudioGate(int index, uint8_t value);
 bool cassetteTapeOutput(int index, uint8_t value);
 void cassetteModulationToggle (void);
 uint8_t cassetteTapeInput(int index, uint8_t value);
-void cassetteModulation (int duration);
+void cassetteTimerExpired (int duration);
 void cassetteFileOpenWrite (const char *name);
 void cassetteFileCloseWrite (void);
 

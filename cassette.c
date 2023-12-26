@@ -76,7 +76,7 @@ encoding[] =
     { 0, 0 }  // 111 invalid
 };
 
-void cassetteModulation (int duration)
+void cassetteTimerExpired (int duration)
 {
     static double sampleCount = 0;
 
@@ -118,6 +118,7 @@ void cassetteModulationToggle (void)
     cassetteModulationNext = 1 - cassetteModulationNext;
 }
 
+
 static uint16_t cassetteModulationRead (void)
 {
     static double sampleCount = 0.0;
@@ -155,17 +156,23 @@ static uint16_t cassetteModulationRead (void)
         nsec = (now.tv_sec - cassetteAudioStart.tv_sec) * 1000000000 + 
                 (now.tv_nsec - cassetteAudioStart.tv_nsec);
 
-        double samplesPending = 1.0 * nsec * wavSampleRate (cassetteWav) / 1000000000.0; //  - audioReadSamplePos;
+        double newSamples = 1.0 * nsec * wavSampleRate (cassetteWav) / 1000000000.0; //  - audioReadSamplePos;
 
-        if (sampleCount + samplesPending >= 1.0)
+        if (newSamples + sampleCount >= 1.0)
         {
             /*  How many samples should we read since we did the last read?  Use
              *  a double to track fractions of samples, then use an int to
              *  create the samples
              */
-            sampleCount += samplesPending;
+            sampleCount += newSamples;
+
+            /* Go through samples one-by-one to ensure no zero crossing is
+             * missed in case time skips forward.  The audio playback may fall
+             * behind and stutter a bit */
+
             // samples = (int) sampleCount;
             samples = 1;
+
             sampleCount -= samples;
 
             /*  Reset the timestamp for the next iteration */
@@ -218,8 +225,8 @@ void cassetteFileCloseWrite (void)
     for (int i = 0; i < 8; i++)
     {
         cassetteModulationToggle ();
-        cassetteModulation (360000); // 360000 nanosec=1 cycle of 1370Hz @ 44100
-        cassetteModulation (360000);
+        cassetteTimerExpired (360000); // 360000 nanosec=1 cycle of 1370Hz @ 44100
+        cassetteTimerExpired (360000);
     }
 
     wavFileClose (cassetteWav);
@@ -259,11 +266,13 @@ bool cassetteTapeOutput(int index, uint8_t value)
 uint8_t cassetteTapeInput(int index, uint8_t value)
 {
     if (!cassetteWav)
+    {
         cassetteWav = wavFileOpenRead (CASSETTE_FILE_NAME, false);
 
-    cassetteSampleCount = wavSampleCount (cassetteWav);
-    /*  Initialise the synchronisation time */
-    clock_gettime (CLOCK_MONOTONIC, &cassetteAudioStart);
+        cassetteSampleCount = wavSampleCount (cassetteWav);
+        /*  Initialise the synchronisation time */
+        clock_gettime (CLOCK_MONOTONIC, &cassetteAudioStart);
+    }
 
     return cassetteModulationRead ();
 }

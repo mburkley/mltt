@@ -203,7 +203,7 @@ bool wavIsOpenWrite (wavState *state)
     return state->write;
 }
 
-bool wavSampleRate (wavState *state)
+int wavSampleRate (wavState *state)
 {
     return state->rate;
 }

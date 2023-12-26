@@ -135,7 +135,7 @@ static void timerCallback (void)
         /*  TODO this is not a good dependency.  9901 should know nothing about
          *  cassettes
          */
-        cassetteModulation (tms9901TimerToNsec ());
+        cassetteTimerExpired (tms9901TimerToNsec ());
     }
 }
 

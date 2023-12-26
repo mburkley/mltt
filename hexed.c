@@ -13,7 +13,8 @@ int main (int argc, char *argv[])
         !parseValue (argv[2], &offset) ||
         !parseValue (argv[3], &length))
     {
-        printf("Usage: %s <file-name> <offset> <length> [<replace-byte> ... ]\n", argv[0]);
+        printf ("\nVery primitive command line hex editor for binary files\n\n");
+        printf("Usage: %s <file-name> <offset> <length> [<replace-byte> ... ]\n\n", argv[0]);
         exit (1);
     }
 

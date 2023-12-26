@@ -349,12 +349,12 @@ static void outputByte (uint8_t byte)
     for (int i = 7; i >= 0; i--)
     {
         cassetteModulationToggle();
-        cassetteModulation (BIT_DURATION/2);
+        cassetteTimerExpired (BIT_DURATION/2);
 
         if (byte & (1<<i))
             cassetteModulationToggle();
 
-        cassetteModulation (BIT_DURATION/2);
+        cassetteTimerExpired (BIT_DURATION/2);
     }
 }
 
@@ -405,11 +405,6 @@ int main (int argc, char *argv[])
 {
     char c;
     char *binFile = NULL;
-    char *usage = "usage: %s [-c <bin-file>] [-d] [-b] [-r] [-w] <wav-file>\n"
-                  "\t where -c=create WAV from bin-file, -d=dump HEX, -b=decode basic, "
-                  "-r=raw bits, -w=show wav hdr\n"
-                  "If create is selected, a binary file "
-                  "(TIFILES or tokenised TI basic) must also be provided\n";
 
     while ((c = getopt(argc, argv, "c:dbrw")) != -1)
     {
@@ -428,7 +423,10 @@ int main (int argc, char *argv[])
 
     if (argc - optind < 1)
     {
-        printf (usage, argv[0]);
+        printf ("\nTool to read and write wav files for cassette audio\n\n"
+                "usage: %s [-c <bin-file>] [-d] [-b] [-r] [-w] <wav-file>\n"
+                "\t where -c=create WAV from <bin-file> (TIFILES or tokenised TI basic)\n"
+                "\t       -d=dump HEX, -b=decode basic, -r=raw bits, -w=show wav hdr\n\n", argv[0]);
         return 1;
     }
 
@@ -441,7 +439,8 @@ int main (int argc, char *argv[])
             return 1;
         }
 
-        programSize = filesReadBinary (binFile, program, MAX_PROGRAM_SIZE);
+        programSize = filesReadBinary (binFile, program, MAX_PROGRAM_SIZE,
+                                       !options.basic);
 
         if (programSize < 0)
             return 1;
