@@ -111,11 +111,11 @@ diskdir 3 DISKDIR
 # grom ../roms/CongBngG.Bin 0x6000
 # load ../roms/DEFENDC.BIN 0x6000
 # grom ../roms/Ed-AssmG.Bin 0x6000
-# grom ../roms/HtWmpusG.Bin 0x6000
-load ../roms/ParsecC.Bin 0x6000
-grom ../roms/ParsecG.Bin 0x6000
+grom ../roms/HtWmpusG.Bin 0x6000
+# load ../roms/ParsecC.Bin 0x6000
+# grom ../roms/ParsecG.Bin 0x6000
 # grom ../roms/ZEROZAPG.BIN 0x6000
-grom ../roms/diskmang.bin 0x6000
+# grom ../roms/diskmang.bin 0x6000
 
 #
 #  Extended Basic
@@ -128,7 +128,8 @@ grom ../roms/diskmang.bin 0x6000
 # grom ../roms/XB25G.BIN 0x6000
 
 # Specify the keyboard input device (user read access required)
-keyboard /dev/input/event22
+# keyboard /dev/input/event22
+keyboard
 
 # Set the debug output level, bitmasks:
 # 0001=console           - show console debug info
@@ -144,7 +145,7 @@ keyboard /dev/input/event22
 # 0400=gpl debug         - show debug of GPL disassembly
 # 0800=cassette          - show cassette debug
 # 1000=disk              - show disk debug
-# level 0x1000
+# level 0x0080
 
 # Initialise the CPU
 boot
