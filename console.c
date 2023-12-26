@@ -410,10 +410,14 @@ bool consoleLoadGrom (int argc, char *argv[])
 
 bool consoleKeyboard (int argc, char *argv[])
 {
-    if (argc < 2)
-        return false;
+    // if (argc < 2)
+    //     return false;
 
-    kbdOpen (argv[1]);
+    if (argc < 2)
+        kbdOpen (NULL);
+    else
+        kbdOpen (argv[1]);
+
     return true;
 }
 
@@ -552,66 +556,67 @@ struct _commands
 commands[] =
 {
     { "break", 2, consoleBreak, "break [ add <addr> | list | remove <addr> ]",
-            "Add, list or remove breakpoints from addresses in ROM" },
+            "\tAdd, list or remove breakpoints from addresses in ROM" },
     { "watch", 2, consoleWatch, "watch [ add <addr> | list | remove <addr> ]",
-            "Add, list or remove a watched memory location" },
+            "\tAdd, list or remove a watched memory location" },
     { "condition", 2, consoleCondition, "condition [ add <addr> <cond> <value> | list | remove <addr> ]",
-            "Add, list or remove a conditional break on a memory location. "
-            "<cond> can be EQ, NE, or CH for equal, not equal and change "
-            "respectively" },
+            "\tAdd, list or remove a conditional break on a memory location.\n"
+            "\t<cond> can be EQ, NE, or CH for equal, not equal and change\n"
+            "\trespectively" },
     { "peek", 2, consolePeek, "peek [ cpu | pad | padgpl | (mem|grom|vdp) <addr> [<size> [<count>]]]",
-            "Peek at various things.  Show cpu shows CPU registers, internal and\n" 
-            "workspace.  Show pad dumps the scratchpad memory.  Show padgpl shows\n"
-            "the scratchpad memory with GPL annotations.  Show  mem, grom and vdp\n"
-            "reads a number of bytes from CPU memory, GROM  memory and VDP memory\n"
-            "respectively.  Number of bytes defaults to 1 for VDP or GROM and 2\n"
-            "for CPU memory.  If count is given, a number of bytes or words are\n"
-            "displayed" },
+            "\tPeek at various things.  Show cpu shows CPU registers, internal and\n" 
+            "\tworkspace.  Show pad dumps the scratchpad memory.  Show padgpl shows\n"
+            "\tthe scratchpad memory with GPL annotations.  Show  mem, grom and vdp\n"
+            "\treads a number of bytes from CPU memory, GROM  memory and VDP memory\n"
+            "\trespectively.  Number of bytes defaults to 1 for VDP or GROM and 2\n"
+            "\tfor CPU memory.  If count is given, a number of bytes or words are\n"
+            "\tdisplayed" },
     { "poke", 5, consolePoke, "poke [ (mem | vdp) <addr> <size> <value> [<values>...]]",
-            "Pokes one or more values into cpu or vdp memory" },
+            "\tPokes one or more values into cpu or vdp memory" },
     { "@", 2, consoleReadInput, "@ <file>",
-            "Reads input commands from a file" },
+            "\tReads input commands from a file" },
     { "go", 1, consoleGo, "go",
-            "Begin running from the current program counter" },
+            "\tBegin running from the current program counter" },
     { "boot", 1, consoleBoot, "boot",
-            "Boot the CPU.  Initialise WP, PC and ST registers" },
+            "\tBoot the CPU.  Initialise WP, PC and ST registers" },
     { "unassemble", 1, consoleUnassemble, "unassemble [ covered ]",
-            "Begin disassembly of each instruction as it is executed.  If the "
-            "optional \"covered\" keyword is given, then only disassemble an "
-            "instruction the first time it is executed." },
+            "\tBegin disassembly of each instruction as it is executed.  If the\n"
+            "\toptional \"covered\" keyword is given, then only disassemble an\n"
+            "\tinstruction the first time it is executed." },
     { "level", 2, consoleLevel, "level <dbg-level>",
-            "Set the debug level.  See trace.h for description of levels" },
-    { "quit", 1, consoleQuit, "quit", "Exit the program" },
-    { "video", 1, consoleVideo, "video", "Enable video output" },
-    { "sound", 1, consoleSound, "sound", "Enable audio output" },
+            "\tSet the debug level.  See trace.h for description of levels" },
+    { "quit", 1, consoleQuit, "quit", "\tExit the program" },
+    { "video", 1, consoleVideo, "video", "\tEnable video output" },
+    { "sound", 1, consoleSound, "sound", "\tEnable audio output" },
     { "comments", 2, consoleComments, "comments <file>",
-            "Load disassembly comments from a file" },
+            "\tLoad disassembly comments from a file" },
     { "load", 3, consoleLoadRom, "load <file> <addr> [<length>]",
-            "Load a ROM binary file to the specified CPU memory address" },
+            "\tLoad a ROM binary file to the specified CPU memory address" },
     { "grom", 2, consoleLoadGrom, "grom <file>",
-            "Load a GROM binary file to the specified GROM memory address" },
-    { "keyboard", 2, consoleKeyboard, "keyboard <file>",
-            "Begin reading key events from the specified device file" },
+            "\tLoad a GROM binary file to the specified GROM memory address" },
+    { "keyboard", 1, consoleKeyboard, "keyboard [<file>]",
+            "\tBegin reading key events from the specified device file, or try\n"
+            "\tto find the event file if none is specified" },
     { "ctrlc", 1, consoleCtrlC, "ctrlc",
-            "Capture Ctrl-C and return to console for input" },
+            "\tCapture Ctrl-C and return to console for input" },
     { "inspersec", 2, consoleInsPerSec, "inspersec <count>",
-            "Specify how many instructions per second to run (minimum 50)" },
+            "\tSpecify how many instructions per second to run (minimum 50)" },
     { "status", 1, consoleStatus, "status",
-            "Display a status pane beside main display (call before enable video)" },
+            "\tDisplay a status pane beside main display (call before enable video)" },
     { "pixelsize", 2, consolePixelSize, "pixelsize <n>",
-            "Set the magnification factor for drawing pixels.  Default 4(x4)" },
+            "\tSet the magnification factor for drawing pixels.  Default 4(x4)" },
     { "disk", 2, consoleEnableDisk, "disk <rom-file>",
-            "Enable disk drive emulation, rom file must be provided as a parameter." },
+            "\tEnable disk drive emulation, rom file must be provided as a parameter." },
     { "diskfile", 3, consoleLoadDiskFile, "diskfile <drive-number> <disk-file> [RW]",
-            "Load sector dump <disk-file> in disk drive <drive-number>.  Default\n"
-            "is read only.  Add RW at end of command to enable read and write." },
+            "\tLoad sector dump <disk-file> in disk drive <drive-number>.  Default\n"
+            "\tis read only.  Add RW at end of command to enable read and write." },
     { "diskdir", 3, consoleLoadDiskDir, "diskdir <drive-number> <disk-dir> [RW]",
-            "Load directory <disk-dir> in disk drive <drive-number>.  Default\n"
-            "is read only.  Add RW at end of command to enable read and write." },
+            "\tLoad directory <disk-dir> in disk drive <drive-number>.  Default\n"
+            "\tis read only.  Add RW at end of command to enable read and write." },
     { "sams", 1, consoleEnableSams, "sams",
-            "Enable SuperAMS emulation" },
+            "\tEnable SuperAMS emulation" },
     { "mmap", 4, consoleEnableMmap, "mmap <file> <address> <size>",
-            "Map a file into the console address space" }
+            "\tMap a file into the console address space" }
 };
 
 #define NCOMMAND (sizeof (commands) / sizeof (struct _commands))
@@ -684,7 +689,7 @@ static void input (FILE *fp)
         int i;
 
         for (i = 0; i < NCOMMAND; i++)
-            printf ("%s : %s\n", commands[i].usage, commands[i].help);
+            printf ("%s\n%s\n", commands[i].usage, commands[i].help);
 
         return;
     }

@@ -39,7 +39,7 @@
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 static int kbdFd;
-static const char *kbdDevice;
+static char kbdDevice[256];
 
 /*
  *  This table is just used to create debug output.  It contains a string
@@ -75,21 +75,29 @@ static int keyCode[KBD_ROW][KBD_COL] =
 /*  This is a start at building "virtual keys" where keys on a real keyboard
  *  create multi-key sequences.  e.g. left arrow key creates FNCT+S.
  */
-#if 0
-static struct _
+#if 1
+static struct _extended
 {
+    int code;
+    int row1;
+    int col1;
+    int row2;
+    int col2;
 }
 keyExtended[] =
 {
-    { 14, ?? }, // Backspace => FNCT+???
-    { 105,      // Left = FNCT+S
-    { 106       // Right = FNCT+D
-    { 103       // Up = FNCT+E
-    { 108       // Down = FNCT+X
-    { 58 // caps lock
-    { 54 // right shift
-    { 97 // right control
-    { 100 // altgr = alphalock?
+//    { 14,  }, // Backspace => FNCT+???
+    { 105, 4, 0, 5, 1},     // Left = FNCT+S
+    { 106, 4, 0, 5, 2},     // Right = FNCT+D
+    { 103, 4, 0, 6, 2},       // Up = FNCT+E
+    { 108, 4, 0, 7, 1},      // Down = FNCT+X
+    { 110, 4, 0, 4, 1},  // Ins = FNCT+2
+    { 111, 4, 0, 4, 5}   // Del = FNCT+1
+//    { 58 // caps lock
+//    { 54,  // right shift
+//    { 97 // right control
+//    { 100 // altgr = alphalock?
+};
 #endif
 
 /*  Maintain a current and previous table of key states.  The lastState table is
@@ -133,9 +141,22 @@ static void decodeEvent (struct input_event ev)
                 }
 
         if (!mapped)
+        {
+            for (i = 0; i < sizeof keyExtended / sizeof (struct _extended); i++)
+            {
+                struct _extended *e = &keyExtended[i];
+                if (e->code == ev.code)
+                {
+                    keyState[e->row1][e->col1] = ev.value;
+                    keyState[e->row2][e->col2] = ev.value;
+                    mapped = 1;
+                }
+            }
+        }
+
+        if (!mapped)
             mprintf (LVL_KBD, "%s unknown KEY %s not mapped c=%d\n", __func__,
                    ev.value == 0 ? "UP" : "DOWN", ev.code);
-
     }
 }
 
@@ -180,6 +201,62 @@ bool kbdColumnUpdate (int index, uint8_t value)
 
     /*  Return false as we want this value to be stored */
     return false;
+}
+
+#define PROC_FILE "/proc/bus/input/devices"
+#define HANDLERS "H: Handlers="
+#define EVENTS "B: EV="
+
+void kbdFindInputDevice (void)
+{
+    FILE *fp;
+    unsigned events = 0;
+    char handlers[256] = "";
+    char s[256];
+    bool found = false;
+
+    if ((fp = fopen ("/proc/bus/input/devices", "r")) == NULL)
+        halt ("Open /proc/bus/input/devices");
+
+    while (!feof (fp))
+    {
+        if (fgets (s, sizeof s, fp) == NULL)
+            break;
+
+        if (!strncmp (s, HANDLERS, strlen (HANDLERS)))
+            strcpy (handlers, s+strlen (HANDLERS));
+        else if (!strncmp (s, EVENTS, strlen (EVENTS)))
+            events=strtoul (s+strlen (EVENTS), NULL, 16);
+
+        if ((events & 0x120013) == 0x120013)
+        {
+            break;
+        }
+    }
+
+    fclose (fp);
+
+    if (!events)
+        halt ("no events");
+
+    char *tok = handlers;
+
+    tok = strtok (tok, " ");
+
+    while (tok)
+    {
+        if (!strncmp (tok, "event", 5))
+        {
+            sprintf (kbdDevice, "/dev/input/%s", tok);
+            printf ("Found kbd input dev %s\n", kbdDevice);
+            found = true;
+        }
+
+        tok = strtok (NULL, " ");
+    }
+
+    if (!found)
+        halt ("Can't find keyboard");
 }
 
 void kbdPoll (void)
@@ -244,11 +321,16 @@ void kbdClose (void)
 
 void kbdOpen (const char *device)
 {
-    kbdDevice = device;
+    if (device)
+        strcpy (kbdDevice, device);
+    else
+        kbdFindInputDevice ();
+
     kbdFd = -1;
     kbdReopen ();
 
     mprintf (LVL_KBD, "%s dev %s opened as fd %d\n", __func__, kbdDevice, kbdFd);
+
 }
 
 #ifdef __UNIT_TEST
