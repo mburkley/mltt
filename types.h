@@ -23,9 +23,40 @@
 #ifndef __TYPES_H
 #define __TYPES_H
 
+#ifndef __STANDALONE
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <endian.h>
+
+#else
+
+typedef char bool;
+#define true 1
+#define false 0
+
+#ifdef __tms9900__
+
+/* Define 32 bit type so we have the same size values on host and target to
+ * compare test results */
+typedef long int32_t;
+typedef unsigned long uint32_t;
+typedef int int16_t;
+typedef unsigned int uint16_t;
+typedef char int8_t;
+typedef unsigned char uint8_t;
+
+#else
+
+typedef int int32_t;
+typedef unsigned int uint32_t;
+typedef short int16_t;
+typedef unsigned short uint16_t;
+typedef char int8_t;
+typedef unsigned char uint8_t;
+
+#endif
+#endif
 
 #define WORD(a,b) (((a)<<8)|(b))
 #define SWAP(w)  (((w) >> 8) | (((w) & 0xFF) << 8))

@@ -23,7 +23,8 @@
 #ifndef __SOUND_H
 #define __SOUND_H
 
-#include "cpu.h"
+// #include "cpu.h"
+#include "types.h"
 
 void soundInit (void);
 uint16_t soundRead (uint8_t *ptr, uint16_t addr, int size);

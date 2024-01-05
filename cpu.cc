@@ -24,18 +24,19 @@
  *  Implements TMS9900 CPU
  */
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdarg.h>
+// #include <stdio.h>
+// #include <string.h>
+// #include <stdlib.h>
+// #include <stdarg.h>
 
+#define __STANDALONE 1
 #include "types.h"
-#include "vdp.h"
+// #include "vdp.h"
 #include "cpu.h"
-#include "grom.h"
-#include "break.h"
-#include "watch.h"
-#include "cond.h"
+// #include "grom.h"
+// #include "break.h"
+// #include "watch.h"
+// #include "cond.h"
 #include "interrupt.h"
 #include "cru.h"
 #include "unasm.h"
@@ -267,16 +268,19 @@ static void statusParity (uint8_t value)
 static char *outputStatus (void)
 {
     static char text[10];
+    char *tp = text;
     int st = tms9900.st;
 
-    sprintf (text, "[%s%s%s%s%s%s%s]",
-             st & 0x8000 ? "G" : "",
-             st & 0x4000 ? "A" : "",
-             st & 0x2000 ? "=" : "",
-             st & 0x1000 ? "C" : "",
-             st & 0x0800 ? "O" : "",
-             st & 0x0400 ? "P" : "",
-             st & 0x0200 ? "X" : "");
+    *tp++ = '[';
+    if (st & 0x8000) *tp++ = 'G';
+    if (st & 0x4000) *tp++ = 'A';
+    if (st & 0x2000) *tp++ = '=';
+    if (st & 0x1000) *tp++ = 'C';
+    if (st & 0x0800) *tp++ = 'O';
+    if (st & 0x0400) *tp++ = 'P';
+    if (st & 0x0200) *tp++ = 'X';
+    *tp++=']';
+    *tp++ = 0;
 
     return text;
 }
@@ -1043,15 +1047,15 @@ void cpuShowStatus(void)
 {
     uint16_t i;
 
-    printf ("CPU\n");
-    printf ("===\n");
-    printf ("st=%04X\nwp=%04X\npc=%04X\n", tms9900.st, tms9900.wp, tms9900.pc);
+    mprintf (0, "CPU\n");
+    mprintf (0, "===\n");
+    mprintf (0, "st=%04X\nwp=%04X\npc=%04X\n", tms9900.st, tms9900.wp, tms9900.pc);
 
     for (i = 0; i < 16; i++)
     {
-        printf ("R%02d: %04X ", i, REGR(i));
+        mprintf (0, "R%02d: %04X ", i, REGR(i));
         if ((i + 1) % 4 == 0)
-            printf ("\n");
+            mprintf (0, "\n");
     }
 }
 
@@ -1059,7 +1063,7 @@ void cpuShowStWord(void)
 {
     int st = tms9900.st;
 
-    mprintf (LVL_CPU, "st=%04X %s int=%d)\n",
+    mprintf (0, "st=%04X %s int=%d)\n",
              st, outputStatus(), st & 15);
 }
 
