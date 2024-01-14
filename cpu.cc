@@ -24,19 +24,8 @@
  *  Implements TMS9900 CPU
  */
 
-// #include <stdio.h>
-// #include <string.h>
-// #include <stdlib.h>
-// #include <stdarg.h>
-
-#define __STANDALONE 1
 #include "types.h"
-// #include "vdp.h"
 #include "cpu.h"
-// #include "grom.h"
-// #include "break.h"
-// #include "watch.h"
-// #include "cond.h"
 #include "interrupt.h"
 #include "cru.h"
 #include "unasm.h"
@@ -709,8 +698,9 @@ static void cpuExecuteJump (uint16_t opcode, int16_t offset)
     case OP_SBO:        cruBitOutput (REGR(12), offset, 1);        break;
 
     case OP_TB:
-        tms9900.st &= ~FLAG_EQ;
-        tms9900.st |= (cruBitGet (REGR(12), offset) ? FLAG_EQ : 0);
+        // tms9900.st &= ~FLAG_EQ;
+        // tms9900.st |= (cruBitGet (REGR(12), offset) ? FLAG_EQ : 0);
+        statusEqual (cruBitGet (REGR(12), offset));
         break;
 
     default:

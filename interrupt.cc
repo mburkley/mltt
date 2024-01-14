@@ -29,9 +29,6 @@
  *    http://www.stuartconner.me.uk/tms99110_breadboard/downloads/tms9901_datasheet.pdf
  */
 
-// #include <stdio.h>
-
-#define __STANDALONE 1
 #include "types.h"
 #include "trace.h"
 #include "cru.h"
