@@ -133,8 +133,9 @@ uint16_t diskRead (uint16_t addr, uint16_t size)
         else
             data = disk.data;
 
-        if (disk.bufferPos<6)
-            mprintf (LVL_DISK, "DSK - read data=%02X\n", data);
+        // if (disk.bufferPos<6)
+            mprintf (LVL_DISK, "DSK - read data [%02X]=%02X\n",
+            disk.bufferPos-1,data);
 
         if (disk.bufferPos == disk.bufferLen)
         {
@@ -296,8 +297,9 @@ void diskWrite (uint16_t addr, uint16_t data, uint16_t size)
         if (disk.buffer)
         {
             /*  For debug, we just output the first 4 bytes written */
-            if (disk.bufferPos<4)
-                mprintf (LVL_DISK, "DSK - write data %02X\n", data);
+            // if (disk.bufferPos<4)
+                mprintf (LVL_DISK, "DSK - write data [%02X]=%02X\n",
+                disk.bufferPos,data);
 
             disk.buffer[disk.bufferPos++] = data;
 

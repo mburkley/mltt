@@ -28,10 +28,13 @@ disk ../roms/disk.bin
 # diskfile 1 ../disks/PLUNDER.dsk
 # diskfile 1 ../disks/TEACHBASIC.DSK
 # diskfile 1 ../disks/blankdsdd.dsk
-diskfile 1 ../disks/mark.dsk
-diskfile 2 ../disks/Miscellaneous.tidisk
-# diskfile 3 ../disks/EdAsmA.dsk
-diskdir 3 DISKDIR
+# diskfile 1 ../disks/mark.dsk
+# diskfile 2 ../disks/Miscellaneous.tidisk
+diskfile 1 ../disks/EdAsmA.dsk RO
+diskfile 2 ../disks/EdAsmB.dsk RO
+# diskdir 3 DISKDIR
+# diskdir 3 diskzap RW
+diskfile 3 tmp.dsk RW
 
 # Load one of the following cartridges as needed
 
@@ -110,8 +113,8 @@ diskdir 3 DISKDIR
 # load ../roms/CongBngC.Bin 0x6000
 # grom ../roms/CongBngG.Bin 0x6000
 # load ../roms/DEFENDC.BIN 0x6000
-# grom ../roms/Ed-AssmG.Bin 0x6000
-grom ../roms/HtWmpusG.Bin 0x6000
+grom ../roms/Ed-AssmG.Bin 0x6000
+# grom ../roms/HtWmpusG.Bin 0x6000
 # load ../roms/ParsecC.Bin 0x6000
 # grom ../roms/ParsecG.Bin 0x6000
 # grom ../roms/ZEROZAPG.BIN 0x6000
@@ -145,7 +148,7 @@ keyboard
 # 0400=gpl debug         - show debug of GPL disassembly
 # 0800=cassette          - show cassette debug
 # 1000=disk              - show disk debug
-# level 0x0080
+# level 0x1000
 
 # Initialise the CPU
 boot

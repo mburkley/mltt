@@ -46,20 +46,23 @@ static FILE *diskFile;
 static void fileSeek (int sector)
 {
     ASSERT (diskFile != NULL, "file not open in seek");
+    printf("XX seek %d\n", sector);
     fseek (diskFile, sector * DISK_BYTES_PER_SECTOR, SEEK_SET);
 }
 
 static void fileRead (unsigned char *buffer)
 {
     ASSERT (diskFile != NULL, "file not open in read");
-    fread (buffer, DISK_BYTES_PER_SECTOR, 1, diskFile);
+    int res=fread (buffer, 1, DISK_BYTES_PER_SECTOR, diskFile);
+    printf("XX read %d\n", res);
 }
 
 static void fileWrite (unsigned char *buffer)
 {
     ASSERT (diskFile != NULL, "file not open in write");
     /*  If the file was opened read only then write will fail quietly */
-    fwrite (buffer, DISK_BYTES_PER_SECTOR, 1, diskFile);
+    int res =fwrite (buffer, 1, DISK_BYTES_PER_SECTOR, diskFile);
+    printf("XX write %d\n", res);
 }
 
 static void fileSelect(const char *name, bool readOnly)

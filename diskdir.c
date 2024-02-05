@@ -38,7 +38,7 @@
 
 static unsigned char diskData[SECTORS_PER_DISK][DISK_BYTES_PER_SECTOR];
 static int dirSector;
-static char *dirName;
+static char dirName[512];
 
 typedef struct
 {
@@ -233,11 +233,15 @@ static void dirWrite (unsigned char *buffer)
     printf ("write sector %d\n", dirSector);
 
     /*  We are only interested in updats to directory entries */
-    if (dirSector < 2 || dirSector > 34)
+    if (dirSector < 2 || dirSector > 31)
         return;
 
     // TODO should detect add chain to volume header but for now assume
-    // range 2-34 is file headers
+    // range 2-32 is file headers
+
+    // TODO files are kept in alphabetic order.  Ensure reordering file names
+    // does not break anyhting here.
+
     fileHeader *f = (fileHeader*) diskData[dirSector];
 
     FILE *fp;
@@ -280,40 +284,56 @@ static void dirWrite (unsigned char *buffer)
     fclose (fp);
 }
 
+static int dirCompare (const void *dir1, const void *dir2)
+{
+    return strcmp (((struct dirent*) dir1)->d_name, ((struct dirent*) dir2)->d_name);
+}
+
 static void dirSelect (const char *name, bool readOnly)
 {
     DIR *d;
     struct dirent *dir;
+    struct dirent fileList[128];
     struct stat st;
     int size = 0;
-    d = opendir(name);
-    ASSERT (d != NULL, "open directory");
+    int fileCount = 0;
 
+    strcpy (dirName, name);
     buildVolumeHeader(name);
     allocBitMap (0, 2);
 
+    d = opendir(name);
+    ASSERT (d != NULL, "open directory");
+
     while ((dir = readdir(d)) != NULL)
     {
-        char fname[512];
-
         if (!strcmp (dir->d_name, "."))
             continue;
 
         if (!strcmp (dir->d_name, ".."))
             continue;
 
-        dirName = strdup (name);
-        sprintf (fname, "%s/%s", dirName, dir->d_name);
+        fileList[fileCount++] = *dir;
+        ASSERT (fileCount < 128, "Too many files in disk dir");
+    }
+    closedir(d);
+
+    qsort (fileList, fileCount, sizeof (struct dirent), dirCompare);
+
+    for (int i = 0; i < fileCount; i++)
+    {
+        char fname[512];
+
+        sprintf (fname, "%s/%s", dirName, fileList[i].d_name);
         if (stat(fname, &st) != 0)
         {
             perror("stat");
             ASSERT (false, "can't stat file");
         }
         size += st.st_size;
-        printf("%s %d %d\n", dir->d_name, (int) st.st_size, size);
-        buildDirEnt (dir->d_name, fname, st.st_size);
+        printf("%s %d %d\n", fileList[i].d_name, (int) st.st_size, size);
+        buildDirEnt (fileList[i].d_name, fname, st.st_size);
     }
-    closedir(d);
     printf ("total %d\n", size);
 
     if (size > (720-32)*DISK_BYTES_PER_SECTOR)
