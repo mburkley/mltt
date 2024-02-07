@@ -56,14 +56,14 @@ tifiles;
 
 char *filesShowFlags (uint8_t flags)
 {
-    static char str[24];
+    static char str[26];
 
-    sprintf (str, "%s%s%s%s%s%s", 
+    sprintf (str, "(%s%s%s%s%s%s)", 
         (flags & 0x80) ? "VAR":"FIX",
         (flags & 0x20) ? "-EMU" : "",
         (flags & 0x10) ? "-MOD" : "",
         (flags & 0x08) ? "-WP" : "",
-        (flags & 0x02) ? "-BIN" : "-ASC",
+        (flags & 0x02) ? "-BIN" : "",
         (flags & 0x01) ? "-PROG" : "-DATA");
 
     return str;
@@ -143,5 +143,36 @@ int filesReadBinary (const char *name, uint8_t *data, int maxLength, bool verbos
     }
 
     return programSize;
+}
+
+void filesLinux2TI (const char *lname, char tname[])
+{
+    int i;
+
+    for (i = 0; i < 10; i++)
+    {
+        if (!lname[i])
+            break;
+
+        tname[i] = toupper (lname[i]);
+    }
+
+    for (; i < 10; i++)
+        tname[i] = ' ';
+}
+
+void filesTI2Linux (const char *tname, char *lname)
+{
+    int i;
+
+    for (i = 0; i < 10; i++)
+    {
+        if (tname[i] == ' ')
+            break;
+
+        lname[i] = tname[i];
+    }
+
+    lname[i] = 0;
 }
 

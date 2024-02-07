@@ -32,6 +32,7 @@
 #include <dirent.h> 
 #include <sys/stat.h>
 #include <arpa/inet.h>
+#include <sys/xattr.h>
 
 #include "trace.h"
 #include "diskdir.h"
@@ -40,117 +41,7 @@ static unsigned char diskData[SECTORS_PER_DISK][DISK_BYTES_PER_SECTOR];
 static int dirSector;
 static char dirName[512];
 
-typedef struct
-{
-    char name[10];
-    int16_t len;
-    uint8_t flags;
-    uint8_t recSec;
-    int16_t alloc;
-    uint8_t eof;
-    uint8_t recLen;
-    int16_t l3Alloc;
-    char dtCreate[4];
-    char dtUpdate[4];
-    uint8_t chain[MAX_FILE_CHAINS][3];
-}
-fileHeader;
-
 static bool fileExists[32];
-
-typedef struct
-{
-    char name[10];
-    int16_t sectors;
-    uint8_t secPerTrk;
-    char dsk[3];
-    // 0x10
-    uint8_t protected; // 'P' = protected, ' '=not
-    uint8_t tracks;
-    uint8_t sides;
-    uint8_t density; // SS=1,DS=2
-    uint8_t tbd3; // reserved
-    uint8_t fill1[11];
-    // 0x20
-    uint8_t date[8];
-    uint8_t fill2[16];
-    // 0x38
-    uint8_t bitmap[0xc8]; // bitmap 38-64, 38-91 or 38-eb for SSSD,DSSD,DSDD respec
-}
-volumeHeader;
-
-static void buildVolumeHeader (const char *name)
-{
-    volumeHeader *v = (volumeHeader*) diskData[0];
-    strncpy (v->name, name, 10);
-    v->sectors = htons (SECTORS_PER_DISK);
-    v->secPerTrk = 9;
-    memcpy (v->dsk, "DSK", 3);
-    v->protected = ' ';
-    v->tracks = 40;
-    v->sides = 2;
-    v->density = 1;
-}
-
-static void fileLinux2TI (const char *lname, char tname[])
-{
-    int i;
-
-    for (i = 0; i < 10; i++)
-    {
-        if (!lname[i])
-            break;
-
-        tname[i] = toupper (lname[i]);
-    }
-
-    for (; i < 10; i++)
-        tname[i] = ' ';
-}
-
-static void fileTI2Linux (const char *tname, char *lname)
-{
-    int i;
-
-    for (i = 0; i < 10; i++)
-    {
-        if (tname[i] == ' ')
-            break;
-
-        lname[i] = tname[i];
-    }
-
-    lname[i] = 0;
-}
-
-static void encodeChain (uint8_t chain[], uint16_t p1, uint16_t p2)
-{
-    // *p1 = (chain[1]&0xF)<<8|chain[0];
-    // *p2 = chain[1]>>4|chain[2]<<4;
-
-    chain[0] = p1 & 0xff;
-    chain[1] = ((p1 >> 8) & 0x0F)|((p2&0x0f)<<4);
-    chain[2] = p2 >> 4;
-}
-
-// TODO common funcs between this module and dumpdisk.c
-static void decodeChain (uint8_t chain[], uint16_t *p1, uint16_t *p2)
-{
-    *p1 = (chain[1]&0xF)<<8|chain[0];
-    *p2 = chain[1]>>4|chain[2]<<4;
-}
-
-static void allocBitMap (int start, int count)
-{
-    volumeHeader *v = (volumeHeader*) diskData[0];
-
-    for (int i = start; i < start+count; i++)
-    {
-        int byte = i / 8;
-        int bit = i % 8;
-        v->bitmap[byte] |= (1<<bit);
-    }
-}
 
 // static uint8_t dirData[DISK_BYTES_PER_SECTOR/2][2];
 // static int fileSectorsAlloc = 0;
@@ -164,7 +55,22 @@ static void buildDirEnt (const char *name, const char *fname, int len)
 
     fileExists[fileCount] = true;
     fileHeader *f = (fileHeader*) diskData[fileCount+2];
+
+    // Default flag is 0x01 - FIX-PROG.  If we see xattr of data or var we
+    // change flags 0x80 and or 0x01
     f->flags = 0x01;
+
+    char dataval[10];
+    dataval[0]=0;
+    int data = getxattr(fname, "user.data", dataval, 10);
+    printf ("xattr %s %d %s\n", fname, data, dataval);
+    if (data > 0 && dataval[0] == 'y')
+        f->flags &= 0xFE;
+    data = getxattr(fname, "user.var", dataval, 10);
+    printf ("xattr %s %d %s\n", fname, data, dataval);
+    if (data > 0 && dataval[0] == 'y')
+        f->flags |= 0x80;
+
     fileLinux2TI (name, f->name);
     int fileSecCount = len / DISK_BYTES_PER_SECTOR;
     f->eof = len - fileSecCount * DISK_BYTES_PER_SECTOR;

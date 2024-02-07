@@ -32,9 +32,9 @@ disk ../roms/disk.bin
 # diskfile 2 ../disks/Miscellaneous.tidisk
 diskfile 1 ../disks/EdAsmA.dsk RO
 diskfile 2 ../disks/EdAsmB.dsk RO
-# diskdir 3 DISKDIR
+diskdir 3 DISKDIR RW
 # diskdir 3 diskzap RW
-diskfile 3 tmp.dsk RW
+# diskfile 3 tmp.dsk RW
 
 # Load one of the following cartridges as needed
 
@@ -148,7 +148,7 @@ keyboard
 # 0400=gpl debug         - show debug of GPL disassembly
 # 0800=cassette          - show cassette debug
 # 1000=disk              - show disk debug
-# level 0x1000
+level 0x0010
 
 # Initialise the CPU
 boot
