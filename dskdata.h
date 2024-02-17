@@ -33,10 +33,11 @@
 #define MAX_FILE_CHAINS         76
 #define MAX_FILE_COUNT          128
 #define DISK_FILENAME_MAX       1024
+#define FILENAME_LEN            11
 
 typedef struct
 {
-    char name[10];
+    char tiname[10];
     int16_t len;
     uint8_t flags;
     uint8_t recSec;
@@ -52,7 +53,7 @@ DskFileHeader;
 
 typedef struct
 {
-    char name[10];
+    char tiname[10];
     int16_t sectors;
     uint8_t secPerTrk;
     char dsk[3];
@@ -74,12 +75,13 @@ DskVolumeHeader;
 typedef struct
 {
     DskFileHeader filehdr;
+    char osname[FILENAME_LEN];
     int sector;
     int length;
     struct
     {
         int start;
-        int len;
+        int end;
     }
     chains[MAX_FILE_CHAINS];
     int chainCount;
@@ -89,6 +91,7 @@ DskFileInfo;
 typedef struct
 {
     DskVolumeHeader volhdr;
+    char osname[FILENAME_LEN];
     int fileCount;
     FILE *fp;
     int sectorMap[1];
@@ -115,6 +118,8 @@ void dskCloseVolume(DskInfo *info);
 
 int dskFileCount (DskInfo *info);
 const char *dskFileName (DskInfo *info, int index);
+int dskFileLength (DskInfo *info, int index);
+bool dskFileProtected (DskInfo *info, int index);
 
 #endif
 
