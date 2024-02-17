@@ -58,7 +58,7 @@ static char *dskFile;
 
 static FILE *diskFp;
 
-static DiskFileHeader fileHeader[128];
+static DiskFileHeader fileHeader[MAX_FILE_COUNT];
 static int fileCount;
 
 static void *xmp_init(struct fuse_conn_info *conn,
@@ -66,6 +66,7 @@ static void *xmp_init(struct fuse_conn_info *conn,
 {
     printf ("%s\n", __func__);
 
+        #if 0
 	(void) conn;
 	cfg->use_ino = 1;
 
@@ -79,15 +80,19 @@ static void *xmp_init(struct fuse_conn_info *conn,
 	cfg->entry_timeout = 0;
 	cfg->attr_timeout = 0;
 	cfg->negative_timeout = 0;
+        #endif
 
-	return NULL;
+    return NULL;
 }
 
 static int xmp_getattr(const char *path, struct stat *stbuf,
 		       struct fuse_file_info *fi)
 {
-    printf ("%s\n", __func__);
+    printf ("%s %s\n", __func__, path);
 
+    (void) fi;
+
+        #if 0
 	(void) fi;
 	int res;
 
@@ -95,26 +100,30 @@ static int xmp_getattr(const char *path, struct stat *stbuf,
 	if (res == -1)
 		return -errno;
 
-	return 0;
+        #endif
+    return 0;
 }
 
 static int xmp_access(const char *path, int mask)
 {
-    printf ("%s\n", __func__);
+    printf ("%s %s\n", __func__, path);
 
+        #if 0
 	int res;
 
 	res = access(path, mask);
 	if (res == -1)
 		return -errno;
 
-	return 0;
+        #endif
+    return 0;
 }
 
 static int xmp_readlink(const char *path, char *buf, size_t size)
 {
-    printf ("%s\n", __func__);
+    printf ("%s\n", __func__, path);
 
+        #if 0
 	int res;
 
 	res = readlink(path, buf, size - 1);
@@ -122,7 +131,8 @@ static int xmp_readlink(const char *path, char *buf, size_t size)
 		return -errno;
 
 	buf[res] = '\0';
-	return 0;
+        #endif
+    return 0;
 }
 
 
@@ -130,8 +140,20 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		       off_t offset, struct fuse_file_info *fi,
 		       enum fuse_readdir_flags flags)
 {
-    printf ("%s\n", __func__);
+    printf ("%s\n", __func__, path);
 
+    for (int i = 0; i < fileCount; i++)
+    {
+        struct stat st;
+        memset(&st, 0, sizeof(st));
+        st.st_ino = i + 42;
+        st.st_mode = DT_REG << 12;
+
+        if (filler(buf, fileHeader[i].name, &st, 0, fill_dir_plus))
+            break;
+    }
+
+        #if 0
 	DIR *dp;
 	struct dirent *de;
 
@@ -153,46 +175,54 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	}
 
 	closedir(dp);
-	return 0;
+        #endif
+    return 0;
 }
 
 static int xmp_mknod(const char *path, mode_t mode, dev_t rdev)
 {
-    printf ("%s\n", __func__);
+    printf ("%s\n", __func__, path);
 
+        #if 0
 	int res;
 
 	res = mknod_wrapper(AT_FDCWD, path, NULL, mode, rdev);
 	if (res == -1)
 		return -errno;
 
-	return 0;
+        #endif
+    return 0;
 }
 
 static int xmp_mkdir(const char *path, mode_t mode)
 {
     printf ("%s\n", __func__);
+    return -ENOTDIR;
 
+        #if 0
 	int res;
 
 	res = mkdir(path, mode);
 	if (res == -1)
 		return -errno;
 
-	return 0;
+        return 0;
+        #endif
 }
 
 static int xmp_unlink(const char *path)
 {
-    printf ("%s\n", __func__);
+    printf ("%s %s\n", __func__, path);
 
+        #if 0
 	int res;
 
 	res = unlink(path);
 	if (res == -1)
 		return -errno;
 
-	return 0;
+        #endif
+    return 0;
 }
 
 /* No directories in TI */
@@ -206,19 +236,22 @@ static int xmp_symlink(const char *from, const char *to)
 {
     printf ("%s\n", __func__);
 
+        #if 0
 	int res;
 
 	res = symlink(from, to);
 	if (res == -1)
 		return -errno;
 
-	return 0;
+        #endif
+    return -EPERM;
 }
 
 static int xmp_rename(const char *from, const char *to, unsigned int flags)
 {
-    printf ("%s\n", __func__);
+    printf ("%s %s %s TODO\n", __func__, from, to);
 
+        #if 0
 	int res;
 
 	if (flags)
@@ -228,27 +261,31 @@ static int xmp_rename(const char *from, const char *to, unsigned int flags)
 	if (res == -1)
 		return -errno;
 
-	return 0;
+        #endif
+    return 0;
 }
 
 static int xmp_link(const char *from, const char *to)
 {
-    printf ("%s\n", __func__);
+    printf ("%s %s %s TODO\n", __func__, from, to);
 
+        #if 0
 	int res;
 
 	res = link(from, to);
 	if (res == -1)
 		return -errno;
 
-	return 0;
+        #endif
+    return 0;
 }
 
 static int xmp_chmod(const char *path, mode_t mode,
 		     struct fuse_file_info *fi)
 {
-    printf ("%s\n", __func__);
+    printf ("%s %s TODO\n", __func__, path);
 
+        #if 0
 	(void) fi;
 	int res;
 
@@ -256,7 +293,8 @@ static int xmp_chmod(const char *path, mode_t mode,
 	if (res == -1)
 		return -errno;
 
-	return 0;
+        #endif
+    return 0;
 }
 
 static int xmp_chown(const char *path, uid_t uid, gid_t gid,
@@ -264,6 +302,7 @@ static int xmp_chown(const char *path, uid_t uid, gid_t gid,
 {
     printf ("%s\n", __func__);
 
+        #if 0
 	(void) fi;
 	int res;
 
@@ -271,14 +310,16 @@ static int xmp_chown(const char *path, uid_t uid, gid_t gid,
 	if (res == -1)
 		return -errno;
 
-	return 0;
+        #endif
+    return -EPERM;
 }
 
 static int xmp_truncate(const char *path, off_t size,
 			struct fuse_file_info *fi)
 {
-    printf ("%s\n", __func__);
+    printf ("%s %s TODO\n", __func__, path);
 
+        #if 0
 	int res;
 
 	if (fi != NULL)
@@ -288,7 +329,8 @@ static int xmp_truncate(const char *path, off_t size,
 	if (res == -1)
 		return -errno;
 
-	return 0;
+        #endif
+    return 0;
 }
 
 #ifdef HAVE_UTIMENSAT
@@ -297,6 +339,7 @@ static int xmp_utimens(const char *path, const struct timespec ts[2],
 {
     printf ("%s\n", __func__);
 
+        #if 0
 	(void) fi;
 	int res;
 
@@ -305,15 +348,17 @@ static int xmp_utimens(const char *path, const struct timespec ts[2],
 	if (res == -1)
 		return -errno;
 
-	return 0;
+        #endif
+    return 0;
 }
 #endif
 
 static int xmp_create(const char *path, mode_t mode,
 		      struct fuse_file_info *fi)
 {
-    printf ("%s\n", __func__);
+    printf ("%s %s TODO\n", __func__, path);
 
+        #if 0
 	int res;
 
 	res = open(path, fi->flags, mode);
@@ -321,13 +366,15 @@ static int xmp_create(const char *path, mode_t mode,
 		return -errno;
 
 	fi->fh = res;
-	return 0;
+        #endif
+    return 0;
 }
 
 static int xmp_open(const char *path, struct fuse_file_info *fi)
 {
-    printf ("%s\n", __func__);
+    printf ("%s %s TODO\n", __func__, path);
 
+        #if 0
 	int res;
 
 	res = open(path, fi->flags);
@@ -335,16 +382,19 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 		return -errno;
 
 	fi->fh = res;
-	return 0;
+        #endif
+    return 0;
 }
 
 static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 		    struct fuse_file_info *fi)
 {
     printf ("%s\n", __func__);
+    return 0;
 
-    // diskReadData (info, buf, offset, size);
+    return diskReadData (info, buf, offset, size);
 
+        #if 0
 	int fd;
 	int res;
 
@@ -363,6 +413,7 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 	if(fi == NULL)
 		close(fd);
 	return res;
+        #endif
 }
 
 static int xmp_write(const char *path, const char *buf, size_t size,
@@ -370,6 +421,7 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 {
     printf ("%s\n", __func__);
 
+        #if 0
 	int fd;
 	int res;
 
@@ -389,12 +441,14 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 	if(fi == NULL)
 		close(fd);
 	return res;
+        #endif
 }
 
 static int xmp_statfs(const char *path, struct statvfs *stbuf)
 {
     printf ("%s\n", __func__);
 
+        #if 0
 	int res;
 
 	res = statvfs(path, stbuf);
@@ -402,15 +456,18 @@ static int xmp_statfs(const char *path, struct statvfs *stbuf)
 		return -errno;
 
 	return 0;
+        #endif
 }
 
 static int xmp_release(const char *path, struct fuse_file_info *fi)
 {
     printf ("%s\n", __func__);
 
+        #if 0
 	(void) path;
 	close(fi->fh);
 	return 0;
+        #endif
 }
 
 static int xmp_fsync(const char *path, int isdatasync,
@@ -418,6 +475,7 @@ static int xmp_fsync(const char *path, int isdatasync,
 {
     printf ("%s\n", __func__);
 
+        #if 0
 	/* Just a stub.	 This method is optional and can safely be left
 	   unimplemented */
 
@@ -425,6 +483,7 @@ static int xmp_fsync(const char *path, int isdatasync,
 	(void) isdatasync;
 	(void) fi;
 	return 0;
+        #endif
 }
 
 #ifdef HAVE_POSIX_FALLOCATE
@@ -433,6 +492,7 @@ static int xmp_fallocate(const char *path, int mode,
 {
     printf ("%s\n", __func__);
 
+        #if 0
 	int fd;
 	int res;
 
@@ -454,6 +514,7 @@ static int xmp_fallocate(const char *path, int mode,
 	if(fi == NULL)
 		close(fd);
 	return res;
+        #endif
 }
 #endif
 
@@ -464,9 +525,11 @@ static int xmp_setxattr(const char *path, const char *name, const char *value,
 {
     printf ("%s\n", __func__);
 
+        #if 0
 	int res = lsetxattr(path, name, value, size, flags);
 	if (res == -1)
 		return -errno;
+        #endif
 	return 0;
 }
 
@@ -475,9 +538,11 @@ static int xmp_getxattr(const char *path, const char *name, char *value,
 {
     printf ("%s\n", __func__);
 
+        #if 0
 	int res = lgetxattr(path, name, value, size);
 	if (res == -1)
 		return -errno;
+        #endif
 	return res;
 }
 
@@ -485,9 +550,11 @@ static int xmp_listxattr(const char *path, char *list, size_t size)
 {
     printf ("%s\n", __func__);
 
+        #if 0
 	int res = llistxattr(path, list, size);
 	if (res == -1)
 		return -errno;
+        #endif
 	return res;
 }
 
@@ -495,9 +562,11 @@ static int xmp_removexattr(const char *path, const char *name)
 {
     printf ("%s\n", __func__);
 
+        #if 0
 	int res = lremovexattr(path, name);
 	if (res == -1)
 		return -errno;
+        #endif
 	return 0;
 }
 #endif /* HAVE_SETXATTR */
@@ -511,6 +580,7 @@ static ssize_t xmp_copy_file_range(const char *path_in,
 {
     printf ("%s\n", __func__);
 
+        #if 0
 	int fd_in, fd_out;
 	ssize_t res;
 
@@ -542,6 +612,7 @@ static ssize_t xmp_copy_file_range(const char *path_in,
 	if (fi_in == NULL)
 		close(fd_in);
 
+        #endif
 	return res;
 }
 #endif
@@ -550,6 +621,7 @@ static off_t xmp_lseek(const char *path, off_t off, int whence, struct fuse_file
 {
     printf ("%s\n", __func__);
 
+        #if 0
 	int fd;
 	off_t res;
 
@@ -567,6 +639,7 @@ static off_t xmp_lseek(const char *path, off_t off, int whence, struct fuse_file
 
 	if (fi == NULL)
 		close(fd);
+        #endif
 	return res;
 }
 
@@ -645,9 +718,9 @@ int main(int argc, char *argv[])
     fread (&sector, sizeof (sector), 1, diskFp);
     // diskDecodeVolumeHeader (sector);
     fread (&sector, sizeof (sector), 1, diskFp);
-    diskAnalyseDirectory (diskFp, 1, fileHeader);
-
+    fileCount = diskAnalyseDirectory (diskFp, 1, fileHeader);
     fclose (diskFp);
+
     /*  Until we understand what fuse_main does with args we will use fixed
      *  args.  In time we can use getopt() */
     return fuse_main(argc-1, &argv[1], &xmp_oper, NULL);

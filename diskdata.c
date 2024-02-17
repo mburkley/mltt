@@ -67,14 +67,14 @@ void diskEncodeVolumeHeader (uint8_t sector[], const char *name)
     v->density = 1;
 }
 
-void diskAnalyseFile (FILE *fp, int sector)
+void diskAnalyseFile (FILE *fp, int sector, DiskFileHeader *header)
 {
     int length;
     uint8_t *prog = NULL;
     int progBytes = 0;
 
     fseek (fp, BYTES_PER_SECTOR * sector, SEEK_SET);
-    fread (&fileHeader, sizeof (fileHeader), 1, fp);
+    fread (header, 1, sizeof (DiskFileHeader), fp);
 }
 
 /*  Returns number of files */
@@ -90,7 +90,7 @@ int diskAnalyseDirectory (FILE *fp, int sector, DiskFileHeader *headers)
         sector = data[i][0] << 8 | data[i][1];
         if (sector == 0)
             break;
-        diskAnalyseFile (sector, headers[i]);
+        diskAnalyseFile (fp, sector, &headers[i]);
     }
 
     return i;

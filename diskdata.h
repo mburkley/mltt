@@ -95,7 +95,7 @@ void diskAnalyseFirstSector (void);
 void diskDumpContents (int sectorStart, int sectorCount, int recLen);
 void diskAnalyseFile (int sector);
 void diskAnalyseDirectory (int sector);
-int diskReadData (uint8_t *buff, int offset, int sectorStart, int sectorCount);
+int diskReadFileData (uint8_t *buff, int offset, int sectorStart, int sectorCount);
 
 #endif
 
