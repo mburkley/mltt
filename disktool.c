@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2023 Mark Burkley.
+ * Copyright (c) 2004-2024 Mark Burkley.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -124,11 +124,10 @@ void diskDumpContents (int sectorStart, int sectorCount, int recLen)
     }
 }
 
-static printFile (FILE *out, int sector, DiskFileInfo *header)
+static printFileInfo (FILE *out, DiskFileInfo *header)
 {
     fprintf (out, "%-10.10s", header->name);
-
-    fprintf (out, " %6d", sector);
+    fprintf (out, " %6d", header->sector);
 
     if (header->flags & 0x01)
     {

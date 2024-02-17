@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2023 Mark Burkley.
+ * Copyright (c) 2004-2024 Mark Burkley.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -73,6 +73,8 @@ DiskVolumeHeader;
 typedef struct
 {
     char name[10];
+    int sector;
+    int length;
     struct
     {
         int start;
@@ -82,6 +84,11 @@ typedef struct
     int chainCount;
 }
 DiskFileInfo;
+
+typedef struct
+{
+}
+DiskSectorMap;
 
 void diskDecodeChain (uint8_t chain[], uint16_t *p1, uint16_t *p2);
 void diskAnalyseFirstSector (void);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2023 Mark Burkley.
+ * Copyright (c) 2004-2024 Mark Burkley.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,6 +22,13 @@
 
 #ifndef __FILES_H
 #define __FILES_H
+
+#define FLAG_VAR        0x80
+#define FLAG_EMU        0x20
+#define FLAG_MOD        0x10
+#define FLAG_WP         0x08
+#define FLAG_BIN        0x02
+#define FLAG_PROG       0x01
 
 void filesReadProgram (FILE *fp, uint8_t *data, int length);
 int filesReadBinary (const char *name, uint8_t *data, int maxLength, bool verbose);
