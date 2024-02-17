@@ -109,7 +109,7 @@ static void seekDisk (void)
         driveHandler[fdd.unit].seek (sector);
 }
 
-uint16_t diskRead (uint16_t addr, uint16_t size)
+uint16_t fddRead (uint16_t addr, uint16_t size)
 {
     uint8_t data;
 
@@ -165,7 +165,7 @@ static void trackUpdate (bool inward)
     }
 }
 
-void diskWrite (uint16_t addr, uint16_t data, uint16_t size)
+void fddWrite (uint16_t addr, uint16_t data, uint16_t size)
 {
     /*  Data bus is inverted in FD1771 */
     data = (~data & 0xFF);
@@ -236,7 +236,7 @@ void diskWrite (uint16_t addr, uint16_t data, uint16_t size)
 
             fdd.buffer = diskSector;
             fdd.bufferPos = 0;
-            fdd.bufferLen = DISK_BYTES_PER_SECTOR;
+            fdd.bufferLen = DSK_BYTES_PER_SECTOR;
             break;
         case 0x90:
             printf ("TODO read multiple sector\n");
@@ -245,7 +245,7 @@ void diskWrite (uint16_t addr, uint16_t data, uint16_t size)
             mprintf (LVL_DISK, "write single sector mark=%d\n", data&3);
             fdd.buffer = diskSector;
             fdd.bufferPos = 0;
-            fdd.bufferLen = DISK_BYTES_PER_SECTOR;
+            fdd.bufferLen = DSK_BYTES_PER_SECTOR;
             break;
         case 0xB0:
             printf ("TODO write multiple sector mark=%d\n", data&3);
@@ -425,7 +425,7 @@ void fddRegisterHandler (int unit, fddHandler *handler)
     mprintf(LVL_DISK, "Handler registered for unit %d\n", unit);
 }
 
-void diskInit (void)
+void fddInit (void)
 {
     cruOutputCallbackSet (0x880, memDeviceRomSelect);
     cruOutputCallbackSet (0x881, fddSetStrobeMotor);

@@ -51,15 +51,25 @@
 #endif
 
 #include "passthrough_helpers.h"
-#include "diskdata.h"
+#include "dskdata.h"
 
 static int fill_dir_plus = 0;
 static char *dskFile;
 
-static FILE *diskFp;
+// static DiskFileHeader fileHeader[MAX_FILE_COUNT];
+// static int fileCount;
+static DskInfo *dskInfo;
 
-static DiskFileHeader fileHeader[MAX_FILE_COUNT];
-static int fileCount;
+#define MAX_OPEN_FILES MAX_FILE_COUNT
+typedef struct
+{
+    int index;
+    int pos;
+}
+FuseFileInfo;
+
+FuseFileInfo fuseFileInfo[MAX_OPEN_FILES];
+static int fuseOpenFileCount;
 
 static void *xmp_init(struct fuse_conn_info *conn,
 		      struct fuse_config *cfg)
@@ -91,6 +101,7 @@ static int xmp_getattr(const char *path, struct stat *stbuf,
     printf ("%s %s\n", __func__, path);
 
     (void) fi;
+    return 0;
 
         #if 0
 	(void) fi;
@@ -100,28 +111,23 @@ static int xmp_getattr(const char *path, struct stat *stbuf,
 	if (res == -1)
 		return -errno;
 
+        return 0;
         #endif
-    return 0;
 }
 
 static int xmp_access(const char *path, int mask)
 {
     printf ("%s %s\n", __func__, path);
 
-        #if 0
-	int res;
+    if (dskCheckFileAccess (dskInfo, path, mask) < 0)
+        return -EACCES;
 
-	res = access(path, mask);
-	if (res == -1)
-		return -errno;
-
-        #endif
     return 0;
 }
 
 static int xmp_readlink(const char *path, char *buf, size_t size)
 {
-    printf ("%s\n", __func__, path);
+    printf ("%s %s TODO\n", __func__, path);
 
         #if 0
 	int res;
@@ -140,16 +146,16 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		       off_t offset, struct fuse_file_info *fi,
 		       enum fuse_readdir_flags flags)
 {
-    printf ("%s\n", __func__, path);
+    printf ("%s %s\n", __func__, path);
 
-    for (int i = 0; i < fileCount; i++)
+    for (int i = 0; i < dskFileCount (dskInfo); i++)
     {
         struct stat st;
         memset(&st, 0, sizeof(st));
         st.st_ino = i + 42;
         st.st_mode = DT_REG << 12;
 
-        if (filler(buf, fileHeader[i].name, &st, 0, fill_dir_plus))
+        if (filler(buf, dskFileName (dskInfo, i), &st, 0, fill_dir_plus))
             break;
     }
 
@@ -181,38 +187,19 @@ static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 static int xmp_mknod(const char *path, mode_t mode, dev_t rdev)
 {
-    printf ("%s\n", __func__, path);
-
-        #if 0
-	int res;
-
-	res = mknod_wrapper(AT_FDCWD, path, NULL, mode, rdev);
-	if (res == -1)
-		return -errno;
-
-        #endif
-    return 0;
+    printf ("%s\n", __func__);
+    return -EPERM;
 }
 
 static int xmp_mkdir(const char *path, mode_t mode)
 {
     printf ("%s\n", __func__);
     return -ENOTDIR;
-
-        #if 0
-	int res;
-
-	res = mkdir(path, mode);
-	if (res == -1)
-		return -errno;
-
-        return 0;
-        #endif
 }
 
 static int xmp_unlink(const char *path)
 {
-    printf ("%s %s\n", __func__, path);
+    printf ("%s %s TODO\n", __func__, path);
 
         #if 0
 	int res;
@@ -235,15 +222,6 @@ static int xmp_rmdir(const char *path)
 static int xmp_symlink(const char *from, const char *to)
 {
     printf ("%s\n", __func__);
-
-        #if 0
-	int res;
-
-	res = symlink(from, to);
-	if (res == -1)
-		return -errno;
-
-        #endif
     return -EPERM;
 }
 
@@ -301,16 +279,6 @@ static int xmp_chown(const char *path, uid_t uid, gid_t gid,
 		     struct fuse_file_info *fi)
 {
     printf ("%s\n", __func__);
-
-        #if 0
-	(void) fi;
-	int res;
-
-	res = lchown(path, uid, gid);
-	if (res == -1)
-		return -errno;
-
-        #endif
     return -EPERM;
 }
 
@@ -357,6 +325,7 @@ static int xmp_create(const char *path, mode_t mode,
 		      struct fuse_file_info *fi)
 {
     printf ("%s %s TODO\n", __func__, path);
+    fi->fh = dskCreateFile (dskInfo, path, mode);
 
         #if 0
 	int res;
@@ -372,7 +341,20 @@ static int xmp_create(const char *path, mode_t mode,
 
 static int xmp_open(const char *path, struct fuse_file_info *fi)
 {
-    printf ("%s %s TODO\n", __func__, path);
+    int index;
+
+    printf ("%s %s\n", __func__, path);
+
+    if (fuseOpenFileCount == MAX_FILE_COUNT)
+        return -EBADF;
+
+    if ((index = dskCheckFileAccess (dskInfo, path, fi->flags)) < 0)
+        return -EACCES;
+
+    FuseFileInfo *f = &fuseFileInfo[fuseOpenFileCount];
+    fi->fh = fuseOpenFileCount++;
+    f->pos = 0;
+    f->index = index;
 
         #if 0
 	int res;
@@ -389,10 +371,19 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 		    struct fuse_file_info *fi)
 {
-    printf ("%s\n", __func__);
-    return 0;
+    int index;
 
-    return diskReadData (info, buf, offset, size);
+    printf ("%s\n", __func__);
+
+    if(fi == NULL)
+    {
+        if ((index = dskCheckFileAccess (dskInfo, path, O_RDONLY)) < 0)
+            return -EACCES;
+    }
+    else
+        index = fi->fh;
+
+    return dskReadFile (dskInfo, index, (uint8_t*) buf, offset, size);
 
         #if 0
 	int fd;
@@ -419,7 +410,19 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 static int xmp_write(const char *path, const char *buf, size_t size,
 		     off_t offset, struct fuse_file_info *fi)
 {
+    int index;
+
     printf ("%s\n", __func__);
+
+    if(fi == NULL)
+    {
+        if ((index = dskCheckFileAccess (dskInfo, path, O_WRONLY)) < 0)
+            return -EACCES;
+    }
+    else
+        index = fi->fh;
+
+    return dskWriteFile (dskInfo, index, (uint8_t*) buf, offset, size);
 
         #if 0
 	int fd;
@@ -446,7 +449,15 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 
 static int xmp_statfs(const char *path, struct statvfs *stbuf)
 {
+    int index;
+
     printf ("%s\n", __func__);
+
+    if ((index = dskCheckFileAccess (dskInfo, path, 0)) < 0)
+        return -EACCES;
+
+    return 0;
+
 
         #if 0
 	int res;
@@ -461,7 +472,8 @@ static int xmp_statfs(const char *path, struct statvfs *stbuf)
 
 static int xmp_release(const char *path, struct fuse_file_info *fi)
 {
-    printf ("%s\n", __func__);
+    printf ("%s %s TODO\n", __func__, path);
+    return 0;
 
         #if 0
 	(void) path;
@@ -474,6 +486,7 @@ static int xmp_fsync(const char *path, int isdatasync,
 		     struct fuse_file_info *fi)
 {
     printf ("%s\n", __func__);
+    return 0;
 
         #if 0
 	/* Just a stub.	 This method is optional and can safely be left
@@ -491,6 +504,7 @@ static int xmp_fallocate(const char *path, int mode,
 			off_t offset, off_t length, struct fuse_file_info *fi)
 {
     printf ("%s\n", __func__);
+    return -EOPNOTSUPP;
 
         #if 0
 	int fd;
@@ -523,32 +537,34 @@ static int xmp_fallocate(const char *path, int mode,
 static int xmp_setxattr(const char *path, const char *name, const char *value,
 			size_t size, int flags)
 {
-    printf ("%s\n", __func__);
+    printf ("%s %s TODO\n", __func__, path);
+    return 0;
 
         #if 0
 	int res = lsetxattr(path, name, value, size, flags);
 	if (res == -1)
 		return -errno;
-        #endif
 	return 0;
+        #endif
 }
 
 static int xmp_getxattr(const char *path, const char *name, char *value,
 			size_t size)
 {
-    printf ("%s\n", __func__);
+    printf ("%s %s TODO\n", __func__, path);
+    return 0;
 
         #if 0
 	int res = lgetxattr(path, name, value, size);
 	if (res == -1)
 		return -errno;
-        #endif
 	return res;
+        #endif
 }
 
 static int xmp_listxattr(const char *path, char *list, size_t size)
 {
-    printf ("%s\n", __func__);
+    printf ("%s %s TODO\n", __func__, path);
 
         #if 0
 	int res = llistxattr(path, list, size);
@@ -560,14 +576,15 @@ static int xmp_listxattr(const char *path, char *list, size_t size)
 
 static int xmp_removexattr(const char *path, const char *name)
 {
-    printf ("%s\n", __func__);
+    printf ("%s %s TODO\n", __func__, path);
+    return 0;
 
         #if 0
 	int res = lremovexattr(path, name);
 	if (res == -1)
 		return -errno;
-        #endif
 	return 0;
+        #endif
 }
 #endif /* HAVE_SETXATTR */
 
@@ -578,7 +595,8 @@ static ssize_t xmp_copy_file_range(const char *path_in,
 				   struct fuse_file_info *fi_out,
 				   off_t offset_out, size_t len, int flags)
 {
-    printf ("%s\n", __func__);
+    printf ("%s %s TODO\n", __func__, path);
+    return 0;
 
         #if 0
 	int fd_in, fd_out;
@@ -612,14 +630,15 @@ static ssize_t xmp_copy_file_range(const char *path_in,
 	if (fi_in == NULL)
 		close(fd_in);
 
-        #endif
 	return res;
+        #endif
 }
 #endif
 
 static off_t xmp_lseek(const char *path, off_t off, int whence, struct fuse_file_info *fi)
 {
-    printf ("%s\n", __func__);
+    printf ("%s %s TODO\n", __func__, path);
+    return 0;
 
         #if 0
 	int fd;
@@ -639,8 +658,8 @@ static off_t xmp_lseek(const char *path, off_t off, int whence, struct fuse_file
 
 	if (fi == NULL)
 		close(fd);
-        #endif
 	return res;
+        #endif
 }
 
 static const struct fuse_operations xmp_oper = {
@@ -708,18 +727,21 @@ int main(int argc, char *argv[])
         exit(1);
     }
     dskFile = strdup (argv[1]);
+    #if 0
     if ((diskFp = fopen (dskFile, "r")) == NULL)
     {
         printf ("Can't open %s\n", dskFile);
         return 0;
     }
 
-    uint8_t sector[DISK_BYTES_PER_SECTOR];
+    uint8_t sector[DSK_BYTES_PER_SECTOR];
     fread (&sector, sizeof (sector), 1, diskFp);
     // diskDecodeVolumeHeader (sector);
     fread (&sector, sizeof (sector), 1, diskFp);
     fileCount = diskAnalyseDirectory (diskFp, 1, fileHeader);
     fclose (diskFp);
+    #endif
+    dskInfo = dskOpenVolume (dskFile);
 
     /*  Until we understand what fuse_main does with args we will use fixed
      *  args.  In time we can use getopt() */

@@ -19,8 +19,8 @@ cassette.o \
 parse.o \
 mem.o \
 fdd.o \
-diskfile.o \
-diskfuse.o \
+dskfile.o \
+dskdata.o \
 sams.o \
 wav.o \
 files.o \
@@ -35,7 +35,7 @@ LIBS=\
 -lm \
 -lfuse3
 
-TOOLS=disasm tapetool disktool hexed fir filetool
+TOOLS=disasm tapetool disktool hexed fir filetool fuse
 
 CFLAGS=-Wall -ggdb3 -I/usr/include/fuse3
 # LDFLAGS=

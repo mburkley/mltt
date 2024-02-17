@@ -37,7 +37,7 @@
 #include "interrupt.h"
 #endif
 #include "trace.h"
-#include "diskfile.h"
+#include "dskfile.h"
 #include "fdd.h"
 
 /*  Maintain static state even though we have multiple drives.  This is ok
@@ -48,13 +48,13 @@ static void fileSeek (int sector)
 {
     ASSERT (diskFile != NULL, "file not open in seek");
     printf("XX seek %d\n", sector);
-    fseek (diskFile, sector * DISK_BYTES_PER_SECTOR, SEEK_SET);
+    fseek (diskFile, sector * DSK_BYTES_PER_SECTOR, SEEK_SET);
 }
 
 static void fileRead (unsigned char *buffer)
 {
     ASSERT (diskFile != NULL, "file not open in read");
-    int res=fread (buffer, 1, DISK_BYTES_PER_SECTOR, diskFile);
+    int res=fread (buffer, 1, DSK_BYTES_PER_SECTOR, diskFile);
     printf("XX read %d\n", res);
 }
 
@@ -62,7 +62,7 @@ static void fileWrite (unsigned char *buffer)
 {
     ASSERT (diskFile != NULL, "file not open in write");
     /*  If the file was opened read only then write will fail quietly */
-    int res =fwrite (buffer, 1, DISK_BYTES_PER_SECTOR, diskFile);
+    int res =fwrite (buffer, 1, DSK_BYTES_PER_SECTOR, diskFile);
     printf("XX write %d\n", res);
 }
 

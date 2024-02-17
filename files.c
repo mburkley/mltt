@@ -26,6 +26,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #include "types.h"
 #include "decodebasic.h"

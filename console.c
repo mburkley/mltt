@@ -54,10 +54,11 @@
 #include "status.h"
 #include "parse.h"
 #include "fdd.h"
-#include "diskfile.h"
+#include "dskfile.h"
 #include "diskdir.h"
 #include "sams.h"
 #include "mem.h"
+#include "fdd.h"
 
 static char *fileToRead;
 static bool ti994aQuitFlag;
@@ -476,7 +477,7 @@ bool consolePixelSize (int argc, char *argv[])
 bool consoleEnableDisk (int argc, char *argv[])
 {
     memLoad (argv[1], 0x4000, 1);
-    diskInit();
+    fddInit();
 
     return true;
 }
@@ -524,7 +525,7 @@ bool consoleLoadDiskFile (int argc, char *argv[])
 bool consoleLoadDiskDir (int argc, char *argv[])
 {
     int drive;
-    bool readOnly = true;
+    // bool readOnly = true;
 
     if (!parseValue (argv[1], &drive))
         return false;
@@ -534,10 +535,10 @@ bool consoleLoadDiskDir (int argc, char *argv[])
         if (strcmp (argv[3], "RW"))
             return false;
 
-        readOnly = false;
+        // readOnly = false;
     }
 
-    diskDirLoad (drive, readOnly, argv[2]);
+    // TODO diskDirLoad (drive, readOnly, argv[2]);
 
     return true;
 }

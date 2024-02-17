@@ -23,6 +23,8 @@
 #ifndef __FILES_H
 #define __FILES_H
 
+#include "types.h"
+
 #define FLAG_VAR        0x80
 #define FLAG_EMU        0x20
 #define FLAG_MOD        0x10

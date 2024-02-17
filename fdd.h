@@ -24,7 +24,7 @@
 #define __DISK_H
 
 #include "types.h"
-#include "diskdata.h"
+#include "dskdata.h"
 
 #define DISK_DRIVE_COUNT        3
 #define DISK_TRACKS_PER_SIDE 40

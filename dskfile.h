@@ -23,7 +23,7 @@
 #ifndef __DISKFILE_H
 #define __DISKFILE_H
 
-#include "diskdata.h"
+#include "dskdata.h"
 
 void diskFileLoad (int drive, bool readOnly, char *name);
 

@@ -29,6 +29,7 @@
 
 #include "types.h"
 
+#define DSK_BYTES_PER_SECTOR   256
 #define MAX_FILE_CHAINS         76
 #define MAX_FILE_COUNT          128
 #define DISK_FILENAME_MAX       1024
@@ -47,7 +48,7 @@ typedef struct
     char dtUpdate[4];
     uint8_t chain[MAX_FILE_CHAINS][3];
 }
-DiskFileHeader;
+DskFileHeader;
 
 typedef struct
 {
@@ -68,11 +69,11 @@ typedef struct
     // 0x38
     uint8_t bitmap[0xc8]; // bitmap 38-64, 38-91 or 38-eb for SSSD,DSSD,DSDD respec
 }
-DiskVolumeHeader;
+DskVolumeHeader;
 
 typedef struct
 {
-    char name[10];
+    DskFileHeader filehdr;
     int sector;
     int length;
     struct
@@ -83,19 +84,37 @@ typedef struct
     chains[MAX_FILE_CHAINS];
     int chainCount;
 }
-DiskFileInfo;
+DskFileInfo;
 
 typedef struct
 {
+    DskVolumeHeader volhdr;
+    int fileCount;
+    FILE *fp;
+    int sectorMap[1];
+    DskFileInfo files[MAX_FILE_COUNT];
 }
-DiskSectorMap;
+DskInfo;
 
 void diskDecodeChain (uint8_t chain[], uint16_t *p1, uint16_t *p2);
 void diskAnalyseFirstSector (void);
 void diskDumpContents (int sectorStart, int sectorCount, int recLen);
 void diskAnalyseFile (int sector);
 void diskAnalyseDirectory (int sector);
-int diskReadFileData (uint8_t *buff, int offset, int sectorStart, int sectorCount);
+
+void dskOutputVolumeHeader (DskInfo *info, FILE *out);
+void dskOutputDirectory (DskInfo *info, FILE *out);
+
+int dskReadFile (DskInfo *info, int index, uint8_t *buff, int offset, int size);
+int dskWriteFile (DskInfo *info, int index, uint8_t *buff, int offset, int size);
+int dskCheckFileAccess (DskInfo *info, const char *path, int flags);
+int dskCreateFile (DskInfo *info, const char *path, int mode);
+
+DskInfo *dskOpenVolume (const char *name);
+void dskCloseVolume(DskInfo *info);
+
+int dskFileCount (DskInfo *info);
+const char *dskFileName (DskInfo *info, int index);
 
 #endif
 
