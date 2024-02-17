@@ -29,7 +29,7 @@
 
 #include "types.h"
 
-#define DSK_BYTES_PER_SECTOR   256
+#define DSK_BYTES_PER_SECTOR    256
 #define MAX_FILE_CHAINS         76
 #define MAX_FILE_COUNT          128
 #define DISK_FILENAME_MAX       1024
@@ -93,8 +93,9 @@ typedef struct
     DskVolumeHeader volhdr;
     char osname[FILENAME_LEN];
     int fileCount;
+    int sectorCount;
     FILE *fp;
-    int sectorMap[1];
+    // int sectorMap[1];
     DskFileInfo files[MAX_FILE_COUNT];
 }
 DskInfo;

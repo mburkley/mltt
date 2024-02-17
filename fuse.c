@@ -389,8 +389,14 @@ static int xmp_create(const char *path, mode_t mode,
     if (*path == '/')
         path++;
 
-    printf ("%s %s TODO\n", __func__, path);
+    printf ("%s %s\n", __func__, path);
+
+    /*  Error if file exists */
+    if (dskCheckFileAccess (dskInfo, path, fi->flags) >= 0)
+        return -EACCES;
+
     fi->fh = dskCreateFile (dskInfo, path, mode);
+    return 0;
 
         #if 0
 	int res;
@@ -400,8 +406,8 @@ static int xmp_create(const char *path, mode_t mode,
 		return -errno;
 
 	fi->fh = res;
+        return 0;
         #endif
-    return 0;
 }
 
 static int xmp_open(const char *path, struct fuse_file_info *fi)
@@ -462,27 +468,6 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
         index = fuseFileInfo[fi->fh].index;
 
     return dskReadFile (dskInfo, index, (uint8_t*) buf, offset, size);
-
-        #if 0
-	int fd;
-	int res;
-
-	if(fi == NULL)
-		fd = open(path, O_RDONLY);
-	else
-		fd = fi->fh;
-	
-	if (fd == -1)
-		return -errno;
-
-	res = pread(fd, buf, size, offset);
-	if (res == -1)
-		res = -errno;
-
-	if(fi == NULL)
-		close(fd);
-	return res;
-        #endif
 }
 
 static int xmp_write(const char *path, const char *buf, size_t size,
@@ -501,7 +486,7 @@ static int xmp_write(const char *path, const char *buf, size_t size,
             return -EACCES;
     }
     else
-        index = fi->fh;
+        index = fuseFileInfo[fi->fh].index;
 
     return dskWriteFile (dskInfo, index, (uint8_t*) buf, offset, size);
 

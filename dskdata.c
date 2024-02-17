@@ -45,7 +45,27 @@ void encodeChain (uint8_t chain[], uint16_t p1, uint16_t p2)
     chain[2] = p2 >> 4;
 }
 
-void dskAllocBitMap (DskInfo *info, int start, int count)
+int dskFindFreeSector (DskInfo *info)
+{
+    DskVolumeHeader *v = &info->volhdr;
+    int i;
+
+    for (i = 0; i < info->sectorCount; i++)
+    {
+        int byte = i / 8;
+        int bit = i % 8;
+
+        if (! (v->bitmap[byte] & (1<<bit)))
+            break;
+    }
+
+    if (i == v->sectors)
+        return -1;
+
+    return i;
+}
+
+void dskAllocSectors (DskInfo *info, int start, int count)
 {
     DskVolumeHeader *v = &info->volhdr;
 
@@ -107,8 +127,99 @@ int dskFileCount (DskInfo *info)
     return info->fileCount;
 }
 
+/*  Insert a new file name into the directory maintaining alphabetic order */
 int dskCreateFile (DskInfo *info, const char *path, int mode)
 {
+    uint8_t data[DSK_BYTES_PER_SECTOR/2][2];
+
+    fseek (info->fp, DSK_BYTES_PER_SECTOR * 1, SEEK_SET);
+    fread (&data, 1, sizeof (data), info->fp);
+
+    if (info->fileCount == MAX_FILE_COUNT)
+        return -1;
+
+    DskFileInfo *file = &info->files[info->fileCount];
+    strncpy (file->osname, path, 10);
+    file->osname[10] = 0;
+    filesLinux2TI (file->osname, file->filehdr.tiname);
+
+    /* Find free sector for directory entry */
+    if ((file->sector = dskFindFreeSector (info)) == -1)
+        return -1;
+
+    dskAllocSectors (info, file->sector, 1);
+    file->length = 0;
+    file->chainCount = 0;
+
+    /*  We are committed to creating the file, so increment the file count */
+    info->fileCount++;
+
+    /*  Find where alphabetically the new file should go */
+    int index;
+    for (index = 0; index < info->fileCount; index++)
+    {
+        if (strcmp (file->osname, info->files[index].osname) < 0)
+        {
+            printf ("# %s comes before %s; break;\n", file->osname,
+                    info->files[index].osname);
+            break;
+        }
+    }
+             
+    printf ("# hole punch at %d\n", index);
+    /*  Make a hole in the dir alloc table */
+    for (int j = DSK_BYTES_PER_SECTOR/2 - 1; j > index; j--)
+    {
+        data[j][0] = data[j-1][0];
+        data[j][1] = data[j-1][1];
+    }
+
+    /*  Fill the hole with the new dir entry sector number */
+    data[index][0] = file->sector >> 8;
+    data[index][1] = file->sector & 0xff;
+
+    /*  Populate the rest of the dir entry struct */
+    file->filehdr.len = 0;
+    file->filehdr.flags = FLAG_PROG; // TODO
+    file->filehdr.recSec = 0;
+    file->filehdr.alloc = 0;
+    file->filehdr.eof = 0;
+    file->filehdr.recLen = 0;
+    memset (file->filehdr.chain, 0, MAX_FILE_CHAINS * 3);
+
+    /*  Write the updated volume header, dir entry and directory entry allocation sector */
+    printf ("# write\n");
+    fseek (info->fp, DSK_BYTES_PER_SECTOR * file->sector, SEEK_SET);
+    fwrite (&file->filehdr, 1, sizeof (DskFileHeader), info->fp);
+    fseek (info->fp, 0, SEEK_SET);
+    fwrite (&info->volhdr, 1, DSK_BYTES_PER_SECTOR, info->fp);
+    fwrite (&data, 1, sizeof (data), info->fp);
+
+        #if 0
+        if (sector == 0)
+            break;
+        // diskAnalyseFile (fp, sector, &headers[i]);
+
+        DskFileInfo *file = &info->files[i];
+
+        fseek (info->fp, DSK_BYTES_PER_SECTOR * sector, SEEK_SET);
+        fread (&file->filehdr, 1, sizeof (DskFileHeader), info->fp);
+        file->sector = sector;
+        filesTI2Linux (file->filehdr.tiname, file->osname);
+        decodeFileChains (file);
+
+        if (file->filehdr.flags & 0x01)
+        {
+            file->length = (ntohs (file->filehdr.alloc) - 1) * DSK_BYTES_PER_SECTOR + file->filehdr.eof;
+            // if (showBasic)
+            //     prog = malloc (ntohs (header->alloc) * DSK_BYTES_PER_SECTOR);
+        }
+        else
+            file->length = ntohs(file->filehdr.len);
+    }
+
+    info->fileCount = i;
+    #endif
     return 0;
 }
 
@@ -356,6 +467,8 @@ int dskReadFile (DskInfo *info, int index, uint8_t *buff, int offset, int len)
 
 int dskWriteFile (DskInfo *info, int index, uint8_t *buff, int offset, int len)
 {
+    DskFileInfo *file = &info->files[index];
+    printf ("# req write %d bytes to file %d, chains=%d\n", len, index, file->chainCount);
     return 0;
 }
 
@@ -363,7 +476,7 @@ DskInfo *dskOpenVolume (const char *name)
 {
     FILE *fp;
 
-    if ((fp = fopen (name, "r")) == NULL)
+    if ((fp = fopen (name, "r+")) == NULL)
     {
         printf ("Can't open %s\n", name);
         return NULL;
@@ -376,6 +489,8 @@ DskInfo *dskOpenVolume (const char *name)
     fread (&info->volhdr, 1, sizeof (DskVolumeHeader), fp);
     filesTI2Linux (info->volhdr.tiname, info->osname);
 
+    info->sectorCount = be16toh (info->volhdr.sectors);
+    printf ("# Volume %s has %d sectors\n", info->osname, info->sectorCount);
     readDirectory (info, 1);
 
     return info;
