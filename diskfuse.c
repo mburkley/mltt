@@ -195,17 +195,11 @@ static int xmp_unlink(const char *path)
 	return 0;
 }
 
+/* No directories in TI */
 static int xmp_rmdir(const char *path)
 {
     printf ("%s\n", __func__);
-
-	int res;
-
-	res = rmdir(path);
-	if (res == -1)
-		return -errno;
-
-	return 0;
+    return -ENOTDIR;
 }
 
 static int xmp_symlink(const char *from, const char *to)
@@ -348,6 +342,8 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
 		    struct fuse_file_info *fi)
 {
     printf ("%s\n", __func__);
+
+    // diskReadData (info, buf, offset, size);
 
 	int fd;
 	int res;
@@ -647,9 +643,9 @@ int main(int argc, char *argv[])
 
     uint8_t sector[DISK_BYTES_PER_SECTOR];
     fread (&sector, sizeof (sector), 1, diskFp);
-    diskDecodeVolumeHeader (sector);
+    // diskDecodeVolumeHeader (sector);
     fread (&sector, sizeof (sector), 1, diskFp);
-    diskAnalyseDirectory (1);
+    diskAnalyseDirectory (diskFp, 1, fileHeader);
 
     fclose (diskFp);
     /*  Until we understand what fuse_main does with args we will use fixed

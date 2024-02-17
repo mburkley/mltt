@@ -30,8 +30,8 @@
 #include "types.h"
 
 #define MAX_FILE_CHAINS         76
+#define MAX_FILE_COUNT          128
 #define DISK_FILENAME_MAX       1024
-#define DISK_BYTES_PER_SECTOR 256
 
 typedef struct
 {
@@ -69,6 +69,19 @@ typedef struct
     uint8_t bitmap[0xc8]; // bitmap 38-64, 38-91 or 38-eb for SSSD,DSSD,DSDD respec
 }
 DiskVolumeHeader;
+
+typedef struct
+{
+    char name[10];
+    struct
+    {
+        int start;
+        int len;
+    }
+    chains[MAX_FILE_CHAINS];
+    int chainCount;
+}
+DiskFileInfo;
 
 void diskDecodeChain (uint8_t chain[], uint16_t *p1, uint16_t *p2);
 void diskAnalyseFirstSector (void);

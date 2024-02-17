@@ -38,6 +38,7 @@
 #endif
 #include "trace.h"
 #include "diskfile.h"
+#include "fdd.h"
 
 /*  Maintain static state even though we have multiple drives.  This is ok
  *  because only one drive can be selected at a time */
@@ -85,7 +86,7 @@ static void fileDeselect(void)
 void diskFileLoad (int drive, bool readOnly, char *name)
 {
     FILE *fp;
-    diskDriveHandler handler =
+    fddHandler handler =
     {
         .seek = fileSeek,
         .read = fileRead,
@@ -117,6 +118,6 @@ void diskFileLoad (int drive, bool readOnly, char *name)
 
     fclose (fp);
 
-    diskRegisterDriveHandler (drive, &handler);
+    fddRegisterHandler (drive, &handler);
 }
 

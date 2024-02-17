@@ -18,9 +18,9 @@ status.o \
 cassette.o \
 parse.o \
 mem.o \
-disk.o \
+fdd.o \
 diskfile.o \
-diskdir.o \
+diskfuse.o \
 sams.o \
 wav.o \
 files.o \
@@ -32,11 +32,12 @@ LIBS=\
 -lpulse-simple\
 -lpulse\
 -lreadline \
--lm 
+-lm \
+-lfuse3
 
 TOOLS=disasm tapetool disktool hexed fir filetool
 
-CFLAGS=-Wall -ggdb3
+CFLAGS=-Wall -ggdb3 -I/usr/include/fuse3
 # LDFLAGS=
 
 all:  ti994a tests $(TOOLS)
@@ -55,4 +56,4 @@ $(TOOLS): %: $(OBJECTS) %.o
 
 %.o: %.c
 	@echo "\t[CC] $<..."
-	@$(CC) -c $(CCFLAGS) $< -o $@
+	@$(CC) -c $(CFLAGS) $< -o $@

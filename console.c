@@ -53,7 +53,7 @@
 #include "sound.h"
 #include "status.h"
 #include "parse.h"
-#include "disk.h"
+#include "fdd.h"
 #include "diskfile.h"
 #include "diskdir.h"
 #include "sams.h"

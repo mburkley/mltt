@@ -24,6 +24,7 @@
 #define __DISK_H
 
 #include "types.h"
+#include "diskdata.h"
 
 #define DISK_DRIVE_COUNT        3
 #define DISK_TRACKS_PER_SIDE 40
@@ -39,12 +40,12 @@ typedef struct
     bool readOnly;
     char name[DISK_FILENAME_MAX];
 }
-diskDriveHandler;
+fddHandler;
 
-uint16_t diskRead (uint16_t addr, uint16_t size);
-void diskWrite (uint16_t addr, uint16_t data, uint16_t size);
-void diskLoad (int drive, char *name);
-void diskInit (void);
-void diskRegisterDriveHandler (int drive, diskDriveHandler *handler);
+uint16_t fddRead (uint16_t addr, uint16_t size);
+void fddWrite (uint16_t addr, uint16_t data, uint16_t size);
+void fddLoad (int drive, char *name);
+void fddInit (void);
+void fddRegisterHandler (int drive, fddHandler *handler);
 
 #endif

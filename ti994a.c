@@ -52,7 +52,7 @@
 #include "interrupt.h"
 #include "gpl.h"
 #include "cassette.h"
-#include "disk.h"
+#include "fdd.h"
 #include "ti994a.h"
 
 bool ti994aRunFlag;

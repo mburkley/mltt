@@ -21,7 +21,9 @@
  */
 
 /*
- *  Create a virtual disk in memory from a directory
+ *  Create a virtual disk in memory from a directory.
+ *
+ *  Will be obsoleted by fuse
  */
 
 #include <stdio.h> 
@@ -36,6 +38,9 @@
 
 #include "trace.h"
 #include "diskdir.h"
+
+#define SECTORS_PER_DISK 720
+#define DISK_BYTES_PER_SECTOR 256
 
 static unsigned char diskData[SECTORS_PER_DISK][DISK_BYTES_PER_SECTOR];
 static int dirSector;
@@ -258,7 +263,7 @@ static void dirDeselect(void)
 
 void diskDirLoad (int drive, bool readOnly, char *name)
 {
-    diskDriveHandler handler =
+    fddHandler handler =
     {
         .seek = dirSeek,
         .read = dirRead,

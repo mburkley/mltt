@@ -37,7 +37,7 @@
 #include "grom.h"
 #include "vdp.h"
 #include "speech.h"
-#include "disk.h"
+#include "fdd.h"
 #include "sams.h"
 
 typedef struct _memMap
@@ -108,7 +108,7 @@ memMap mapMain[] =
 uint16_t deviceRead (uint8_t *ptr, uint16_t addr, int size)
 {
     if (deviceSelected == 1 && (addr&0x1FF0)==0x1FF0)
-        return diskRead (addr&0xF, size);
+        return fddRead (addr&0xF, size);
 
     return dataRead (ptr, addr, size);
 }
@@ -116,7 +116,7 @@ uint16_t deviceRead (uint8_t *ptr, uint16_t addr, int size)
 void deviceWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size)
 {
     if (deviceSelected == 1 && (addr&0x1FF0)==0x1FF0)
-        diskWrite (addr&0xF, data, size);
+        fddWrite (addr&0xF, data, size);
     else if (deviceSelected == 14) // SAMS card - paging TODO
         dataWrite (ptr, addr, data, size);
     else
