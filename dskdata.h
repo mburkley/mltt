@@ -38,7 +38,7 @@
 typedef struct
 {
     char tiname[10];
-    int16_t len;
+    int16_t _reserved;
     uint8_t flags;
     uint8_t recSec;
     int16_t alloc;
@@ -94,6 +94,7 @@ typedef struct
     char osname[FILENAME_LEN];
     int fileCount;
     int sectorCount;
+    int sectorsFree;
     FILE *fp;
     // int sectorMap[1];
     DskFileInfo files[MAX_FILE_COUNT];
@@ -121,6 +122,8 @@ int dskFileCount (DskInfo *info);
 const char *dskFileName (DskInfo *info, int index);
 int dskFileLength (DskInfo *info, int index);
 bool dskFileProtected (DskInfo *info, int index);
+int dskSectorCount (DskInfo *info);
+int dskSectorsFree (DskInfo *info);
 
 #endif
 

@@ -64,7 +64,7 @@ typedef struct _FuseFileInfo
 {
     bool open;
     int index;
-    int pos;
+    off_t pos;
     struct _FuseFileInfo *next;
 }
 FuseFileInfo;
@@ -386,6 +386,8 @@ static int xmp_utimens(const char *path, const struct timespec ts[2],
 static int xmp_create(const char *path, mode_t mode,
 		      struct fuse_file_info *fi)
 {
+    int index;
+
     if (*path == '/')
         path++;
 
@@ -395,7 +397,20 @@ static int xmp_create(const char *path, mode_t mode,
     if (dskCheckFileAccess (dskInfo, path, fi->flags) >= 0)
         return -EACCES;
 
-    fi->fh = dskCreateFile (dskInfo, path, mode);
+    FuseFileInfo *f = fuseFileHandleList;
+    if (f == NULL)
+        return -EBADF;
+
+    fuseFileHandleList = f->next;
+
+    if ((index = dskCreateFile (dskInfo, path, mode)) < 0)
+        return -EACCES;
+
+    fi->fh = f - fuseFileInfo;
+    printf ("file info array index=%ld\n", fi->fh);
+    f->pos = 0;
+    f->index = index;
+    f->open = true;
     return 0;
 
         #if 0
@@ -515,15 +530,19 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 
 static int xmp_statfs(const char *path, struct statvfs *stbuf)
 {
-    int index;
+    printf ("%s %s\n", __func__, path);
 
-    if (*path == '/')
-        path++;
-
-    printf ("%s\n", __func__);
-
-    if ((index = dskCheckFileAccess (dskInfo, path, 0)) < 0)
-        return -EACCES;
+    stbuf->f_bsize = DSK_BYTES_PER_SECTOR;
+    stbuf->f_frsize = DSK_BYTES_PER_SECTOR;
+    stbuf->f_blocks = dskSectorCount (dskInfo);
+    stbuf->f_bfree = dskSectorsFree (dskInfo);
+    stbuf->f_bavail = dskSectorsFree (dskInfo);
+    stbuf->f_files = MAX_FILE_COUNT;
+    stbuf->f_ffree = MAX_FILE_COUNT - dskFileCount (dskInfo);
+    stbuf->f_favail = MAX_FILE_COUNT - dskFileCount (dskInfo);
+    stbuf->f_fsid = 42;
+    stbuf->f_flag = 0;
+    stbuf->f_namemax = 10;
 
     return 0;
 
@@ -711,12 +730,18 @@ static off_t xmp_lseek(const char *path, off_t off, int whence, struct fuse_file
         return -1;
     }
 
+    /*  We don't support sparse files so any seek for data is the same as a seek
+     *  set and a seek hole is the same as a seek end */
     switch (whence)
     {
+    case SEEK_DATA:
     case SEEK_SET: f->pos = off; break;
     case SEEK_CUR: f->pos += off; break;
-    case SEEK_END: f->pos = dskFileLength (dskInfo, f->index); break;
+    case SEEK_HOLE:
+    case SEEK_END: f->pos = dskFileLength (dskInfo, f->index) + off; break;
+    default: printf ("# whence=%d ?\n", whence); break;
     }
+
     return f->pos;
 }
 

@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <assert.h>
 
 #include "files.h"
 #include "dskdata.h"
@@ -38,31 +39,77 @@ static void decodeChain (uint8_t chain[], uint16_t *p1, uint16_t *p2)
     *p2 = chain[1]>>4|chain[2]<<4;
 }
 
-void encodeChain (uint8_t chain[], uint16_t p1, uint16_t p2)
+static void encodeChain (uint8_t chain[], uint16_t p1, uint16_t p2)
 {
     chain[0] = p1 & 0xff;
     chain[1] = ((p1 >> 8) & 0x0F)|((p2&0x0f)<<4);
     chain[2] = p2 >> 4;
 }
 
-int dskFindFreeSector (DskInfo *info)
+static void decodeFileChains (DskFileInfo *file)
 {
-    DskVolumeHeader *v = &info->volhdr;
+    // TODO why 23?
+    file->chainCount = 0;
+
+    for (int i = 0; i < 23; i++)
+    {
+        uint8_t *chain=file->filehdr.chain[i];
+
+        if (chain[0] != 0 || chain[1] != 0 || chain[2] !=0)
+        {
+            uint16_t start, len;
+            decodeChain (chain, &start, &len);
+
+            file->chains[file->chainCount].start = start;
+            file->chains[file->chainCount].end = start+len;
+            file->chainCount++;
+        }
+    }
+}
+
+static void encodeFileChains (DskFileInfo *file)
+{
+    // TODO why 23?
+
+    for (int i = 0; i < 23; i++)
+    {
+        uint8_t *chain=file->filehdr.chain[i];
+
+        if (i < file->chainCount)
+        {
+            encodeChain (chain,
+                         file->chains[i].start,
+                         file->chains[i].end - file->chains[i].start);
+        }
+        else
+        {
+            chain[0] = chain[1] = chain[2] = 0;
+        }
+    }
+}
+
+static bool sectorIsFree (DskInfo *info, int sector)
+{
+    int byte = sector / 8;
+    int bit = sector % 8;
+
+    if (info->volhdr.bitmap[byte] & (1<<bit))
+        return false;
+
+    return true;
+}
+
+int dskFindFreeSector (DskInfo *info, int start)
+{
     int i;
 
-    for (i = 0; i < info->sectorCount; i++)
+    for (i = start; i < info->sectorCount; i++)
     {
-        int byte = i / 8;
-        int bit = i % 8;
-
-        if (! (v->bitmap[byte] & (1<<bit)))
-            break;
+        if (sectorIsFree (info, i))
+            return i;
     }
 
-    if (i == v->sectors)
-        return -1;
-
-    return i;
+    return -1;
 }
 
 void dskAllocSectors (DskInfo *info, int start, int count)
@@ -114,6 +161,8 @@ const char *dskFileName (DskInfo *info, int index)
 
 int dskFileLength (DskInfo *info, int index)
 {
+    printf ("# length of file index %d is %d\n", index,
+        info->files[index].length);
     return info->files[index].length;
 }
 
@@ -125,6 +174,16 @@ bool dskFileProtected (DskInfo *info, int index)
 int dskFileCount (DskInfo *info)
 {
     return info->fileCount;
+}
+
+int dskSectorCount (DskInfo *info)
+{
+    return info->sectorCount;
+}
+
+int dskSectorsFree (DskInfo *info)
+{
+    return info->sectorsFree;
 }
 
 /*  Insert a new file name into the directory maintaining alphabetic order */
@@ -144,15 +203,12 @@ int dskCreateFile (DskInfo *info, const char *path, int mode)
     filesLinux2TI (file->osname, file->filehdr.tiname);
 
     /* Find free sector for directory entry */
-    if ((file->sector = dskFindFreeSector (info)) == -1)
+    if ((file->sector = dskFindFreeSector (info, 2)) == -1)
         return -1;
 
     dskAllocSectors (info, file->sector, 1);
     file->length = 0;
     file->chainCount = 0;
-
-    /*  We are committed to creating the file, so increment the file count */
-    info->fileCount++;
 
     /*  Find where alphabetically the new file should go */
     int index;
@@ -179,7 +235,7 @@ int dskCreateFile (DskInfo *info, const char *path, int mode)
     data[index][1] = file->sector & 0xff;
 
     /*  Populate the rest of the dir entry struct */
-    file->filehdr.len = 0;
+    // file->filehdr.len = 0;
     file->filehdr.flags = FLAG_PROG; // TODO
     file->filehdr.recSec = 0;
     file->filehdr.alloc = 0;
@@ -195,32 +251,7 @@ int dskCreateFile (DskInfo *info, const char *path, int mode)
     fwrite (&info->volhdr, 1, DSK_BYTES_PER_SECTOR, info->fp);
     fwrite (&data, 1, sizeof (data), info->fp);
 
-        #if 0
-        if (sector == 0)
-            break;
-        // diskAnalyseFile (fp, sector, &headers[i]);
-
-        DskFileInfo *file = &info->files[i];
-
-        fseek (info->fp, DSK_BYTES_PER_SECTOR * sector, SEEK_SET);
-        fread (&file->filehdr, 1, sizeof (DskFileHeader), info->fp);
-        file->sector = sector;
-        filesTI2Linux (file->filehdr.tiname, file->osname);
-        decodeFileChains (file);
-
-        if (file->filehdr.flags & 0x01)
-        {
-            file->length = (ntohs (file->filehdr.alloc) - 1) * DSK_BYTES_PER_SECTOR + file->filehdr.eof;
-            // if (showBasic)
-            //     prog = malloc (ntohs (header->alloc) * DSK_BYTES_PER_SECTOR);
-        }
-        else
-            file->length = ntohs(file->filehdr.len);
-    }
-
-    info->fileCount = i;
-    #endif
-    return 0;
+    return info->fileCount++;
 }
 
 #if 0
@@ -232,37 +263,6 @@ void diskAnalyseFile (FILE *fp, int sector, DiskFileHeader *header)
 
 }
 #endif
-
-static void decodeFileChains (DskFileInfo *file)
-{
-    // TODO why 23?
-    file->chainCount = 0;
-
-    for (int i = 0; i < 23; i++)
-    {
-        uint8_t *chain=file->filehdr.chain[i];
-        if (chain[0] != 0 || chain[1] != 0 || chain[2] !=0)
-        {
-            uint16_t start, len;
-            decodeChain (chain, &start, &len);
-
-            file->chains[file->chainCount].start = start;
-            file->chains[file->chainCount].end = start+len;
-            file->chainCount++;
-            #if 0
-            fprintf (out, "%s%2d=(%d-%d)", i!=0?",":"", i, start, start+len);
-
-            if (prog)
-            {
-                progBytes = readProg (prog, progBytes, start, len);
-            }
-            else
-                dumpContents (start, len, header->recLen);
-            #endif
-        }
-    }
-
-}
 
 static void readDirectory (DskInfo *info, int sector)
 {
@@ -288,14 +288,21 @@ static void readDirectory (DskInfo *info, int sector)
         filesTI2Linux (file->filehdr.tiname, file->osname);
         decodeFileChains (file);
 
-        if (file->filehdr.flags & 0x01)
+        #if 0
+        if (file->filehdr.flags & FLAG_PROG)
         {
-            file->length = (ntohs (file->filehdr.alloc) - 1) * DSK_BYTES_PER_SECTOR + file->filehdr.eof;
+            file->length = (be16toh (file->filehdr.alloc) - 1) * DSK_BYTES_PER_SECTOR + file->filehdr.eof;
             // if (showBasic)
             //     prog = malloc (ntohs (header->alloc) * DSK_BYTES_PER_SECTOR);
         }
         else
-            file->length = ntohs(file->filehdr.len);
+            file->length = be16toh (file->filehdr.len);
+        #endif
+
+        file->length = be16toh (file->filehdr.alloc) * DSK_BYTES_PER_SECTOR;
+
+        if (file->filehdr.eof != 0)
+            file->length -= (DSK_BYTES_PER_SECTOR - file->filehdr.eof);
     }
 
     info->fileCount = i;
@@ -315,9 +322,10 @@ void dskOutputVolumeHeader (DskInfo *info, FILE *out)
     if (info->volhdr.date[0])
         fprintf (out,", year:%-8.8s", info->volhdr.date);
 
-    fprintf (out,", FAT sectors used");
+    fprintf (out,"\nSectors allocated " );
 
     #if 1
+    // TODO move the bitmap size calc out of output func
     int max = 0x64;
     if (info->volhdr.sides==2)
     {
@@ -381,12 +389,13 @@ void dskDumpContents (int sectorStart, int sectorCount, int recLen)
 
 static void printFileInfo (DskFileInfo *file, FILE *out)
 {
-    int length;
+    // int length;
 
     DskFileHeader *header = &file->filehdr;
     fprintf (out, "%-10.10s", header->tiname);
     fprintf (out, " %6d", file->sector);
 
+    #if 0
     if (header->flags & 0x01)
     {
         length = (ntohs (header->alloc) - 1) * DSK_BYTES_PER_SECTOR + header->eof;
@@ -394,19 +403,20 @@ static void printFileInfo (DskFileInfo *file, FILE *out)
         //     prog = malloc (ntohs (header->alloc) * DSK_BYTES_PER_SECTOR);
     }
     else
-        length = ntohs(header->len);
+        length = be16toh(header->len);
+    #endif
 
-    fprintf (out, " %6d", length);
+    fprintf (out, " %6d", file->length);
 
     fprintf (out, " %02X%-17.17s", header->flags,filesShowFlags (header->flags));
-    fprintf (out, " %8d", ntohs(header->alloc));
-    fprintf (out, " %8d", header->recSec * ntohs (header->alloc));
+    fprintf (out, " %8d", be16toh(header->alloc));
+    fprintf (out, " %8d", header->recSec * be16toh (header->alloc));
     fprintf (out, " %10d", header->eof);
-    fprintf (out, " %7d", ntohs(header->l3Alloc));
+    fprintf (out, " %7d", le16toh (header->l3Alloc)); // NOTE : LE not BE
     fprintf (out, " %7d", header->recLen);
 
-    // if (prog)
-    //     decodeBasicProgram (prog, length);
+    for (int i = 0; i < file->chainCount; i++)
+        fprintf (out, "%s%2d=(%d-%d)", i!=0?",":"", i, file->chains[i].start, file->chains[i].end);
 
     fprintf (out, "\n");
 }
@@ -418,7 +428,7 @@ void dskOutputDirectory (DskInfo *info, FILE *out)
     // if (count < 0)
     //     return count;
 
-    fprintf (out, "Name       Sector Len    Flags               #Sectors #Records EOF-offset L3Alloc Rec-Len Sectors\n");
+    fprintf (out, "Name       Sector Len    Flags               #Sectors #Records EOF-offset L3Alloc Rec-Len Sector chains\n");
     fprintf (out, "========== ====== ====== =================== ======== ======== ========== ======= ======= =======\n");
 
     for (int i = 0; i < info->fileCount; i++)
@@ -443,20 +453,24 @@ int dskReadFile (DskInfo *info, int index, uint8_t *buff, int offset, int len)
             if (offset > DSK_BYTES_PER_SECTOR)
             {
                 offset -= DSK_BYTES_PER_SECTOR;
+                printf ("# advance, offset now %d\n", offset);
                 continue;
             }
 
             int count = len;
 
-            fseek (info->fp, DSK_BYTES_PER_SECTOR * j, SEEK_SET);
+            fseek (info->fp, DSK_BYTES_PER_SECTOR * j + offset, SEEK_SET);
 
+            /*  If the read spans more than one sector then read only up to the
+             *  end of the currect sector for now in case the next sector is in
+             *  a difference chain */
             if (offset + len > DSK_BYTES_PER_SECTOR)
                 count = DSK_BYTES_PER_SECTOR - offset;
 
             printf ("read %d bytes from sector %d\n", count, j);
             fread (buff, 1, count, info->fp);
             buff += count;
-            offset -= count;
+            offset = 0;
             len -= count;
             total += count;
         }
@@ -467,9 +481,112 @@ int dskReadFile (DskInfo *info, int index, uint8_t *buff, int offset, int len)
 
 int dskWriteFile (DskInfo *info, int index, uint8_t *buff, int offset, int len)
 {
+    int chain;
+    int sector;
     DskFileInfo *file = &info->files[index];
+    int endOfWrite = offset + len;
+
+    /* alloc is the number of sectors that have been allocated and remain
+     * available for write.  This is reduced by offset */
+    int alloc = be16toh (file->filehdr.alloc);
+    int total = 0;
+
     printf ("# req write %d bytes to file %d, chains=%d\n", len, index, file->chainCount);
-    return 0;
+
+    for (chain = 0; chain < file->chainCount; chain++)
+    {
+        printf ("# start=%d end=%d\n", file->chains[chain].start, file->chains[chain].end);
+        for (sector = file->chains[chain].start; sector <= file->chains[chain].end; sector++)
+        {
+            if (offset < DSK_BYTES_PER_SECTOR)
+                break;
+
+            offset -= DSK_BYTES_PER_SECTOR;
+            alloc--;
+        }
+    }
+
+    assert (alloc != 0 || chain == file->chainCount);
+
+    /*  We have found the position in the chain to start writing, which may at
+     *  the end of the file.  If offset is non zero, or if offset+len is less
+     *  than the end of the sector, then we need to do a read-modify-write (NO)*/
+    while (len)
+    {
+        int count;
+
+        if (alloc == 0)
+        {
+            /*  We have reached EOF.  Allocate a new sector */
+            sector = dskFindFreeSector (info, 34); // 34th sector seems to be
+            // standard for first data
+            printf ("# Allocate new sector %d\n", sector);
+            dskAllocSectors (info, sector, 1);
+            alloc++;
+            file->filehdr.alloc = htobe16 (be16toh (file->filehdr.alloc) + 1);
+
+            /*  Is the new sector contiguous to the last sector in the last
+             *  chain?  If so, then update the end of chain, otherwise create a
+             *  new chain */
+            if (chain > 0 && file->chains[chain-1].end + 1 == sector)
+            {
+                printf ("# Append to existing chain %d\n", chain-1);
+                file->chains[chain-1].end = sector;
+            }
+            else
+            {
+                /*  TODO check if we run out of chains */
+                printf ("# Allocate new chain %d\n", chain);
+                file->chains[chain].start =
+                file->chains[chain].end = sector;
+                file->chainCount++;
+                chain++;
+            }
+        }
+
+        if (offset + len > DSK_BYTES_PER_SECTOR)
+            count = DSK_BYTES_PER_SECTOR - offset;
+        else
+            count = len;
+
+        fseek (info->fp, DSK_BYTES_PER_SECTOR * sector + offset, SEEK_SET);
+        printf ("writing %d bytes to sector %d offset %d\n", count, sector, offset);
+        total += fwrite (buff, 1, count, info->fp);
+
+        offset -= count;
+        len -= count;
+        buff += count;
+
+        /*  Advance to the next sector.  Check if it is still in the current
+         *  chain */
+        sector++;
+        alloc--;
+
+        if (len && alloc && sector > file->chains[chain].end)
+        {
+            printf ("# not at eof, but end of chain, advance to next chain\n");
+            chain++;
+            sector = file->chains[chain].start;
+        }
+    }
+
+    if (endOfWrite > file->length)
+    {
+        file->length = endOfWrite;
+        // file->filehdr.len = htobe16 (endOfWrite);
+        file->filehdr.eof = endOfWrite % DSK_BYTES_PER_SECTOR;
+    }
+
+    encodeFileChains (file);
+
+    /*  Write the updated volume header and dir entry */
+    printf ("# write\n");
+    fseek (info->fp, DSK_BYTES_PER_SECTOR * file->sector, SEEK_SET);
+    fwrite (&file->filehdr, 1, sizeof (DskFileHeader), info->fp);
+    fseek (info->fp, 0, SEEK_SET);
+    fwrite (&info->volhdr, 1, DSK_BYTES_PER_SECTOR, info->fp);
+
+    return total;
 }
 
 DskInfo *dskOpenVolume (const char *name)
@@ -490,7 +607,16 @@ DskInfo *dskOpenVolume (const char *name)
     filesTI2Linux (info->volhdr.tiname, info->osname);
 
     info->sectorCount = be16toh (info->volhdr.sectors);
-    printf ("# Volume %s has %d sectors\n", info->osname, info->sectorCount);
+    info->sectorsFree = 0;
+
+    for (int i = 0; i < info->sectorCount; i++)
+    {
+        if (sectorIsFree (info, i))
+            info->sectorsFree++;
+    }
+
+    printf ("# Volume %s has %d sectors (%d free)\n", info->osname,
+            info->sectorCount, info->sectorsFree);
     readDirectory (info, 1);
 
     return info;
@@ -499,5 +625,6 @@ DskInfo *dskOpenVolume (const char *name)
 void dskCloseVolume(DskInfo *info)
 {
     fclose (info->fp);
+    free (info);
 }
 
