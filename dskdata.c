@@ -126,8 +126,9 @@ void dskAllocSectors (DskInfo *info, int start, int count)
 
 void dskEncodeVolumeHeader (DskInfo *info, const char *name)
 {
+    int flags;
     DskVolumeHeader *v = &info->volhdr;
-    filesLinux2TI (name, v->tiname);
+    filesLinux2TI (name, v->tiname, &flags);
     // v->sectors = htons (SECTORS_PER_DISK);
     v->sectors = htons (720);  // TODO make this a param
     v->secPerTrk = 9;

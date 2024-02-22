@@ -31,7 +31,7 @@ disk ../roms/disk.bin
 # diskfile 1 ../disks/mark.dsk
 # diskfile 2 ../disks/Miscellaneous.tidisk
 # diskfile 1 ../disks/EdAsmA.dsk RO
-diskfile 1 ./tmp.dsk RW
+diskfile 1 ./disk.dsk RW
 diskfile 2 ./tmp2.dsk RW
 # diskfile 2 ../disks/EdAsmB.dsk RO
 diskdir 3 DISKDIR RW
@@ -43,7 +43,7 @@ diskdir 3 DISKDIR RW
 #
 #  The Attack
 #
-# grom ../roms/attackg.bin  0x6000
+grom ../roms/attackg.bin  0x6000
 
 #
 #  Munchman
@@ -115,7 +115,7 @@ diskdir 3 DISKDIR RW
 # load ../roms/CongBngC.Bin 0x6000
 # grom ../roms/CongBngG.Bin 0x6000
 # load ../roms/DEFENDC.BIN 0x6000
-grom ../roms/Ed-AssmG.Bin 0x6000
+# grom ../roms/Ed-AssmG.Bin 0x6000
 # grom ../roms/HtWmpusG.Bin 0x6000
 # load ../roms/ParsecC.Bin 0x6000
 # grom ../roms/ParsecG.Bin 0x6000

@@ -36,8 +36,8 @@ void filesReadProgram (FILE *fp, uint8_t *data, int length);
 int filesReadBinary (const char *name, uint8_t *data, int maxLength, bool verbose);
 int filesReadTIFiles(const char *name, uint8_t *data, int maxLength);
 char *filesShowFlags (uint8_t flags);
-void filesLinux2TI (const char *lname, char tname[]);
-void filesTI2Linux (const char *tname, char *lname);
+void filesLinux2TI (const char *lname, char tname[], int *flags);
+void filesTI2Linux (const char *tname, int flags, char *lname);
 
 #endif
 

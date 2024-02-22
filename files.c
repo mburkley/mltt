@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <ctype.h>
 
+#include "files.h"
 #include "types.h"
 #include "decodebasic.h"
 
@@ -146,11 +147,27 @@ int filesReadBinary (const char *name, uint8_t *data, int maxLength, bool verbos
     return programSize;
 }
 
-void filesLinux2TI (const char *lname, char tname[])
+void filesLinux2TI (const char *lname, char tname[], int *flags)
 {
     int i;
+    char *dot;
+    int len = 10;
 
-    for (i = 0; i < 10; i++)
+    *flags = FLAG_PROG;
+
+    if ((dot = strchr (lname, '.')) != NULL)
+    {
+        len = dot - lname;
+
+        if (!strcmp (dot, ".bin"))
+            *flags |= FLAG_BIN;
+        else if (!strcmp (dot, ".var"))
+            *flags |= FLAG_VAR;
+        else if (!strcmp (dot, ".dat"))
+            *flags &= ~FLAG_PROG;
+    }
+
+    for (i = 0; i < len; i++)
     {
         if (!lname[i])
             break;
@@ -162,7 +179,7 @@ void filesLinux2TI (const char *lname, char tname[])
         tname[i] = ' ';
 }
 
-void filesTI2Linux (const char *tname, char *lname)
+void filesTI2Linux (const char *tname, int flags, char *lname)
 {
     int i;
 
@@ -175,5 +192,13 @@ void filesTI2Linux (const char *tname, char *lname)
     }
 
     lname[i] = 0;
+
+    if (flags & FLAG_BIN)
+        strcat (lname, ".bin");
+    else if (flags & FLAG_VAR)
+        strcat (lname, ".var");
+    else if (!(flags & FLAG_PROG))
+        strcat (lname, ".dat");
+
 }
 
