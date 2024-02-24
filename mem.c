@@ -159,8 +159,7 @@ static uint16_t invalidRead (uint8_t *data, uint16_t addr, int size)
 
 static void invalidWrite (uint8_t *data, uint16_t addr, uint16_t value, int size)
 {
-    printf ("Invalid Write %04X to %04X\n", value, addr);
-    halt ("invalid write");
+    printf ("ignore Invalid Write %04X to %04X\n", value, addr);
 }
 
 static void mmapWrite (uint8_t *data, uint16_t addr, uint16_t value, int size)

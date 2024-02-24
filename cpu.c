@@ -248,6 +248,22 @@ static void statusArithmeticGreater (bool condition)
         tms9900.st &= ~FLAG_AGT;
 }
 
+static void statusParity (uint8_t value)
+{
+    bool oddParity = false;
+
+    for (int i = 0; i < 8; i++)
+        if (value & (1<<i))
+            oddParity = !oddParity;
+
+    // printf("OP %02x = %s\n", value, oddParity ? "ODD" : "EVEN");
+
+    if (oddParity)
+        tms9900.st |= FLAG_OP;
+    else
+        tms9900.st &= ~FLAG_OP;
+}
+
 static char *outputStatus (void)
 {
     static char text[10];
@@ -266,7 +282,6 @@ static char *outputStatus (void)
 }
 static void compareWord (uint16_t sData, uint16_t dData)
 {
-    statusOverflow (false);
     statusEqual (sData == dData);
     statusLogicalGreater (sData > dData);
     // unasmPostText("[AGT:%x>%x]", (int16_t)sData, (int16_t)dData);
@@ -276,7 +291,6 @@ static void compareWord (uint16_t sData, uint16_t dData)
 
 static void compareByte (uint16_t sData, uint16_t dData)
 {
-    statusOverflow (false);
     statusEqual (sData == dData);
     statusLogicalGreater (sData > dData);
     statusArithmeticGreater ((int8_t) sData > (int8_t) dData);
@@ -366,6 +380,9 @@ static void cpuExecuteImmediate (uint16_t opcode, uint16_t reg)
     case OP_AI:
         data = REGR(reg);
         immed = cpuFetch();
+        /*  Overflow if MSB(data)=MSB(Imm) && MSB(result) != MSB (data) */
+        statusOverflow ((data & 0x8000) == (immed & 0x8000) &&
+                        ((data+immed) & 0x8000) != (data & 0x8000));
         unasmPostText ("R%d=%04X+%04X=%04X", reg, data, immed, data+immed);
         data += immed;
         statusCarry (data >= 0x10000);
@@ -464,7 +481,10 @@ static void cpuExecuteSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
         break;
 
     case OP_NEG:
-        param = -memReadW (addr);
+        param = memReadW (addr);
+        statusCarry (param == 0x8000);
+        statusOverflow (param & 0x8000);
+        param = -param;
         unasmPostText ("=%04X", param);
         memWriteW (addr, param);
         compareWord (param, 0);
@@ -479,6 +499,8 @@ static void cpuExecuteSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
 
     case OP_INC:
         param = memReadW (addr);
+        statusOverflow ((param & 0x8000) == 0 &&
+                        ((param + 1) & 0x8000) == 0x8000);
         statusCarry (param == 0xFFFF);
         param += 1;
         unasmPostText ("=%04X", param);
@@ -488,6 +510,8 @@ static void cpuExecuteSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
 
     case OP_INCT:
         param = memReadW (addr);
+        statusOverflow ((param & 0x8000) == 0 &&
+                        ((param + 2) & 0x8000) == 0x8000);
         statusCarry ((param & 0xFFFE) == 0xFFFE);
         param += 2;
         if(addr&1)
@@ -508,6 +532,8 @@ static void cpuExecuteSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
     case OP_DEC:
         param = memReadW (addr);
         statusCarry (param != 0);
+        statusOverflow ((param & 0x8000) == 0x8000 &&
+                        ((param - 1) & 0x8000) == 0);
         param -= 1;
         unasmPostText ("=%04X", param);
         memWriteW (addr, param);
@@ -517,6 +543,8 @@ static void cpuExecuteSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
     case OP_DECT:
         param = memReadW (addr);
         statusCarry (param != 0 && param != 1);
+        statusOverflow ((param & 0x8000) == 0x8000 &&
+                        ((param - 2) & 0x8000) == 0);
         param -= 2;
         /*  Not sure if this is strictly necessary, but in the ROM code there
          *  are several places where DECT is called on an odd address.  Does
@@ -557,13 +585,14 @@ static void cpuExecuteSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
 
     case OP_ABS:
         param = memReadW (addr);
+        statusCarry (param == 0x8000);
+        statusOverflow (param & 0x8000);
         /*  AGT for ABS is unusual in that it takes the sign of the source into
          *  account and doesn't just do a comparison of the result to zero */
         statusArithmeticGreater ((int8_t) param > 0);
         param = ((int16_t) param < 0) ? -param : param;
         unasmPostText ("=%04X", param);
         memWriteW (addr, param);
-        statusOverflow (false);
         statusEqual (param == 0);
         statusLogicalGreater (param != 0);
         unasmPostText (outputStatus());
@@ -752,7 +781,10 @@ static void cpuExecuteDual1 (uint16_t opcode, uint16_t dReg, uint16_t sMode, uin
      */
     case OP_LDCR:
         if (dReg <= 8)
+        {
             sData = memReadB (sAddr);
+            statusParity (sData);
+        }
 
         cruMultiBitSet (REGR(12), sData, dReg);
         mprintf(LVL_CPU, "LDCR R12=%x s=%x d=%x\n", REGR(12), sData, dReg);
@@ -760,7 +792,11 @@ static void cpuExecuteDual1 (uint16_t opcode, uint16_t dReg, uint16_t sMode, uin
 
     case OP_STCR:
         if (dReg <= 8)
-            memWriteB(sAddr, cruMultiBitGet (REGR(12), dReg));
+        {
+            sData = cruMultiBitGet (REGR(12), dReg);
+            memWriteB(sAddr, sData);
+            statusParity (sData);
+        }
         else
             memWriteW(sAddr, cruMultiBitGet (REGR(12), dReg));
         break;
@@ -804,10 +840,13 @@ static void cpuExecuteDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
         dData &= ~sData;
         unasmPostText (":&~:%02X", dData);
         compareByte (dData, 0);
+        statusParity (dData);
         break;
 
     case OP_S:
         u32 = (uint32_t) dData - sData;
+        statusOverflow ((sData & 0x8000) != (dData & 0x8000) &&
+                        (u32 & 0x8000) != (dData & 0x8000));
         dData = u32 & 0xFFFF;
         u32 >>= 16;
         unasmPostText (":-:%04X", dData);
@@ -822,6 +861,8 @@ static void cpuExecuteDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
 
     case OP_SB:
         u32 = (uint32_t) dData - sData;
+        statusOverflow ((sData & 0x8000) != (dData & 0x8000) &&
+                        (u32 & 0x8000) != (dData & 0x8000));
         dData = u32 & 0xFF;
         u32 >>= 8;
         unasmPostText (":-:%02X", dData);
@@ -832,6 +873,7 @@ static void cpuExecuteDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
         // statusCarry (u32 != 0);
         statusCarry (u32 == 0);
         compareByte (dData, 0);
+        statusParity (dData);
         break;
 
     case OP_C:
@@ -842,6 +884,7 @@ static void cpuExecuteDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
 
     case OP_CB:
         compareByte (sData, dData);
+        statusParity (sData);
         unasmPostText (":==:");
         doStore = false;
         break;
@@ -853,6 +896,7 @@ static void cpuExecuteDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
 
     case OP_MOVB:
         dData = sData;
+        statusParity (sData);
         compareByte (dData, 0);
         break;
 
@@ -866,10 +910,13 @@ static void cpuExecuteDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
         dData |= sData;
         unasmPostText (":|:%02X", dData);
         compareByte (dData, 0);
+        statusParity (dData);
         break;
 
     case OP_A:
         u32 = (uint32_t) dData + sData;
+        statusOverflow ((sData & 0x8000) == (dData & 0x8000) &&
+                        (u32 & 0x8000) != (dData & 0x8000));
         dData = u32 & 0xFFFF;
         unasmPostText (":+:%04X", dData);
         u32 >>= 16;
@@ -880,12 +927,15 @@ static void cpuExecuteDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
 
     case OP_AB:
         u32 = (uint32_t) dData + sData;
+        statusOverflow ((sData & 0x8000) == (dData & 0x8000) &&
+                        (u32 & 0x8000) != (dData & 0x8000));
         dData = u32 & 0xFF;
         unasmPostText (":+:%02X", dData);
         u32 >>= 8;
 
         statusCarry (u32 != 0);
         compareByte (dData, 0);
+        statusParity (dData);
         break;
 
     default:
