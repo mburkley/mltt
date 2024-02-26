@@ -28,7 +28,7 @@
 #define ROM_FILE_SIZE   0x2000
 
 #define BANKS_DEVICE    16
-#define BANKS_CARTRIDGE 2
+#define BANKS_CARTRIDGE 64 // Up to 512KiB banked cartridge ROM
 
 uint16_t memRead(uint16_t addr, int size);
 void memWrite(uint16_t addr, uint16_t data, int size);

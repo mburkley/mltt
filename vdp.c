@@ -32,9 +32,11 @@
 
 #include "types.h"
 #include "vdp.h"
+#include "cru.h"
 #include "grom.h"
 #include "trace.h"
 #include "status.h"
+#include "interrupt.h"
 
 #define VDP_READ 1
 #define VDP_WRITE 2
@@ -66,6 +68,8 @@
 #define VDP_FG_COLOUR       ((vdp.reg[7] & 0xf0) >> 4)
 #define VDP_BG_COLOUR       (vdp.reg[7] & 0x0f)
 
+#define VDP_VERT_RETRACE        0x80
+#define VDP_SPRITE_LINE         0x40
 #define VDP_SPRITE_COINC        0x20
 
 #define MAX_ADDR 0x8002
@@ -75,6 +79,7 @@
 #define VDP_XSIZE 256
 #define VDP_YSIZE 192
 
+/* Values take from https://en.wikipedia.org/wiki/TMS9918 */
 static struct
 {
    int r;
@@ -84,21 +89,21 @@ static struct
 colours[16] =
 {
     {0x00, 0x00, 0x00}, // Transparent
-    {0x00, 0x00, 0x00},
-    {0x00, 0xc0, 0x00},
-    {0x40, 0xff, 0x40},
-    {0x00, 0x00, 0x80},
-    {0x40, 0x40, 0xfF},
-    {0x80, 0x00, 0x00},
-    {0x00, 0xff, 0xff},
-    {0xc0, 0x00, 0x00},
-    {0xff, 0x40, 0x40},
-    {0x80, 0x80, 0x00},
-    {0xff, 0xff, 0x40},
-    {0x00, 0x80, 0x00},
-    {0xff, 0x40, 0xff},
-    {0xc0, 0xc0, 0xc0},
-    {0xff, 0xff, 0xff}
+    {0x00, 0x00, 0x00}, // blank
+    {0x0a, 0xad, 0x1e}, // medium green
+    {0x34, 0xc8, 0x4c}, // light green
+    {0x2b, 0x2d, 0xe3}, // dark blue
+    {0x51, 0x4b, 0xfb}, // light blue
+    {0xbd, 0x29, 0x25}, // dark red
+    {0x1e, 0xe2, 0xef}, // cyan
+    {0xfb, 0x2c, 0x2b}, // medium red
+    {0xff, 0x5f, 0x4c}, // light red
+    {0xbd, 0xa2, 0x2b}, // dark yellow
+    {0xd7, 0xb4, 0x54}, // light yellow
+    {0x0a, 0x8c, 0x18}, // dark green
+    {0xaf, 0x32, 0x9a}, // magenta
+    {0xb2, 0xb2, 0xb2}, // grey
+    {0xff, 0xff, 0xff}  // white
 };
 
 struct
@@ -116,6 +121,7 @@ vdp;
 
 static uint8_t vdpScreen[VDP_XSIZE][VDP_YSIZE];
 static bool vdpSpriteCoinc[VDP_XSIZE][VDP_YSIZE];
+static int vdpSpritesPerLine[VDP_YSIZE];
 static bool vdpInitialised = false;
 static bool vdpRefreshNeeded = false;
 static bool vdpModeChanged = false;
@@ -163,6 +169,8 @@ int vdpReadRegister (int reg)
 
 uint16_t vdpRead (uint8_t *ptr, uint16_t addr, int size)
 {
+    uint16_t ret;
+
     if (size != 1)
     {
         halt ("VDP can only read bytes\n");
@@ -181,7 +189,10 @@ uint16_t vdpRead (uint8_t *ptr, uint16_t addr, int size)
         return vdp.ram[vdp.addr++];
     case 2:
         vdp.cmdInProg = 0;
-        return vdp.st;
+        mprintf (LVL_VDP, "VDP read status %02X\n", vdp.st);
+        ret = vdp.st;
+        vdp.st &= 0x1f; // Read resets status bits
+        return ret;
     default:
         printf ("addr=%04X\n", addr);
         halt ("VDP invalid address");
@@ -389,9 +400,33 @@ static void vdpDrawChar (int cx, int cy, int bits, int ch)
     }
 }
 
-static void vdpDrawByte (int data, int x, int y, int col)
+static bool maxSpritesPerLine (int y, int sprite)
+{
+    vdpSpritesPerLine[y]++;
+
+    // mprintf (LVL_VDP, "per line %d = %d\n", y, vdpSpritesPerLine[y]);
+    /*  If this is the fifth sprite on this line, record its number and set the
+     *  5 per line flag.  If even higher than the fifth then just don't draw it
+     *  but don't record any details*/
+    if (vdpSpritesPerLine[y] == 5)
+    {
+        mprintf (LVL_VDP, "sprite %d is 5th on line %d\n", sprite, y);
+        vdp.st = (vdp.st & 0xe0) | sprite;
+        vdp.st |= VDP_SPRITE_LINE;
+        return false;
+    }
+    else if (vdpSpritesPerLine[y] > 5)
+        return false;
+
+    return true;
+}
+
+static void vdpDrawByte (int data, int x, int y, int col, int sprite)
 {
     int i;
+
+    if (maxSpritesPerLine (y, sprite))
+        return;
 
     for (i = 0; i < 8; i++)
     {
@@ -417,9 +452,12 @@ static void vdpDrawByte (int data, int x, int y, int col)
     }
 }
 
-static void vdpDrawByteMagnified (int data, int x, int y, int col)
+static void vdpDrawByteMagnified (int data, int x, int y, int col, int sprite)
 {
     int i;
+
+    if (maxSpritesPerLine (y, sprite))
+        return;
 
     for (i = 0; i < 8; i++)
     {
@@ -447,18 +485,18 @@ static void vdpDrawByteMagnified (int data, int x, int y, int col)
     }
 }
 
-static void vdpDrawSprites8x8 (int x, int y, int p, int c)
+static void vdpDrawSprites8x8 (int x, int y, int p, int c, int sprite)
 {
     int i;
 
     mprintf (LVL_VDP, "Draw sprite pat 8x8 %d at %d,%d\n", p, x, y);
     for (i = 0; i < 8; i++)
     {
-        vdpDrawByte (vdp.ram[p+i], x, y + i, c & 0x0F);
+        vdpDrawByte (vdp.ram[p+i], x, y + i, c & 0x0F, sprite);
     }
 }
 
-static void vdpDrawSprites16x16 (int x, int y, int p, int c)
+static void vdpDrawSprites16x16 (int x, int y, int p, int c, int sprite)
 {
     int i, col;
 
@@ -468,12 +506,12 @@ static void vdpDrawSprites16x16 (int x, int y, int p, int c)
     {
         for (i = 0; i < 16; i++)
         {
-            vdpDrawByte (vdp.ram[p+i+col*2], x + col, y + i, c & 0x0F);
+            vdpDrawByte (vdp.ram[p+i+col*2], x + col, y + i, c & 0x0F, sprite);
         }
     }
 }
 
-static void vdpDrawSprites8x8Mag (int x, int y, int p, int c)
+static void vdpDrawSprites8x8Mag (int x, int y, int p, int c, int sprite)
 {
     int i;
 
@@ -481,12 +519,12 @@ static void vdpDrawSprites8x8Mag (int x, int y, int p, int c)
 
     for (i = 0; i < 8; i++)
     {
-        vdpDrawByteMagnified (vdp.ram[p+i], x, y + i*2, c & 0x0F);
-        vdpDrawByteMagnified (vdp.ram[p+i], x, y + i*2+1, c & 0x0F);
+        vdpDrawByteMagnified (vdp.ram[p+i], x, y + i*2, c & 0x0F, sprite);
+        vdpDrawByteMagnified (vdp.ram[p+i], x, y + i*2+1, c & 0x0F, sprite);
     }
 }
 
-static void vdpDrawSprites16x16Mag (int x, int y, int p, int c)
+static void vdpDrawSprites16x16Mag (int x, int y, int p, int c, int sprite)
 {
     int i, col;
 
@@ -496,8 +534,8 @@ static void vdpDrawSprites16x16Mag (int x, int y, int p, int c)
     {
         for (i = 0; i < 16; i++)
         {
-            vdpDrawByteMagnified (vdp.ram[p+i+col*2], x + col, y + i*2, c & 0x0F);
-            vdpDrawByteMagnified (vdp.ram[p+i+col*2], x + col, y + i*2+1, c & 0x0F);
+            vdpDrawByteMagnified (vdp.ram[p+i+col*2], x + col, y + i*2, c & 0x0F, sprite);
+            vdpDrawByteMagnified (vdp.ram[p+i+col*2], x + col, y + i*2+1, c & 0x0F, sprite);
         }
     }
 }
@@ -515,6 +553,9 @@ static void vdpDrawSprites (void)
 
     size = (VDP_SPRITESIZE ? 1 : 0);
     size |= (VDP_SPRITEMAG ? 2 : 0);
+
+    for (i = 0; i < VDP_YSIZE; i++)
+        vdpSpritesPerLine[i] = 0;
 
     for (i = 0; i < 32; i++)
     {
@@ -536,16 +577,18 @@ static void vdpDrawSprites (void)
 
         statusSpriteUpdate (i, x, y, p, c);
 
+        #if 0
         /*  Transparent sprites don't get drawn */
         if (c == 0)
             continue;
+        #endif
 
         switch (size)
         {
-        case 0: vdpDrawSprites8x8 (x, y, p, c); break;
-        case 1: vdpDrawSprites16x16 (x, y, p, c); break;
-        case 2: vdpDrawSprites8x8Mag (x, y, p, c); break;
-        case 3: vdpDrawSprites16x16Mag (x, y, p, c); break;
+        case 0: vdpDrawSprites8x8 (x, y, p, c, i); break;
+        case 1: vdpDrawSprites16x16 (x, y, p, c, i); break;
+        case 2: vdpDrawSprites8x8Mag (x, y, p, c, i); break;
+        case 3: vdpDrawSprites16x16Mag (x, y, p, c, i); break;
         }
     }
 }
@@ -570,9 +613,16 @@ static void vdpUpdateMode (void)
         vdpSpritesEnabled = true;
 }
 
-void vdpRefresh (int force)
+void vdpRefresh (void)
 {
     int sc;
+
+    /*
+     *  Clear bit 2 to indicate VDP interrupt
+     */
+    mprintf (LVL_VDP, "IRQ_VDP lowered\n");
+    cruBitInput (0, IRQ_VDP, 0);
+    vdp.st |= VDP_VERT_RETRACE;
 
     if (!vdpRefreshNeeded || !vdpInitialised)
         return;

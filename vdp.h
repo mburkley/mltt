@@ -30,7 +30,7 @@ int vdpReadRegister (int reg);
 uint16_t vdpRead (uint8_t *ptr, uint16_t addr, int size);
 void vdpWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size);
 void vdpInitGraphics (bool statusPane, int scale);
-void vdpRefresh (int force);
+void vdpRefresh (void);
 void vdpPlotRaw (int x, int y, int colour);
 
 #endif

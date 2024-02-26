@@ -38,7 +38,7 @@
 
 #define BYTES_PER_SECTOR        256
 
-static char buffer[0x10000];
+static unsigned char buffer[0x10000];
 static bool showBasic = false;
 
 int main (int argc, char *argv[])

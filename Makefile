@@ -55,4 +55,4 @@ $(TOOLS): %: $(OBJECTS) %.o
 
 %.o: %.c
 	@echo "\t[CC] $<..."
-	@$(CC) -c $(CCFLAGS) $< -o $@
+	@$(CC) -c $(CFLAGS) $< -o $@
