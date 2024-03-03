@@ -196,7 +196,8 @@ static void bankSelect (uint8_t *data, uint16_t addr, uint16_t value, int size)
     else
         mapMain[3].data = romCartridge[0];
     #endif
-    int bank = (addr & 0x1E)>>1;
+    // int bank = (addr & 0x1E)>>1;
+    int bank = (addr & 0x7E)>>1;
     mapMain[3].data = romCartridge[bank];
 
     /*  TODO hack to over-ride minimum submap.  Fix this with options */
