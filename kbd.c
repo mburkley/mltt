@@ -108,6 +108,7 @@ keyExtended[] =
  */
 static int keyState[KBD_ROW][KBD_COL];
 static int lastState[KBD_ROW][KBD_COL];
+static bool alphaLock;
 
 static void kbdReopen (void)
 {
@@ -127,7 +128,7 @@ static void kbdReopen (void)
 static void decodeEvent (struct input_event ev)
 {
     int i, j;
-    int mapped = 0;
+    bool mapped = false;
 
     if (ev.type == EV_KEY && ev.value < 2)
     {
@@ -141,7 +142,7 @@ static void decodeEvent (struct input_event ev)
                              ev.value == 0 ? "UP" : "DOWN",
                              keyMap[i][j], i, j);
                     keyState[i][j] = ev.value;
-                    mapped = 1;
+                    mapped = true;
                 }
 
         if (!mapped)
@@ -169,9 +170,16 @@ static void decodeEvent (struct input_event ev)
 
                     keyState[e->row1][e->col1] = ev.value;
                     keyState[e->row2][e->col2] = ev.value;
-                    mapped = 1;
+                    mapped = true;
                 }
             }
+        }
+
+        /* Hash key, code 43, toggles alpha lock */
+        if (!mapped && ev.code == 43 && ev.value != 0)
+        {
+            alphaLock = !alphaLock;
+            mapped = true;
         }
 
         if (!mapped)
@@ -182,9 +190,10 @@ static void decodeEvent (struct input_event ev)
 
 static int kbdColumn;
 
+/*  4 column CRU bits consisting of 3 keyboard selects and 1 alphalock */
 bool kbdColumnUpdate (int index, uint8_t value)
 {
-    if (index < 18 || index > 20)
+    if (index < 18 || index > 21)
     {
         printf ("bad KBD col CRU index %d\n", index);
         halt ("bad KBD col");
@@ -198,25 +207,33 @@ bool kbdColumnUpdate (int index, uint8_t value)
     if (value)
         kbdColumn |= bit;
 
-    int kbdRow;
+    int row;
+    int col = kbdColumn & 7;
 
     // mprintf (LVL_KBD, "KBD scan col %d\n", kbdColumn);
 
-    for (kbdRow = 0; kbdRow < KBD_COL; kbdRow++)
+    for (row = 0; row < KBD_COL; row++)
     {
-        int bit = keyState[kbdRow][kbdColumn] ? 0 : 1;
+        int bit = keyState[row][col] ? 0 : 1;
 
-        if (keyState[kbdRow][kbdColumn] != lastState[kbdRow][kbdColumn])
+        if (keyState[row][col] != lastState[row][col])
         {
-            mprintf (LVL_KBD, "%s scan kbdRow/kbdColumn %d/%d = %d\n", __func__, kbdRow, kbdColumn, keyState[kbdRow][kbdColumn]);
-            lastState[kbdRow][kbdColumn] = keyState[kbdRow][kbdColumn];
+            mprintf (LVL_KBD, "%s scan row/col %d/%d = %d\n", __func__, row, col, keyState[row][col]);
+            lastState[row][col] = keyState[row][col];
         }
 
+        /* If alpha-lock column selected, row is 4 and alpha-lock is on, then
+         * pull line low */
+        if ((kbdColumn & 0x8) == 0 && row == 4 && alphaLock)
+        {
+            bit = 0;
+            printf("ix=%d alpha=%s\n", index, alphaLock?"Y":"N");
+        }
 
         // if (!bit)
-        //     mprintf (LVL_KBD, "KBD col %d, row %d active\n", kbdColumn, kbdRow);
+        //     mprintf (LVL_KBD, "KBD col %d, row %d active\n", kbdColumn, row);
 
-        cruBitInput (0, 3+kbdRow, bit);
+        cruBitInput (0, 3+row, bit);
     }
 
     /*  Return false as we want this value to be stored */

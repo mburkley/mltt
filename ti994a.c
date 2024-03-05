@@ -165,9 +165,10 @@ void ti994aInit (void)
         cruReadCallbackSet (i, tms9901BitGet);
     }
 
-    /*  Attach handlers to CRU bits that are for keyboard input column select.
+    /*  Attach handlers to CRU bits that are for keyboard input column select,
+     *  including alpha lock select.
      */
-    for (i = 18; i <= 20; i++)
+    for (i = 18; i <= 21; i++)
         cruOutputCallbackSet (i, kbdColumnUpdate);
 
     cruOutputCallbackSet (22, cassetteMotor);

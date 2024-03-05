@@ -33,5 +33,6 @@ int kbdGet (int row, int col);
 void kbdClose (void);
 void kbdOpen (const char *device);
 bool kbdColumnUpdate (int index, uint8_t value);
+bool kbdAlphaLock (int index, uint8_t value);
 
 #endif
