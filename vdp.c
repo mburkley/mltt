@@ -427,7 +427,7 @@ static bool maxSpritesPerLine (int y, int sprite)
         return false;
 
     vdpSpritesPerLine[y]++;
-    printf("per line %d=%d\n", y, vdpSpritesPerLine[y]);
+    // printf("per line %d=%d\n", y, vdpSpritesPerLine[y]);
 
     // mprintf (LVL_VDP, "per line %d = %d\n", y, vdpSpritesPerLine[y]);
     /*  If this is the fifth sprite on this line, record its number and set the
