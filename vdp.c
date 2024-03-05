@@ -330,7 +330,7 @@ void vdpInitGraphics (bool statusPane, int scale)
 
     printf ("FB size is %d x %d\n", frameBufferXSize, frameBufferYSize);
     glutInitWindowSize(frameBufferXSize, frameBufferYSize);
-    glutCreateWindow("TI-99 emulator");
+    glutCreateWindow("TI-99 emulator v" VERSION);
 
     vdpInitialised = true;
 }

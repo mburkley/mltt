@@ -36,7 +36,7 @@ LIBS=\
 
 TOOLS=disasm tapetool disktool hexed fir filetool
 
-CFLAGS=-Wall -ggdb3
+CFLAGS=-Wall -ggdb3 -DVERSION=`cat VERSION`
 # LDFLAGS=
 
 all:  ti994a tests $(TOOLS)
