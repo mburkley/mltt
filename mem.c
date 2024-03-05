@@ -118,7 +118,10 @@ void deviceWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size)
     if (deviceSelected == 1 && (addr&0x1FF0)==0x1FF0)
         diskWrite (addr&0xF, data, size);
     else if (deviceSelected == 14) // SAMS card - paging TODO
+    {
+        printf ("SAMS write %04X to %04X\n", data, addr);
         dataWrite (ptr, addr, data, size);
+    }
     else
         invalidWrite (ptr, addr, data, size);
 }
@@ -159,8 +162,7 @@ static uint16_t invalidRead (uint8_t *data, uint16_t addr, int size)
 
 static void invalidWrite (uint8_t *data, uint16_t addr, uint16_t value, int size)
 {
-    printf ("Invalid Write %04X to %04X\n", value, addr);
-    halt ("invalid write");
+    printf ("ignore Invalid Write %04X to %04X\n", value, addr);
 }
 
 static void mmapWrite (uint8_t *data, uint16_t addr, uint16_t value, int size)
@@ -180,16 +182,35 @@ static void mmapWrite (uint8_t *data, uint16_t addr, uint16_t value, int size)
  */
 static void bankSelect (uint8_t *data, uint16_t addr, uint16_t value, int size)
 {
-    mprintf (LVL_CONSOLE, "Bank Write %04X to %04X\n", value, addr);
 
     /*  Extended basic writes to addresses 0x0000 and 0x0002.  Pacman writes to
      *  0x001C and 0x001E.  Can't find a standard way to select cartridge ROMs
      *  so just checking the least significant 2 bits to cover these two caes.
+     *
+     *  for ghostbusters, looks like also writes to any even addr 0-0x20 so just
+     *  use that for now.  Will need new load commands in time or check extn.
      */
+    #if 0
     if ((addr & 3) == 2)
         mapMain[3].data = romCartridge[1];
     else
         mapMain[3].data = romCartridge[0];
+    #endif
+    // int bank = (addr & 0x1E)>>1;
+    int bank = (addr & 0x7E)>>1;
+    mapMain[3].data = romCartridge[bank];
+
+    /*  TODO hack to over-ride minimum submap.  Fix this with options */
+    mapMain[3].submap = NULL;
+    mapMain[3].readHandler = dataRead;
+    mapMain[3].writeHandler = bankSelect;
+    // mapCart[0].data = romCartridge[bank];
+    // mapCart[1].data = &romCartridge[bank][0x1000];
+
+    mprintf (LVL_CONSOLE, "Bank Write %04X to %04X, bank=%d=%p Data=%02X %02X\n",
+             value, addr, bank,
+             mapMain[3].data,
+             mapMain[3].data[0], mapMain[3].data[1]);
 }
 
 bool memDeviceRomSelect (int index, uint8_t state)
@@ -259,6 +280,9 @@ void memWriteW(uint16_t addr, uint16_t data)
     return memWrite (addr, data, 2);
 }
 
+/*  Load a file into memory.  If loading to 0x6000 and the file is larger than
+ *  8k, it is assumed each 8k chunk belongs to different bank.  The bank number
+ *  is incremented by 1 every 8K. */
 int memLoad (char *file, uint16_t addr, int bank)
 {
     FILE *fp;
@@ -275,32 +299,55 @@ int memLoad (char *file, uint16_t addr, int bank)
 
     printf("%s %s %x %x %d\n", __func__, file, addr, len, bank);
 
-    #if 0
-    if (len > ROM_FILE_SIZE)
+    int max = 0;
+    uint8_t *data;
+
+    if (addr == 0x6000)
     {
-        printf ("ROM file size unsupported %04X\n", len);
-        halt ("ROM file size");
-    }
-    #else
-    if (len > ROM_FILE_SIZE)
-        len = ROM_FILE_SIZE;
-    #endif
-
-    memMap *map = memMapEntry (addr);
-    uint8_t *data = map->data;
-
-    if (addr == 0x6000 && bank == 1)
         data = romCartridge[bank];
-
-    if (addr == 0x4000)
-        data = romDevice[bank];
-
-    int got;
-    if ((got=fread (data, sizeof (uint8_t), len, fp)) != len)
+        max = BANKS_CARTRIDGE * 8192;
+    }
+    else if (addr == 0x4000)
     {
-        printf ("%s expected len=%04X, got=%04X\n", file, len, got);
+        data = romDevice[bank];
+        max = 8192;
+    }
+    else
+    {
+        memMap *map = memMapEntry (addr);
+        data = map->data;
+
+        max = (addr == 0xA000) ? (8192 * 3) : 8192;
+    }
+
+    if (len > max)
+    {
+        printf ("%s file len %d too big for address %04X\n", __func__, len, addr);
         perror("fread");
         halt ("ROM file read failure");
+    }
+
+    while (len)
+    {
+        int target = (len > 8192) ? 8192 : len;
+        int got;
+        if ((got=fread (data, sizeof (uint8_t), target, fp)) != target)
+        {
+            printf ("%s expected len=%04X, got=%04X\n", file, target, got);
+            perror("fread");
+            halt ("ROM file read failure");
+        }
+
+        len -= target;
+
+        if (addr == 0x6000)
+        {
+            printf ("Cart bank %d=%p read %d bytes\n", bank,
+                    romCartridge[bank], got);
+            data = romCartridge[++bank];
+        }
+        else
+            data += got;
     }
 
     fclose (fp);

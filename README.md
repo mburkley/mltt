@@ -1,5 +1,6 @@
 # ti994a
 TI-99/4A emulator for Linux
+===========================
 
 This is an emulator for the TI-99/4A home computer which was my first PC back in
 1982.  I have been writing this emulator on and off for over 20 years.  It still
@@ -16,4 +17,15 @@ roms/groms/etc.  Default if unspecified is config.txt
 
 There are also command line tools to read/write cassette audio files, decode
 basic from tifiles and list or create sector dump disk files.
+
+Release Notes
+-------------
+
+version 0.90
+* Added alpha lock support (# key toggles)
+* Add joystick support (num keypad controls, 0=fire)
+* Increase cartidge bank count to 64
+* Improvements to bitmap regs
+* VDP max 4 sprites per line
+* Did some work on Overflow and Odd Parity status flags
 

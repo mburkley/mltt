@@ -47,11 +47,11 @@ static char kbdDevice[256];
  */
 static char *keyMap[KBD_ROW][KBD_COL] =
 {
-    { "=",    ".", ",", "m", "n", "/", 0, 0 }, // JS fire
-    { " ",    "l", "k", "j", "h", ";", 0, 0 }, // JS left
-    { "CR",   "o", "i", "u", "y", "p", 0, 0 }, // JS right
-    { "",     "9", "8", "7", "6", "0", 0, 0 }, // JS down
-    { "FNCT", "2", "3", "4", "5", "1", 0, 0 }, // JS up / alpha lock
+    { "=",    ".", ",", "m", "n", "/", "J1-Fire", "J2-Fire" }, // JS fire
+    { " ",    "l", "k", "j", "h", ";", "J1-Left", "J2-Left" }, // JS left
+    { "CR",   "o", "i", "u", "y", "p", "J1-Rght", "J2-Rght" }, // JS right
+    { "",     "9", "8", "7", "6", "0", "J1-Down", "J2-Down" }, // JS down
+    { "FNCT", "2", "3", "4", "5", "1", "J1-Up",   "J2-Up" },   // JS up / alpha lock
     { "SHFT", "s", "d", "f", "g", "a", 0, 0 },
     { "CTRL", "w", "e", "r", "t", "q", 0, 0 },
     { "",     "x", "c", "v", "b", "z", 0, 0 }
@@ -72,10 +72,9 @@ static int keyCode[KBD_ROW][KBD_COL] =
     {  0, 45, 46, 47, 48, 44, 0, 0 }
 };
 
-/*  This is a start at building "virtual keys" where keys on a real keyboard
+/*  This builds "virtual keys" where keys on a real keyboard
  *  create multi-key sequences.  e.g. left arrow key creates FNCT+S.
  */
-#if 1
 static struct _extended
 {
     int code;
@@ -87,24 +86,29 @@ static struct _extended
 keyExtended[] =
 {
 //    { 14,  }, // Backspace => FNCT+???
-    { 105, 4, 0, 5, 1},     // Left = FNCT+S
-    { 106, 4, 0, 5, 2},     // Right = FNCT+D
-    { 103, 4, 0, 6, 2},       // Up = FNCT+E
-    { 108, 4, 0, 7, 1},      // Down = FNCT+X
+    { 105, 4, 0, 5, 1},  // Left = FNCT+S
+    { 106, 4, 0, 5, 2},  // Right = FNCT+D
+    { 103, 4, 0, 6, 2},  // Up = FNCT+E
+    { 108, 4, 0, 7, 1},  // Down = FNCT+X
     { 110, 4, 0, 4, 1},  // Ins = FNCT+2
-    { 111, 4, 0, 4, 5}   // Del = FNCT+1
-//    { 58 // caps lock
-//    { 54,  // right shift
-//    { 97 // right control
-//    { 100 // altgr = alphalock?
+    { 111, 4, 0, 4, 5},  // Del = FNCT+1
+    {  82, 0, 6, 0, 6},  // numpad 0 = J1 fire
+    {  75, 1, 6, 1, 6},  // numpad 4 = J1 left
+    {  77, 2, 6, 2, 6},  // numpad 6 = J1 right
+    {  80, 3, 6, 3, 6},  // numpad 2 = j1 down
+    {  72, 4, 6, 4, 6},  // numpad 8 = j1 up
+    {  71, 4, 6, 1, 6},  // numpad 7 = j1 up+left
+    {  73, 4, 6, 2, 6},  // numpad 9 = J1 up+right
+    {  79, 3, 6, 1, 6},  // numpad 1 = J1 down+left
+    {  81, 3, 6, 2, 6}   // numpad 3 = j1 down+right
 };
-#endif
 
 /*  Maintain a current and previous table of key states.  The lastState table is
  *  only used to reduce debug output.
  */
 static int keyState[KBD_ROW][KBD_COL];
 static int lastState[KBD_ROW][KBD_COL];
+static bool alphaLock;
 
 static void kbdReopen (void)
 {
@@ -124,7 +128,7 @@ static void kbdReopen (void)
 static void decodeEvent (struct input_event ev)
 {
     int i, j;
-    int mapped = 0;
+    bool mapped = false;
 
     if (ev.type == EV_KEY && ev.value < 2)
     {
@@ -132,12 +136,13 @@ static void decodeEvent (struct input_event ev)
             for (j = 0; j < KBD_COL; j++)
                 if (keyCode[i][j] == ev.code)
                 {
-                    mprintf (LVL_KBD, "%s KEY %s -> '%s' (%d,%d)\n",
+                    mprintf (LVL_KBD, "%s KEY %d %s -> '%s' (%d,%d)\n",
                              __func__,
+                             ev.code,
                              ev.value == 0 ? "UP" : "DOWN",
                              keyMap[i][j], i, j);
                     keyState[i][j] = ev.value;
-                    mapped = 1;
+                    mapped = true;
                 }
 
         if (!mapped)
@@ -147,11 +152,34 @@ static void decodeEvent (struct input_event ev)
                 struct _extended *e = &keyExtended[i];
                 if (e->code == ev.code)
                 {
+                    mprintf (LVL_KBD, "%s KEY %d %s -> '%s' (%d,%d)",
+                             __func__,
+                             ev.code,
+                             ev.value == 0 ? "UP" : "DOWN",
+                             keyMap[e->row1][e->col1],
+                             e->row1, e->col1);
+                    if (e->row1 != e->row2 || e->col1 != e->col2)
+                    {
+                        /*  Emulate 2 keys press, show 2nd key */
+                        mprintf (LVL_KBD, " + %s(%d,%d)",
+                                 keyMap[e->row2][e->col2],
+                                 e->row2, e->col2);
+                    }
+
+                    mprintf (LVL_KBD, "\n");
+
                     keyState[e->row1][e->col1] = ev.value;
                     keyState[e->row2][e->col2] = ev.value;
-                    mapped = 1;
+                    mapped = true;
                 }
             }
+        }
+
+        /* Hash key, code 43, toggles alpha lock */
+        if (!mapped && ev.code == 43 && ev.value != 0)
+        {
+            alphaLock = !alphaLock;
+            mapped = true;
         }
 
         if (!mapped)
@@ -162,9 +190,10 @@ static void decodeEvent (struct input_event ev)
 
 static int kbdColumn;
 
+/*  4 column CRU bits consisting of 3 keyboard selects and 1 alphalock */
 bool kbdColumnUpdate (int index, uint8_t value)
 {
-    if (index < 18 || index > 20)
+    if (index < 18 || index > 21)
     {
         printf ("bad KBD col CRU index %d\n", index);
         halt ("bad KBD col");
@@ -178,25 +207,33 @@ bool kbdColumnUpdate (int index, uint8_t value)
     if (value)
         kbdColumn |= bit;
 
-    int kbdRow;
+    int row;
+    int col = kbdColumn & 7;
 
-    mprintf (LVL_KBD, "KBD scan col %d\n", kbdColumn);
+    // mprintf (LVL_KBD, "KBD scan col %d\n", kbdColumn);
 
-    for (kbdRow = 0; kbdRow < KBD_COL; kbdRow++)
+    for (row = 0; row < KBD_COL; row++)
     {
-        int bit = keyState[kbdRow][kbdColumn] ? 0 : 1;
+        int bit = keyState[row][col] ? 0 : 1;
 
-        if (keyState[kbdRow][kbdColumn] != lastState[kbdRow][kbdColumn])
+        if (keyState[row][col] != lastState[row][col])
         {
-            mprintf (LVL_KBD, "%s scan kbdRow/kbdColumn %d/%d = %d\n", __func__, kbdRow, kbdColumn, keyState[kbdRow][kbdColumn]);
-            lastState[kbdRow][kbdColumn] = keyState[kbdRow][kbdColumn];
+            mprintf (LVL_KBD, "%s scan row/col %d/%d = %d\n", __func__, row, col, keyState[row][col]);
+            lastState[row][col] = keyState[row][col];
         }
 
+        /* If alpha-lock column selected, row is 4 and alpha-lock is on, then
+         * pull line low */
+        if ((kbdColumn & 0x8) == 0 && row == 4 && alphaLock)
+        {
+            bit = 0;
+            printf("ix=%d alpha=%s\n", index, alphaLock?"Y":"N");
+        }
 
-        if (!bit)
-            mprintf (LVL_KBD, "KBD col %d, row %d active\n", kbdColumn, kbdRow);
+        // if (!bit)
+        //     mprintf (LVL_KBD, "KBD col %d, row %d active\n", kbdColumn, row);
 
-        cruBitInput (0, 3+kbdRow, bit);
+        cruBitInput (0, 3+row, bit);
     }
 
     /*  Return false as we want this value to be stored */

@@ -189,7 +189,7 @@ void decodeBasicProgram (uint8_t *data, int len)
     int xorCheck = WORD (data[0], data[1]);
     int addrLineNumbersTop = WORD (data[2], data[3]);
     int addrLineNumbersEnd = WORD (data[4], data[5]);
-    int addrProgramTop = WORD (data[6], data[7]);
+    // int addrProgramTop = WORD (data[6], data[7]);
     // printf ("\ncodeLen = %04X\n", xorCheck);
     if (xorCheck < 0)
     {
@@ -207,7 +207,7 @@ void decodeBasicProgram (uint8_t *data, int len)
 
     // printf ("line number table size %04X\n", addrLineNumbersTop - addrLineNumbersEnd);
     int lineCount = (addrLineNumbersTop - addrLineNumbersEnd + 1) / 4;
-    int codeOffset = addrProgramTop - addrLineNumbersTop;
+    // int codeOffset = addrProgramTop - addrLineNumbersTop;
     // printf ("code offset=%04X\n", codeOffset);
     data += 8;
     len -= 8;

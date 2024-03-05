@@ -36,7 +36,7 @@ LIBS=\
 
 TOOLS=disasm tapetool disktool hexed fir filetool
 
-CFLAGS=-Wall -ggdb3
+CFLAGS=-Wall -ggdb3 -DVERSION=`cat VERSION`
 # LDFLAGS=
 
 all:  ti994a tests $(TOOLS)
@@ -55,4 +55,4 @@ $(TOOLS): %: $(OBJECTS) %.o
 
 %.o: %.c
 	@echo "\t[CC] $<..."
-	@$(CC) -c $(CCFLAGS) $< -o $@
+	@$(CC) -c $(CFLAGS) $< -o $@

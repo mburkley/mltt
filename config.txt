@@ -1,3 +1,14 @@
+# TMP AREA
+# load /home/mark/tms9900-gcc/fcmd/FCMDC.bin 0x6000
+# grom /home/mark/tms9900-gcc/fcmd/FCMDG.bin 0x6000
+# load ghostbusters8.bin 0x6000
+# load ../roms/cputestc.bin 0x6000
+# load ../roms/ParsecC.Bin 0x6000
+# grom ../roms/ParsecG.Bin 0x6000
+# load ../roms/froggerc.bin 0x6000
+# grom ../roms/froggerg.bin 0x6000
+# TMP AREA
+
 # Uncomment this to capture ctrl-c (SIGINT) and return to consol debugger
 # ctrlc
 
@@ -111,7 +122,7 @@ diskdir 3 DISKDIR
 # grom ../roms/CongBngG.Bin 0x6000
 # load ../roms/DEFENDC.BIN 0x6000
 # grom ../roms/Ed-AssmG.Bin 0x6000
-grom ../roms/HtWmpusG.Bin 0x6000
+# grom ../roms/HtWmpusG.Bin 0x6000
 # load ../roms/ParsecC.Bin 0x6000
 # grom ../roms/ParsecG.Bin 0x6000
 # grom ../roms/ZEROZAPG.BIN 0x6000
@@ -145,7 +156,7 @@ keyboard
 # 0400=gpl debug         - show debug of GPL disassembly
 # 0800=cassette          - show cassette debug
 # 1000=disk              - show disk debug
-# level 0x0080
+level 0x0080
 
 # Initialise the CPU
 boot

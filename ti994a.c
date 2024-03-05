@@ -84,17 +84,6 @@ void ti994aShowScratchPad (bool showGplUsage)
     printf ("\n");
 }
 
-void ti994aVideoInterrupt (void)
-{
-    vdpRefresh(0);
-
-    /*
-     *  Clear bit 2 to indicate VDP interrupt
-     */
-    mprintf (LVL_INTERRUPT, "IRQ_VDP lowered\n");
-    cruBitInput (0, IRQ_VDP, 0);
-}
-
 void ti994aRun (int instPerInterrupt)
 {
     static int count;
@@ -129,7 +118,8 @@ void ti994aRun (int instPerInterrupt)
          *
          *  Messes up frogger, TODO
          */
-        if (cpuGetIntMask() == 2 && count >= instPerInterrupt)
+        // if (cpuGetIntMask() == 2 && count >= instPerInterrupt)
+        if (count >= instPerInterrupt)
         {
             shouldBlock = true;
             count -= instPerInterrupt;
@@ -156,7 +146,7 @@ void ti994aInit (void)
     timerInit ();
 
     /*  Start a 20-msec (20,000,000 nanosec == 50Hz) recurring timer to generate video interrupts */
-    timerStart (TIMER_VDP, 20000000, ti994aVideoInterrupt);
+    timerStart (TIMER_VDP, 20000000, vdpRefresh);
 
     int i;
 
@@ -175,9 +165,10 @@ void ti994aInit (void)
         cruReadCallbackSet (i, tms9901BitGet);
     }
 
-    /*  Attach handlers to CRU bits that are for keyboard input column select.
+    /*  Attach handlers to CRU bits that are for keyboard input column select,
+     *  including alpha lock select.
      */
-    for (i = 18; i <= 20; i++)
+    for (i = 18; i <= 21; i++)
         cruOutputCallbackSet (i, kbdColumnUpdate);
 
     cruOutputCallbackSet (22, cassetteMotor);
