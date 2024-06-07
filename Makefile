@@ -24,7 +24,8 @@ diskdir.o \
 sams.o \
 wav.o \
 files.o \
-decodebasic.o
+tibasic_encode.o \
+tibasic_decode.o
 
 LIBS=\
 -l glut\
@@ -34,7 +35,7 @@ LIBS=\
 -lreadline \
 -lm 
 
-TOOLS=disasm tapetool disktool hexed fir filetool
+TOOLS=disasm tapetool disktool hexed fir filetool tibasic
 
 CFLAGS=-Wall -ggdb3 -DVERSION=`cat VERSION`
 # LDFLAGS=

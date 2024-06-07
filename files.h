@@ -23,7 +23,9 @@
 #ifndef __FILES_H
 #define __FILES_H
 
-void filesReadProgram (FILE *fp, uint8_t *data, int length);
+int filesWrite (const char *name, void *data, int length, bool verbose);
+// void filesReadProgram (FILE *fp, uint8_t *data, int length);
+int filesReadText (const char *name, char *data, int maxLength, bool verbose);
 int filesReadBinary (const char *name, uint8_t *data, int maxLength, bool verbose);
 int filesReadTIFiles(const char *name, uint8_t *data, int maxLength);
 char *filesShowFlags (uint8_t flags);

@@ -26,9 +26,12 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/uio.h>
 
 #include "types.h"
-#include "decodebasic.h"
+// #include "decodebasic.h"
 
 static struct
 {
@@ -69,9 +72,64 @@ char *filesShowFlags (uint8_t flags)
     return str;
 }
 
+#if 0
 void filesReadProgram (FILE *fp, uint8_t *data, int length)
 {
-    decodeBasicProgram (data, length);
+    // decodeBasicProgram (data, length);
+}
+#endif
+
+int filesReadText (const char *name, char *data, int maxLength, bool verbose)
+{
+    FILE *fp;
+
+    if ((fp = fopen (name, "r")) == NULL)
+    {
+        fprintf (stderr, "Failed to open %s\n", name);
+        return -1;
+    }
+
+    fseek (fp, 0, SEEK_END);
+    int fileSize = ftell (fp);
+    fseek (fp, 0, SEEK_SET);
+
+    if (fileSize > maxLength)
+    {
+        fprintf (stderr, "Text file too big\n");
+        fclose (fp);
+        return -1;
+    }
+
+    int count = fread (data, sizeof (char), fileSize, fp);
+
+    if (verbose)
+        fprintf (stderr, "Read %d bytes\n", count);
+
+    return count;
+}
+
+#define MAX_IOVEC 10
+
+/*  Create a file and write it as a vector to allow header, line number tables,
+ *  data, etc, to be in separate data structures */
+int filesWrite (const char *name, void *data, int length, bool verbose)
+{
+    FILE *fp;
+
+    if ((fp = fopen (name, "w")) == NULL)
+    {
+        fprintf (stderr, "Failed to create %s\n", name);
+        return -1;
+    }
+
+    int count = fwrite (data, sizeof (char), length, fp);
+
+    if (verbose)
+        fprintf (stderr, "Wrote %d bytes\n", count);
+
+    fclose (fp);
+
+    return count;
 }
 
 int filesReadBinary (const char *name, uint8_t *data, int maxLength, bool verbose)

@@ -39,10 +39,10 @@ disk ../roms/disk.bin
 # diskfile 1 ../disks/PLUNDER.dsk
 # diskfile 1 ../disks/TEACHBASIC.DSK
 # diskfile 1 ../disks/blankdsdd.dsk
-diskfile 1 ../disks/mark.dsk
-diskfile 2 ../disks/Miscellaneous.tidisk
+diskfile 1 ../disks/mark.dsk RW
+diskfile 2 ../disks/Miscellaneous.tidisk RO
 # diskfile 3 ../disks/EdAsmA.dsk
-diskdir 3 DISKDIR
+diskdir 3 DISKDIR RO
 
 # Load one of the following cartridges as needed
 
@@ -126,7 +126,7 @@ diskdir 3 DISKDIR
 # load ../roms/ParsecC.Bin 0x6000
 # grom ../roms/ParsecG.Bin 0x6000
 # grom ../roms/ZEROZAPG.BIN 0x6000
-# grom ../roms/diskmang.bin 0x6000
+grom ../roms/diskmang.bin 0x6000
 
 #
 #  Extended Basic

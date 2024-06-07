@@ -1,0 +1,210 @@
+/*
+ * Copyright (c) 2004-2023 Mark Burkley.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <ctype.h>
+
+#include "tibasic.h"
+#include "tibasic_tokens.h"
+
+static char *outPrintf (char *output, const char *fmt, ...)
+{
+    va_list ap;
+
+    va_start (ap, fmt);
+    int count = vsprintf (output, fmt, ap);
+    va_end (ap);
+
+    if (count < 0)
+    {
+        fprintf (stderr, "output string '%s' failed\n", fmt);
+        return output;
+    }
+
+    return output + count;
+}
+
+static int decodeQuotedString (char **output, uint8_t *data)
+{
+    int strlen = *data++;
+
+    *output = outPrintf (*output, "\"%-*.*s\"", strlen, strlen, data);
+
+    return strlen+1;
+}
+
+static int decodeUnquotedString (char **output, uint8_t *data)
+{
+    int strlen = *data++;
+
+    // *output = outPrintf (*output, "'%-*.*s'", strlen, strlen, data);
+    *output = outPrintf (*output, "%-*.*s", strlen, strlen, data);
+
+    return strlen+1;
+}
+
+static int decodeLineNumber (char **output, uint8_t *data)
+{
+    int line = (data[0] << 8) + data[1];
+    *output = outPrintf (*output, "%d", line);
+    return 2;
+}
+
+/*  Spacing is tricky.  Spaces are needed
+ *  before unquoted string IF previous was multi-char token
+ *  before char sequence IF previous was multi-char token
+ *  before line numbers
+ *  before multi-char token IF prev was a line num
+ *  before multi-char token IF prev was an unquoted string
+ *  */
+static void decodeLine (char **output, uint8_t *data, bool debug)
+{
+    bool space = false;
+    int lineLen = *data++ - 1;
+
+    if (debug) *output += sprintf (*output, "line-len=%d\n", lineLen);
+
+    if (!lineLen)
+        return;
+
+    while (lineLen > 0)
+    {
+        int stlen = 1;
+        if (*data < 0x80)
+        {
+            if (space)
+                *(*output)++ = ' ';
+
+            if (debug)
+                *output += sprintf (*output, "[%c]", *data);
+            else
+                *output += sprintf (*output, "%c", *data);
+
+            space = false;
+        }
+        else if (*data == TOKEN_QUOTED_STRING)
+        {
+            if (space) *(*output)++ = ' ';
+            if (debug) *output += sprintf (*output, "[QS:");
+            stlen += decodeQuotedString (output, data+1);
+            if (debug) *output += sprintf (*output, "]");
+            space = false;
+        }
+        else if (*data == TOKEN_UNQUOTED_STRING)
+        {
+            if (space) *(*output)++ = ' ';
+            if (debug) *output += sprintf (*output, "[UQS:'");
+            stlen += decodeUnquotedString (output, data+1);
+            if (debug) *output += sprintf (*output, "']");
+            space = true;
+        }
+        else if (*data == TOKEN_LINE_NUMBER)
+        {
+            if (space) *(*output)++ = ' ';
+            if (debug) *output += sprintf (*output, "[LINE:'");
+            stlen += decodeLineNumber (output, data+1);
+            if (debug) *output += sprintf (*output, "']");
+            space = true;
+        }
+        else
+        {
+            int i;
+            for (i = 0; i < NUM_TOKENS; i++)
+                if (tokens[i].byte == *data)
+                {
+                    if (strlen (tokens[i].token) > 1 && space)
+                        *(*output)++ = ' ';
+
+                    // *output += sprintf (*output, "{%s}", tokens[i].token);
+                    if (debug) *output += sprintf (*output, "[TOK-%02x:'", tokens[i].byte);
+                    *output += sprintf (*output, "%s", tokens[i].token);
+                    if (debug) *output += sprintf (*output, "']");
+
+                    space = (strlen (tokens[i].token) > 1);
+
+                    break;
+                }
+
+            if (i == NUM_TOKENS)
+                *output += sprintf (*output, "[??? %02X]", *data);
+        }
+
+        data += stlen;
+        lineLen -= stlen;
+    }
+
+    *(*output)++ = '\n';
+}
+
+int decodeBasicProgram (uint8_t *input, int inputLen, char *output, bool debug)
+{
+    FileHeader *header = (FileHeader*) input;
+    char *outputPtr = output;
+
+    header->xorCheck = be16toh (header->xorCheck);
+    header->lineNumbersTop = be16toh (header->lineNumbersTop);
+    header->lineNumbersBottom = be16toh (header->lineNumbersBottom);
+    header->programTop = be16toh (header->programTop);
+
+    if (header->xorCheck < 0)
+    {
+        fprintf (stderr, "** Protected\n\n");
+        header->xorCheck = -header->xorCheck;
+    }
+    header->xorCheck -= (header->lineNumbersTop ^ header->lineNumbersBottom);
+    if (header->xorCheck != 0)
+    {
+        fprintf (stderr, "** Checksum invalid\n\n");
+    }
+
+    int lineCount = (header->lineNumbersTop - header->lineNumbersBottom + 1) / 4;
+
+    if (debug)
+    {
+        outputPtr = outPrintf (outputPtr, "# top %04X\n", header->lineNumbersTop);
+        outputPtr = outPrintf (outputPtr, "# bot %04X\n", header->lineNumbersBottom);
+        outputPtr = outPrintf (outputPtr, "# prog %04X\n", header->programTop);
+    }
+
+    input += 8;
+    inputLen -= 8;
+    LineNumberTable *table = (LineNumberTable*) input;
+
+    for (int i = lineCount - 1; i >= 0; i--)
+    {
+        int line = be16toh (table[i].line);
+
+        if (debug)
+            outputPtr = outPrintf (outputPtr, "# line %d is at address %04x\n", line, be16toh (table[i].address));
+
+        int address = be16toh (table[i].address) - header->lineNumbersBottom - 1;
+        outputPtr = outPrintf (outputPtr, "%d ", line);
+
+        decodeLine (&outputPtr, &input[address], debug);
+    }
+
+    return outputPtr - output;
+}
+

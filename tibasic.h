@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2023 Mark Burkley.
+ * Copyright (c) 2004-2024 Mark Burkley.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,12 +20,17 @@
  * SOFTWARE.
  */
 
-#ifndef __DECODEBASIC_H
-#define __DECODEBASIC_H
+#ifndef __TIBASIC_H
+#define __TIBASIC_H
 
 #include "types.h"
 
-void decodeBasicProgram (uint8_t *data, int len);
+#define MAX_LINE_NUMBERS 10000
+#define MAX_BINARY_SIZE 0x4000
+#define MAX_TEXT_SIZE 0x10000
+
+int decodeBasicProgram (uint8_t *input, int inputLen, char *output, bool debug);
+int encodeBasicProgram (char *input, int inputLen, uint8_t *output, bool debug);
 
 #endif
 
