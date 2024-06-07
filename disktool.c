@@ -34,13 +34,14 @@
 #include "types.h"
 #include "parse.h"
 #include "files.h"
-#include "decodebasic.h"
+#include "tibasic.h"
 
 #define BYTES_PER_SECTOR        256
 
 static FILE *diskFp;
 static bool showContents = false;
 static bool showBasic = false;
+static char basic[MAX_TEXT_SIZE];
 
 static struct
 {
@@ -242,7 +243,7 @@ static void analyseFile (int sector)
     }
 
     if (prog)
-        decodeBasicProgram (prog, length);
+        decodeBasicProgram (prog, length, basic, false);
 
     printf ("\n");
 }
@@ -290,7 +291,7 @@ int main (int argc, char *argv[])
 
     if ((diskFp = fopen (argv[optind], "r")) == NULL)
     {
-        printf ("Can't open %s\n", argv[1]);
+        printf ("Can't open %s\n", argv[optind]);
         return 0;
     }
 

@@ -36,7 +36,7 @@
 #include "cassette.h"
 #include "parse.h"
 #include "files.h"
-#include "decodebasic.h"
+#include "tibasic.h"
 
 // static int cassetteBitsPerSample = TAPE_DEFAULT_BITS_PER_SAMPLE;
 
@@ -84,7 +84,8 @@ struct _block
 }
 block[2];
 
-static uint8_t program[0x4000];
+static uint8_t program[MAX_BINARY_SIZE];
+static char basic[MAX_TEXT_SIZE];
 
 static void decodeBlock (int byte)
 {
@@ -341,7 +342,7 @@ static int blockCount;
 static int recordCount;
 static int programSize;
 
-static uint8_t program[MAX_PROGRAM_SIZE];
+// static uint8_t program[MAX_BINARY_SIZE];
 
 static void outputByte (uint8_t byte)
 {
@@ -458,7 +459,7 @@ int main (int argc, char *argv[])
         inputWav (wav);
 
         if (options.basic)
-            decodeBasicProgram (program, blockCount * 64);
+            decodeBasicProgram (program, blockCount * 64, basic, false);
 
         wavFileClose (wav);
 

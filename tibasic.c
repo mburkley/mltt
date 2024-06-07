@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2023 Mark Burkley.
+ * Copyright (c) 2004-2024 Mark Burkley.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,7 +21,7 @@
  */
 
 /*
- *  Dump the contents of a disk file
+ *  Compile (tokenise) or decompile a basic program
  */
 
 #include <stdio.h>
@@ -36,39 +36,53 @@
 #include "files.h"
 #include "tibasic.h"
 
-#define BYTES_PER_SECTOR        256
-
-static uint8_t binary[0x10000];
-static char text[0x40000];
-static bool showBasic = false;
+static uint8_t binary[MAX_BINARY_SIZE];
+static char text[MAX_TEXT_SIZE];
 
 int main (int argc, char *argv[])
 {
     char c;
+    bool decompile = false;
+    bool debug = false;
 
-    while ((c = getopt(argc, argv, "b")) != -1)
+    while ((c = getopt(argc, argv, "dr")) != -1)
     {
         switch (c)
         {
-            case 'b' : showBasic = true; break;
+            case 'd' : debug = true; break;
+            case 'r' : decompile = true; break;
             default: printf ("Unknown option '%c'\n", c);
         }
     }
 
-    if (argc - optind < 1)
+    /*  Decompile with no output file defaults to stdout.  Compile creates
+     *  binary output so an output file name must be specified */
+    if (argc - optind < 1 || (!decompile && argc - optind < 2))
     {
-        printf ("\nTIFILES reader\n\n");
-        printf ("usage: %s [-b] <file>\n", argv[0]);
-        printf ("\t where -b=decode basic and <file> is a tifiles or binary file\n\n");
+        printf ("\nTI basic compiler/decompiler\n\n");
+        printf ("usage: %s [-d] [-r] <input-file> [<output-file>]\n", argv[0]);
+        printf ("\t where -d=debug, -r=reverse (decompile)\n");
+        printf ("\t<input-file> is a text file for compile, or tifiles or binary file for decompile\n\n");
+ 
         return 1;
     }
 
-    int size = filesReadBinary (argv[optind], binary, sizeof binary, !showBasic);
+    if (decompile)
+    {
+        int size = filesReadBinary (argv[optind], binary, sizeof binary, true);
+        size = decodeBasicProgram  (binary, size, text, debug);
 
-    if (showBasic)
-        decodeBasicProgram  (binary, size, text, false);
-
-    printf ("%s\n", text);
+        if (argc - optind > 1)
+            filesWrite (argv[optind+1], text, size, true);
+        else
+            printf ("%s\n", text);
+    }
+    else
+    {
+        int size = filesReadText (argv[optind], text, sizeof text, true);
+        size = encodeBasicProgram  (text, size, binary, debug);
+        filesWrite (argv[optind+1], binary, size, true);
+    }
 
     return 0;
 }
