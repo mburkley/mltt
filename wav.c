@@ -102,7 +102,7 @@ wavState *wavFileOpenRead (const char *name, bool showParams)
         return NULL;
     }
 
-    printf ("opened file %s for read\n", name);
+    // printf ("opened file %s for read\n", name);
     fread (&hdr, sizeof hdr, 1, state->fp);
 
     if (showParams)
@@ -163,7 +163,7 @@ void wavFileClose (wavState *state)
 {
     wavHeader hdr;
 
-    printf ("closing file\n");
+    // printf ("closing file\n");
 
     if (state->write)
     {

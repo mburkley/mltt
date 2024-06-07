@@ -29,9 +29,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/uio.h>
+#include <sys/stat.h>
 
 #include "types.h"
-// #include "decodebasic.h"
 
 static struct
 {
@@ -201,5 +201,35 @@ int filesReadBinary (const char *name, uint8_t *data, int maxLength, bool verbos
     }
 
     return programSize;
+}
+
+int filesWriteBinary (const char *name, uint8_t *data, int length, bool overWrite)
+{
+    FILE *fp;
+
+    struct stat statbuf;
+    if (!overWrite && stat (name, &statbuf) != -1)
+    {
+        fprintf (stderr, "File %s exists, won't over-write\n", name);
+        return -1;
+    }
+
+    if ((fp = fopen (name, "w")) == NULL)
+    {
+        fprintf (stderr, "Failed to open %s\n", name);
+        return -1;
+    }
+
+    int count = fwrite (data, sizeof (uint8_t), length, fp);
+
+    if (count < length)
+    {
+        fprintf (stderr, "Write fail : %d of %d bytes written\n", count, length);
+        return -1;
+    }
+
+    fclose (fp);
+
+    return count;
 }
 

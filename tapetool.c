@@ -38,15 +38,11 @@
 #include "files.h"
 #include "tibasic.h"
 
-// static int cassetteBitsPerSample = TAPE_DEFAULT_BITS_PER_SAMPLE;
-
-// static int cassetteBitsPerSample;
-// static int cassetteSampleCount;
-
 static struct
 {
     bool create;
-    bool contents;
+    bool extract;
+    bool verbose;
     bool basic;
     bool raw;
     bool wav;
@@ -57,7 +53,6 @@ static bool errorsFound = false;
 static bool errorsFixable = true;
 static bool preambleSync = false;
 static int preambleBitsExpected;
-// static int outputBitsPerSample = 8;
 
 static bool haveHeader;
 
@@ -94,7 +89,7 @@ static void decodeBlock (int byte)
         ((uint8_t *)&header)[headerBytes++] = byte;
         if (headerBytes == 3)
         {
-            printf ("Reading %d blocks ...", header.size1);
+            if (options.verbose) printf ("Reading %d blocks ...", header.size1);
             haveHeader = true;
             preambleSync = true;
             preambleBitsExpected = 60;
@@ -126,18 +121,18 @@ static void decodeBlock (int byte)
         // printf ("decoding\n");
         if (block[0].mark != 0xFF) // || block[0].sync[0] != 0)
         {
-            printf ("*** Block %d misaligned\n", blockCount);
+            fprintf (stderr, "*** Block %d misaligned\n", blockCount);
             errorsFound = true;
             errorsFixable = false;
         }
 
         if (memcmp (&block[0], &block[1], sizeof (struct _block)))
         {
-            printf ("*** Block %d mismatch\n", blockCount);
+            fprintf (stderr, "*** Block %d mismatch\n", blockCount);
             errorsFound = true;
         }
 
-        if (options.contents)
+        if (options.verbose)
             printf ("\nBlock %d:\n", blockCount);
 
         int sum1 = 0;
@@ -150,7 +145,7 @@ static void decodeBlock (int byte)
                 uint8_t byte1 = block[0].data[i*8+j];
                 uint8_t byte2 = block[1].data[i*8+j];
 
-                if (options.contents)
+                if (options.verbose)
                 {
                     /*  If bytes in both copies are not identical, print both */
                     if (byte1 != byte2)
@@ -163,7 +158,7 @@ static void decodeBlock (int byte)
                 sum2 += byte2;
             }
 
-            if (options.contents)
+            if (options.verbose)
             {
                 for (int j = 0; j < 8; j++)
                 {
@@ -187,24 +182,24 @@ static void decodeBlock (int byte)
          */
         if (!sum1 && !sum2)
         {
-            if (options.contents)
+            if (options.verbose)
                 printf ("GOOD checksum=%02X\n", block[0].checksum);
         }
         else if (sum1 && sum2)
         {
-            printf ("*** Block %d, both copies have BAD checksum\n", blockCount);
+            fprintf (stderr, "*** Block %d, both copies have BAD checksum\n", blockCount);
             errorsFound = true;
             errorsFixable = false;
         }
         else if (sum1)
         {
-            printf ("*** Block %d, copy 1, BAD checksum, using copy2\n", blockCount);
+            fprintf (stderr, "*** Block %d, first copy has BAD checksum, using second copy\n", blockCount);
             memcpy (block[0].data, block[1].data, 64);
             errorsFound = true;
         }
         else if (sum2)
         {
-            printf ("*** Block %d, copy 2, BAD checksum, ignoring\n", blockCount);
+            fprintf (stderr, "*** Block %d, second copy has BAD checksum, ignoring\n", blockCount);
             errorsFound = true;
         }
 
@@ -244,10 +239,6 @@ static void decodeBit (int bit)
 
         /*  Reset the preamble bit count.  If we have seen at least 60 zero bits in a row we consider this to
          *  be a valid preamble and start reading data.
-         *
-         *  TODO look at the amplitude as well.  Noise at the start will cause
-         *  zero crossings but these should be ignored unless there is a
-         *  corresponding peak.
          */
         if (preambleCount > preambleBitsExpected)
             preambleSync = false;
@@ -279,7 +270,7 @@ static void inputBitWidth (int count)
 {
     static int halfBit = 0;
     if (options.raw) printf("[%d]", count);
-    /*  A zero-cross for a 0 occurs at around 32 samples, for a 1 it is
+    /*  A peak for a 0 occurs at around 32 samples, for a 1 it is
      *  around 16 samples.  Select 24 as the cutoff to differentiate a 0
      *  from a 1.
      */
@@ -304,20 +295,41 @@ static void inputBitWidth (int count)
     }
 }
 
+/*  Take data from a WAV file and carve it up into bits.  Due to some recorded
+ *  files having DC offsets or mains hum elements, detecting zero crossings only
+ *  was found to be unreliable.  Instead, maintain local min and max vars to
+ *  track sine wave peaks.  Apply hysteresis to the detection so switch the bit
+ *  from a zero to a one or vice versa once 50% of the peak is seen.  To apply
+ *  gain control, the peak is diminished by 1% per sample, which is about 72%
+ *  per bit (32 samples).  We look for 80% of peak which is a relative
+ *  ampltitude of 0.5 before changing state. */
 static void inputWav (wavState *wav)
 {
     int16_t sample;
     int changeCount = 0;
-    // int peakCount = 0;
     int state = 0;
     int lastState = 0;
-    // int max;
-    // bool peakFound = false;
+    double localMin = 0;
+    double localMax = 0;
 
     for (int i = 0; i < wavSampleCount (wav); i++)
     {
+        localMax = 0.99 * localMax;  // 0.99 ^ 32 = 0.725
+        localMin = 0.99 * localMin;
         sample = wavReadSample (wav);
-        state = (sample > 0) ? 1 : 0;
+
+        if (sample > localMax)
+            localMax = sample;
+
+        if (sample < localMin)
+            localMin = sample;
+
+        // Apply hysteresis
+        if (state && sample > 0.8 * localMax)
+            state = 0;
+
+        if (!state && sample < 0.8 * localMin)
+            state = 1;
 
         if (state == lastState)
         {
@@ -325,8 +337,8 @@ static void inputWav (wavState *wav)
             continue;
         }
 
+        // Found a potential bit, analyse it
         inputBitWidth (changeCount);
-        // inputBitWidth (peakCount);
         lastState = state;
         changeCount = 0;
     }
@@ -407,12 +419,13 @@ int main (int argc, char *argv[])
     char c;
     char *binFile = NULL;
 
-    while ((c = getopt(argc, argv, "c:dbrw")) != -1)
+    while ((c = getopt(argc, argv, "c:e:vbrw")) != -1)
     {
         switch (c)
         {
             case 'c' : options.create = true; binFile = optarg; break;
-            case 'd' : options.contents = true; break;
+            case 'e' : options.extract = true; binFile = optarg; break;
+            case 'v' : options.verbose = true; break;
             case 'b' : options.basic = true; break;
             case 'r' : options.raw = true; break;
             case 'w' : options.wav = true; break;
@@ -425,9 +438,10 @@ int main (int argc, char *argv[])
     if (argc - optind < 1)
     {
         printf ("\nTool to read and write wav files for cassette audio\n\n"
-                "usage: %s [-c <bin-file>] [-d] [-b] [-r] [-w] <wav-file>\n"
-                "\t where -c=create WAV from <bin-file> (TIFILES or tokenised TI basic)\n"
-                "\t       -d=dump HEX, -b=decode basic, -r=raw bits, -w=show wav hdr\n\n", argv[0]);
+                "usage: %s [-c <file>] [-e <file>] [-v] [-b] [-r] [-w] <wav-file>\n"
+                "\t where -c=create WAV from <file> (TIFILES or tokenised TI basic)\n"
+                "\t       -e=extract to <file>, -v=verbose, -b=decode basic, "
+                "-r=raw bits, -w=show wav hdr\n\n", argv[0]);
         return 1;
     }
 
@@ -436,12 +450,12 @@ int main (int argc, char *argv[])
         struct stat statbuf;
         if (stat (argv[optind], &statbuf) != -1)
         {
-            printf ("File %s exists, won't over-write\n", argv[optind]);
+            fprintf (stderr, "File %s exists, won't over-write\n", argv[optind]);
             return 1;
         }
 
         programSize = filesReadBinary (binFile, program, MAX_PROGRAM_SIZE,
-                                       !options.basic);
+                                       options.verbose);
 
         if (programSize < 0)
             return 1;
@@ -457,18 +471,25 @@ int main (int argc, char *argv[])
         preambleSync = true;
         preambleBitsExpected = 3000;
         inputWav (wav);
+        wavFileClose (wav);
 
         if (options.basic)
             decodeBasicProgram (program, blockCount * 64, basic, false);
 
-        wavFileClose (wav);
+        if (options.extract)
+            filesWriteBinary (binFile, program, blockCount * 64, false);
 
-        printf ("Found %d blocks in %d records\n", blockCount, recordCount);
+        if (options.verbose)
+            printf ("\n");
 
-        if (!errorsFound)
-            printf ("No errors found\n");
-        else
-            printf ("*** Errors were found which %s\n", errorsFixable ? "are fixable" : "can't be fixed");
+        // If basic output selected then don't output status msgs
+        if (!options.basic)
+            printf ("Found %d blocks in %d record%s%s", blockCount, recordCount,
+                    recordCount>1?"s":"",
+                    errorsFound?"\n":", no errors were found\n");
+
+        if (errorsFound)
+            fprintf (stderr, "*** Errors were found which %s\n", errorsFixable ? "are fixable" : "can't be fixed");
     }
 
     return 0;
