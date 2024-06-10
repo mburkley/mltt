@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2023 Mark Burkley.
+ * Copyright (c) 2004-2024 Mark Burkley.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,7 +23,8 @@
 #ifndef __DISKDIR_H
 #define __DISKDIR_H
 
-#include "disk.h"
+// #include "disk.h"
+#include "types.h"
 
 void diskDirLoad (int drive, bool readOnly, char *name);
 

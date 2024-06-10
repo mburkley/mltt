@@ -29,8 +29,8 @@
 #define MAX_BINARY_SIZE 0x4000
 #define MAX_TEXT_SIZE 0x10000
 
-int decodeBasicProgram (uint8_t *input, int inputLen, char *output, bool debug);
-int encodeBasicProgram (char *input, int inputLen, uint8_t *output, bool debug);
+int decodeBasicProgram (uint8_t *input, int inputLen, char **output, bool debug);
+int encodeBasicProgram (char *input, int inputLen, uint8_t **output, bool debug);
 
 #endif
 

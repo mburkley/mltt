@@ -20,15 +20,12 @@
  * SOFTWARE.
  */
 
-#include "types.h"
+#ifndef __DISKFUSE_H
+#define __DISKFUSE_H
 
-int speechRead (uint8_t *ptr, uint16_t addr, int size)
-{
-    return 0;
-}
+// #include "diskdata.h"
 
-void speechWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size)
-{
-}
+void diskFuseLoad (int drive, bool readOnly, char *name);
 
+#endif
 

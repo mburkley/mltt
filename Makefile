@@ -18,14 +18,15 @@ status.o \
 cassette.o \
 parse.o \
 mem.o \
-disk.o \
-diskfile.o \
-diskdir.o \
+fdd.o \
+dskfile.o \
+dskdata.o \
 sams.o \
 wav.o \
 files.o \
 tibasic_encode.o \
-tibasic_decode.o
+tibasic_decode.o \
+file_disvar.o
 
 LIBS=\
 -l glut\
@@ -33,11 +34,12 @@ LIBS=\
 -lpulse-simple\
 -lpulse\
 -lreadline \
--lm 
+-lm \
+-lfuse3
 
-TOOLS=disasm tapetool disktool hexed fir filetool tibasic
+TOOLS=disasm tapetool disktool hexed fir filetool fuse tibasic
 
-CFLAGS=-Wall -ggdb3 -DVERSION=`cat VERSION`
+CFLAGS=-Wall -ggdb3 -DVERSION=`cat VERSION` -I/usr/include/fuse3
 # LDFLAGS=
 
 all:  ti994a tests $(TOOLS)

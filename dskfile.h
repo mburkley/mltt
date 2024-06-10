@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2023 Mark Burkley.
+ * Copyright (c) 2004-2024 Mark Burkley.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,7 +23,7 @@
 #ifndef __DISKFILE_H
 #define __DISKFILE_H
 
-#include "disk.h"
+#include "dskdata.h"
 
 void diskFileLoad (int drive, bool readOnly, char *name);
 

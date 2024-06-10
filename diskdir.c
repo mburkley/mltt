@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2023 Mark Burkley.
+ * Copyright (c) 2004-2024 Mark Burkley.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,7 +21,9 @@
  */
 
 /*
- *  Create a virtual disk in memory from a directory
+ *  Create a virtual disk in memory from a directory.
+ *
+ *  obsoleted by fuse
  */
 
 #include <stdio.h> 
@@ -32,127 +34,21 @@
 #include <dirent.h> 
 #include <sys/stat.h>
 #include <arpa/inet.h>
+#include <sys/xattr.h>
 
 #include "trace.h"
 #include "diskdir.h"
+#include "dskdata.h"
 
-static unsigned char diskData[SECTORS_PER_DISK][DISK_BYTES_PER_SECTOR];
+#define SECTORS_PER_DISK 720
+
+static unsigned char diskData[SECTORS_PER_DISK][DSK_BYTES_PER_SECTOR];
 static int dirSector;
-static char *dirName;
-
-typedef struct
-{
-    char name[10];
-    int16_t len;
-    uint8_t flags;
-    uint8_t recSec;
-    int16_t alloc;
-    uint8_t eof;
-    uint8_t recLen;
-    int16_t l3Alloc;
-    char dtCreate[4];
-    char dtUpdate[4];
-    uint8_t chain[MAX_FILE_CHAINS][3];
-}
-fileHeader;
+static char dirName[512];
 
 static bool fileExists[32];
 
-typedef struct
-{
-    char name[10];
-    int16_t sectors;
-    uint8_t secPerTrk;
-    char dsk[3];
-    // 0x10
-    uint8_t protected; // 'P' = protected, ' '=not
-    uint8_t tracks;
-    uint8_t sides;
-    uint8_t density; // SS=1,DS=2
-    uint8_t tbd3; // reserved
-    uint8_t fill1[11];
-    // 0x20
-    uint8_t date[8];
-    uint8_t fill2[16];
-    // 0x38
-    uint8_t bitmap[0xc8]; // bitmap 38-64, 38-91 or 38-eb for SSSD,DSSD,DSDD respec
-}
-volumeHeader;
-
-static void buildVolumeHeader (const char *name)
-{
-    volumeHeader *v = (volumeHeader*) diskData[0];
-    strncpy (v->name, name, 10);
-    v->sectors = htons (SECTORS_PER_DISK);
-    v->secPerTrk = 9;
-    memcpy (v->dsk, "DSK", 3);
-    v->protected = ' ';
-    v->tracks = 40;
-    v->sides = 2;
-    v->density = 1;
-}
-
-static void fileLinux2TI (const char *lname, char tname[])
-{
-    int i;
-
-    for (i = 0; i < 10; i++)
-    {
-        if (!lname[i])
-            break;
-
-        tname[i] = toupper (lname[i]);
-    }
-
-    for (; i < 10; i++)
-        tname[i] = ' ';
-}
-
-static void fileTI2Linux (const char *tname, char *lname)
-{
-    int i;
-
-    for (i = 0; i < 10; i++)
-    {
-        if (tname[i] == ' ')
-            break;
-
-        lname[i] = tname[i];
-    }
-
-    lname[i] = 0;
-}
-
-static void encodeChain (uint8_t chain[], uint16_t p1, uint16_t p2)
-{
-    // *p1 = (chain[1]&0xF)<<8|chain[0];
-    // *p2 = chain[1]>>4|chain[2]<<4;
-
-    chain[0] = p1 & 0xff;
-    chain[1] = ((p1 >> 8) & 0x0F)|((p2&0x0f)<<4);
-    chain[2] = p2 >> 4;
-}
-
-// TODO common funcs between this module and dumpdisk.c
-static void decodeChain (uint8_t chain[], uint16_t *p1, uint16_t *p2)
-{
-    *p1 = (chain[1]&0xF)<<8|chain[0];
-    *p2 = chain[1]>>4|chain[2]<<4;
-}
-
-static void allocBitMap (int start, int count)
-{
-    volumeHeader *v = (volumeHeader*) diskData[0];
-
-    for (int i = start; i < start+count; i++)
-    {
-        int byte = i / 8;
-        int bit = i % 8;
-        v->bitmap[byte] |= (1<<bit);
-    }
-}
-
-// static uint8_t dirData[DISK_BYTES_PER_SECTOR/2][2];
+// static uint8_t dirData[DSK_BYTES_PER_SECTOR/2][2];
 // static int fileSectorsAlloc = 0;
 static int dataSectorsAlloc = 32;
 static int fileCount;
@@ -164,10 +60,25 @@ static void buildDirEnt (const char *name, const char *fname, int len)
 
     fileExists[fileCount] = true;
     fileHeader *f = (fileHeader*) diskData[fileCount+2];
+
+    // Default flag is 0x01 - FIX-PROG.  If we see xattr of data or var we
+    // change flags 0x80 and or 0x01
     f->flags = 0x01;
+
+    char dataval[10];
+    dataval[0]=0;
+    int data = getxattr(fname, "user.tifiles.flags", dataval, 10);
+    printf ("xattr %s %d %s\n", fname, data, dataval);
+    if (data > 0 && dataval[0] == 'y')
+        f->flags &= 0xFE;
+    data = getxattr(fname, "user.tifiles.reclen", dataval, 10);
+    printf ("xattr %s %d %s\n", fname, data, dataval);
+    if (data > 0 && dataval[0] == 'y')
+        f->flags |= 0x80;
+
     fileLinux2TI (name, f->name);
-    int fileSecCount = len / DISK_BYTES_PER_SECTOR;
-    f->eof = len - fileSecCount * DISK_BYTES_PER_SECTOR;
+    int fileSecCount = len / DSK_BYTES_PER_SECTOR;
+    f->eof = len - fileSecCount * DSK_BYTES_PER_SECTOR;
     if (f->eof != 0)
         fileSecCount++;
     f->alloc = htons(fileSecCount);
@@ -206,7 +117,7 @@ static void writeDisk (const char *name)
         exit(1);
     }
 
-    fwrite (diskData, DISK_BYTES_PER_SECTOR, SECTORS_PER_DISK, fp);
+    fwrite (diskData, DSK_BYTES_PER_SECTOR, SECTORS_PER_DISK, fp);
     fclose (fp);
 }
 #endif
@@ -218,7 +129,7 @@ static void dirSeek (int sector)
 
 static void dirRead (unsigned char *buffer)
 {
-    memcpy (buffer, diskData[dirSector], DISK_BYTES_PER_SECTOR);
+    memcpy (buffer, diskData[dirSector], DSK_BYTES_PER_SECTOR);
     printf ("read sector %d\n", dirSector);
 }
 
@@ -229,15 +140,19 @@ static void dirRead (unsigned char *buffer)
  */
 static void dirWrite (unsigned char *buffer)
 {
-    memcpy (diskData[dirSector], buffer, DISK_BYTES_PER_SECTOR);
+    memcpy (diskData[dirSector], buffer, DSK_BYTES_PER_SECTOR);
     printf ("write sector %d\n", dirSector);
 
     /*  We are only interested in updats to directory entries */
-    if (dirSector < 2 || dirSector > 34)
+    if (dirSector < 2 || dirSector > 31)
         return;
 
     // TODO should detect add chain to volume header but for now assume
-    // range 2-34 is file headers
+    // range 2-32 is file headers
+
+    // TODO files are kept in alphabetic order.  Ensure reordering file names
+    // does not break anyhting here.
+
     fileHeader *f = (fileHeader*) diskData[dirSector];
 
     FILE *fp;
@@ -258,10 +173,10 @@ static void dirWrite (unsigned char *buffer)
         fp = fopen (fname, "r+");
         ASSERT (fp != NULL, "Can't open dir file for update");
     }
-    int length = (ntohs (f->alloc) - 1) * DISK_BYTES_PER_SECTOR + f->eof;
+    int length = (ntohs (f->alloc) - 1) * DSK_BYTES_PER_SECTOR + f->eof;
 
     if (f->eof == 0)
-        length += DISK_BYTES_PER_SECTOR;
+        length += DSK_BYTES_PER_SECTOR;
 
     // re-write the file from the image in memory
     for (int j = 0; j < MAX_FILE_CHAINS; j++)
@@ -271,7 +186,7 @@ static void dirWrite (unsigned char *buffer)
         if (start == 0)
             break;
         printf ("chain (%d to %d)\n", start,start+len);
-        int count = DISK_BYTES_PER_SECTOR*(len+1);
+        int count = DSK_BYTES_PER_SECTOR*(len+1);
         if (count > length)
             count = length;
         fwrite (diskData[start], count, 1, fp);
@@ -280,43 +195,59 @@ static void dirWrite (unsigned char *buffer)
     fclose (fp);
 }
 
+static int dirCompare (const void *dir1, const void *dir2)
+{
+    return strcmp (((struct dirent*) dir1)->d_name, ((struct dirent*) dir2)->d_name);
+}
+
 static void dirSelect (const char *name, bool readOnly)
 {
     DIR *d;
     struct dirent *dir;
+    struct dirent fileList[128];
     struct stat st;
     int size = 0;
-    d = opendir(name);
-    ASSERT (d != NULL, "open directory");
+    int fileCount = 0;
 
+    strcpy (dirName, name);
     buildVolumeHeader(name);
     allocBitMap (0, 2);
 
+    d = opendir(name);
+    ASSERT (d != NULL, "open directory");
+
     while ((dir = readdir(d)) != NULL)
     {
-        char fname[512];
-
         if (!strcmp (dir->d_name, "."))
             continue;
 
         if (!strcmp (dir->d_name, ".."))
             continue;
 
-        dirName = strdup (name);
-        sprintf (fname, "%s/%s", dirName, dir->d_name);
+        fileList[fileCount++] = *dir;
+        ASSERT (fileCount < 128, "Too many files in disk dir");
+    }
+    closedir(d);
+
+    qsort (fileList, fileCount, sizeof (struct dirent), dirCompare);
+
+    for (int i = 0; i < fileCount; i++)
+    {
+        char fname[512];
+
+        sprintf (fname, "%s/%s", dirName, fileList[i].d_name);
         if (stat(fname, &st) != 0)
         {
             perror("stat");
             ASSERT (false, "can't stat file");
         }
         size += st.st_size;
-        printf("%s %d %d\n", dir->d_name, (int) st.st_size, size);
-        buildDirEnt (dir->d_name, fname, st.st_size);
+        printf("%s %d %d\n", fileList[i].d_name, (int) st.st_size, size);
+        buildDirEnt (fileList[i].d_name, fname, st.st_size);
     }
-    closedir(d);
     printf ("total %d\n", size);
 
-    if (size > (720-32)*DISK_BYTES_PER_SECTOR)
+    if (size > (720-32)*DSK_BYTES_PER_SECTOR)
     {
         fprintf(stderr, "%s won't fit on a DSDD\n", name);
         ASSERT (false, "dir too big");
@@ -332,7 +263,7 @@ static void dirDeselect(void)
 
 void diskDirLoad (int drive, bool readOnly, char *name)
 {
-    diskDriveHandler handler =
+    fddHandler handler =
     {
         .seek = dirSeek,
         .read = dirRead,

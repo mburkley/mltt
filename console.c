@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2023 Mark Burkley.
+ * Copyright (c) 2004-2024 Mark Burkley.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -53,11 +53,12 @@
 #include "sound.h"
 #include "status.h"
 #include "parse.h"
-#include "disk.h"
-#include "diskfile.h"
+#include "fdd.h"
+#include "dskfile.h"
 #include "diskdir.h"
 #include "sams.h"
 #include "mem.h"
+#include "fdd.h"
 
 static char *fileToRead;
 static bool ti994aQuitFlag;
@@ -476,7 +477,7 @@ bool consolePixelSize (int argc, char *argv[])
 bool consoleEnableDisk (int argc, char *argv[])
 {
     memLoad (argv[1], 0x4000, 1);
-    diskInit();
+    fddInit();
 
     return true;
 }
@@ -511,13 +512,10 @@ bool consoleLoadDiskFile (int argc, char *argv[])
     if (!parseValue (argv[1], &drive))
         return false;
 
-    if (argc > 3)
-    {
-        if (strcmp (argv[3], "RW"))
-            return false;
-
+    if (!strcmp (argv[3], "RW"))
         readOnly = false;
-    }
+    else if (strcmp (argv[3], "RO"))
+        return false;
 
     diskFileLoad (drive, readOnly, argv[2]);
 
@@ -527,7 +525,7 @@ bool consoleLoadDiskFile (int argc, char *argv[])
 bool consoleLoadDiskDir (int argc, char *argv[])
 {
     int drive;
-    bool readOnly = true;
+    // bool readOnly = true;
 
     if (!parseValue (argv[1], &drive))
         return false;
@@ -537,10 +535,10 @@ bool consoleLoadDiskDir (int argc, char *argv[])
         if (strcmp (argv[3], "RW"))
             return false;
 
-        readOnly = false;
+        // readOnly = false;
     }
 
-    diskDirLoad (drive, readOnly, argv[2]);
+    // TODO diskDirLoad (drive, readOnly, argv[2]);
 
     return true;
 }
@@ -607,12 +605,12 @@ commands[] =
             "\tSet the magnification factor for drawing pixels.  Default 4(x4)" },
     { "disk", 2, consoleEnableDisk, "disk <rom-file>",
             "\tEnable disk drive emulation, rom file must be provided as a parameter." },
-    { "diskfile", 3, consoleLoadDiskFile, "diskfile <drive-number> <disk-file> [RW]",
-            "\tLoad sector dump <disk-file> in disk drive <drive-number>.  Default\n"
-            "\tis read only.  Add RW at end of command to enable read and write." },
-    { "diskdir", 3, consoleLoadDiskDir, "diskdir <drive-number> <disk-dir> [RW]",
-            "\tLoad directory <disk-dir> in disk drive <drive-number>.  Default\n"
-            "\tis read only.  Add RW at end of command to enable read and write." },
+    { "diskfile", 4, consoleLoadDiskFile, "diskfile <drive-number> <disk-file> (<RO>|<RW>)",
+            "\tLoad sector dump <disk-file> in disk drive <drive-number>.  Must\n"
+            "\tspecify readonly (RO) or readwrite (RW).\n" },
+    { "diskdir", 4, consoleLoadDiskDir, "diskdir <drive-number> <disk-dir> (<RO>|<RW>)",
+            "\tLoad directory <disk-dir> in disk drive <drive-number>.  Must\n"
+            "\tspecify readonly (RO) or readwrite (RW).\n" },
     { "sams", 1, consoleEnableSams, "sams",
             "\tEnable SuperAMS emulation" },
     { "mmap", 4, consoleEnableMmap, "mmap <file> <address> <size>",
@@ -678,7 +676,12 @@ static void input (FILE *fp)
         {
             if ((argc < commands[i].paramCount) ||
                (!commands[i].func (argc, argv)))
+            {
                 printf ("usage: %s\n\n%s\n", commands[i].usage, commands[i].help);
+                /*  If running from a script then a usage error is fatal\n"); */
+                if (fp)
+                exit(1);
+            }
 
             return;
         }

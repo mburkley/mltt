@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2023 Mark Burkley.
+ * Copyright (c) 2004-2024 Mark Burkley.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -37,7 +37,8 @@
 #include "interrupt.h"
 #endif
 #include "trace.h"
-#include "diskfile.h"
+#include "dskfile.h"
+#include "fdd.h"
 
 /*  Maintain static state even though we have multiple drives.  This is ok
  *  because only one drive can be selected at a time */
@@ -46,20 +47,23 @@ static FILE *diskFile;
 static void fileSeek (int sector)
 {
     ASSERT (diskFile != NULL, "file not open in seek");
-    fseek (diskFile, sector * DISK_BYTES_PER_SECTOR, SEEK_SET);
+    printf("XX seek %d\n", sector);
+    fseek (diskFile, sector * DSK_BYTES_PER_SECTOR, SEEK_SET);
 }
 
 static void fileRead (unsigned char *buffer)
 {
     ASSERT (diskFile != NULL, "file not open in read");
-    fread (buffer, DISK_BYTES_PER_SECTOR, 1, diskFile);
+    int res=fread (buffer, 1, DSK_BYTES_PER_SECTOR, diskFile);
+    printf("XX read %d\n", res);
 }
 
 static void fileWrite (unsigned char *buffer)
 {
     ASSERT (diskFile != NULL, "file not open in write");
     /*  If the file was opened read only then write will fail quietly */
-    fwrite (buffer, DISK_BYTES_PER_SECTOR, 1, diskFile);
+    int res =fwrite (buffer, 1, DSK_BYTES_PER_SECTOR, diskFile);
+    printf("XX write %d\n", res);
 }
 
 static void fileSelect(const char *name, bool readOnly)
@@ -82,7 +86,7 @@ static void fileDeselect(void)
 void diskFileLoad (int drive, bool readOnly, char *name)
 {
     FILE *fp;
-    diskDriveHandler handler =
+    fddHandler handler =
     {
         .seek = fileSeek,
         .read = fileRead,
@@ -114,6 +118,6 @@ void diskFileLoad (int drive, bool readOnly, char *name)
 
     fclose (fp);
 
-    diskRegisterDriveHandler (drive, &handler);
+    fddRegisterHandler (drive, &handler);
 }
 
