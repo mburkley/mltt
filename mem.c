@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2023 Mark Burkley.
+ * Copyright (c) 2004-2024 Mark Burkley.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -37,7 +37,7 @@
 #include "grom.h"
 #include "vdp.h"
 #include "speech.h"
-#include "disk.h"
+#include "fdd.h"
 #include "sams.h"
 
 typedef struct _memMap
@@ -108,7 +108,7 @@ memMap mapMain[] =
 uint16_t deviceRead (uint8_t *ptr, uint16_t addr, int size)
 {
     if (deviceSelected == 1 && (addr&0x1FF0)==0x1FF0)
-        return diskRead (addr&0xF, size);
+        return fddRead (addr&0xF, size);
 
     return dataRead (ptr, addr, size);
 }
@@ -116,7 +116,7 @@ uint16_t deviceRead (uint8_t *ptr, uint16_t addr, int size)
 void deviceWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size)
 {
     if (deviceSelected == 1 && (addr&0x1FF0)==0x1FF0)
-        diskWrite (addr&0xF, data, size);
+        fddWrite (addr&0xF, data, size);
     else if (deviceSelected == 14) // SAMS card - paging TODO
     {
         printf ("SAMS write %04X to %04X\n", data, addr);

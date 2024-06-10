@@ -36,21 +36,22 @@
 #include "files.h"
 #include "tibasic.h"
 
-static uint8_t binary[MAX_BINARY_SIZE];
-static char text[MAX_TEXT_SIZE];
-
 int main (int argc, char *argv[])
 {
+    uint8_t *binary = NULL;
+    char *text = NULL;
     char c;
     bool decompile = false;
     bool debug = false;
+    bool header = true;
 
-    while ((c = getopt(argc, argv, "dr")) != -1)
+    while ((c = getopt(argc, argv, "drn")) != -1)
     {
         switch (c)
         {
             case 'd' : debug = true; break;
             case 'r' : decompile = true; break;
+            case 'n' : header = false; break;
             default: printf ("Unknown option '%c'\n", c);
         }
     }
@@ -60,8 +61,8 @@ int main (int argc, char *argv[])
     if (argc - optind < 1 || (!decompile && argc - optind < 2))
     {
         printf ("\nTI basic compiler/decompiler\n\n");
-        printf ("usage: %s [-d] [-r] <input-file> [<output-file>]\n", argv[0]);
-        printf ("\t where -d=debug, -r=reverse (decompile)\n");
+        printf ("usage: %s [-drn] <input-file> [<output-file>]\n", argv[0]);
+        printf ("\t where -d=debug, -r=reverse (decompile), -n=no tifiles header\n");
         printf ("\t<input-file> is a text file for compile, or tifiles or binary file for decompile\n\n");
  
         return 1;
@@ -69,19 +70,27 @@ int main (int argc, char *argv[])
 
     if (decompile)
     {
-        int size = filesReadBinary (argv[optind], binary, sizeof binary, true);
-        size = decodeBasicProgram  (binary, size, text, debug);
+        int size = filesReadBinary (argv[optind], &binary, NULL, true);
+        size = decodeBasicProgram  (binary, size, &text, debug);
 
         if (argc - optind > 1)
-            filesWrite (argv[optind+1], text, size, true);
+            filesWriteText (argv[optind+1], text, size, true);
         else
             printf ("%s\n", text);
     }
     else
     {
-        int size = filesReadText (argv[optind], text, sizeof text, true);
-        size = encodeBasicProgram  (text, size, binary, debug);
-        filesWrite (argv[optind+1], binary, size, true);
+        int size = filesReadText (argv[optind], &text, true);
+        size = encodeBasicProgram  (text, size, &binary, debug);
+
+        if (header)
+        {
+            FileMetaData meta;
+            filesInitMeta (&meta, argv[optind+1], size, BYTES_PER_SECTOR, 0, true, false);
+            filesWriteBinary (argv[optind+1], binary, size, &meta, true);
+        }
+        else
+            filesWriteBinary (argv[optind+1], binary, size, NULL, true);
     }
 
     return 0;

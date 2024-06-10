@@ -39,10 +39,15 @@ disk ../roms/disk.bin
 # diskfile 1 ../disks/PLUNDER.dsk
 # diskfile 1 ../disks/TEACHBASIC.DSK
 # diskfile 1 ../disks/blankdsdd.dsk
-diskfile 1 ../disks/mark.dsk RW
-diskfile 2 ../disks/Miscellaneous.tidisk RO
-# diskfile 3 ../disks/EdAsmA.dsk
-diskdir 3 DISKDIR RO
+# diskfile 1 ../disks/mark.dsk
+# diskfile 2 ../disks/Miscellaneous.tidisk
+# diskfile 1 ../disks/EdAsmA.dsk RO
+diskfile 1 ./disk.dsk RW
+diskfile 2 ./test.dsk RW
+# diskfile 2 ../disks/EdAsmB.dsk RO
+diskdir 3 DISKDIR RW
+# diskdir 3 diskzap RW
+# diskfile 3 tmp.dsk RW
 
 # Load one of the following cartridges as needed
 
@@ -107,7 +112,7 @@ diskdir 3 DISKDIR RO
 #  Misc
 #
 # grom ../roms/AdvtureG.Bin 0x6000
-# grom ../roms/AmazingG.Bin 0x6000
+grom ../roms/AmazingG.Bin 0x6000
 # load ../roms/BARRAGEC.BIN 0x6000
 # load ../roms/BARRAGED.BIN 0x6000 1
 # load ../roms/BEYPARSC.BIN 0x6000

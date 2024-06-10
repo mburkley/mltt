@@ -158,10 +158,38 @@ static void decodeLine (char **output, uint8_t *data, bool debug)
     *(*output)++ = '\n';
 }
 
-int decodeBasicProgram (uint8_t *input, int inputLen, char *output, bool debug)
+/*  Verify that the input is a valid tokenised basic file by doing some simple
+ *  sanity checks */
+static bool decodeBasicFileCheck (FileHeader *header)
+{
+    header->xorCheck -= (header->lineNumbersTop ^ header->lineNumbersBottom);
+
+    if (header->xorCheck != 0)
+        return false;
+
+    if (header->lineNumbersTop < header->lineNumbersBottom ||
+        header->programTop < header->lineNumbersBottom ||
+        header->programTop < header->lineNumbersTop ||
+        header->programTop > 0x3fff)
+        return false;
+
+    return true;
+}
+
+int decodeBasicProgram (uint8_t *input, int inputLen, char **output, bool debug)
 {
     FileHeader *header = (FileHeader*) input;
-    char *outputPtr = output;
+
+    /*  Allocate a buffer to receive the decoded output which is 50% bigger
+     *  than the tokenised code input */
+    if ((*output = realloc (*output, inputLen * 2)) == NULL)
+    {
+        fprintf (stderr, "Can't allocate buffer for encoded basic\n");
+        exit (1);
+    }
+
+    printf ("allocated %d\n", inputLen*2);
+    char *outp = *output;
 
     header->xorCheck = be16toh (header->xorCheck);
     header->lineNumbersTop = be16toh (header->lineNumbersTop);
@@ -173,19 +201,21 @@ int decodeBasicProgram (uint8_t *input, int inputLen, char *output, bool debug)
         fprintf (stderr, "** Protected\n\n");
         header->xorCheck = -header->xorCheck;
     }
-    header->xorCheck -= (header->lineNumbersTop ^ header->lineNumbersBottom);
-    if (header->xorCheck != 0)
+    
+    if (!decodeBasicFileCheck (header))
     {
-        fprintf (stderr, "** Checksum invalid\n\n");
+        fprintf (stderr,
+                 "** Checksum invalid or header field out of range - this does not appear to be a basic program\n\n");
+        return 0;
     }
 
     int lineCount = (header->lineNumbersTop - header->lineNumbersBottom + 1) / 4;
 
     if (debug)
     {
-        outputPtr = outPrintf (outputPtr, "# top %04X\n", header->lineNumbersTop);
-        outputPtr = outPrintf (outputPtr, "# bot %04X\n", header->lineNumbersBottom);
-        outputPtr = outPrintf (outputPtr, "# prog %04X\n", header->programTop);
+        outp = outPrintf (outp, "# top %04X\n", header->lineNumbersTop);
+        outp = outPrintf (outp, "# bot %04X\n", header->lineNumbersBottom);
+        outp = outPrintf (outp, "# prog %04X\n", header->programTop);
     }
 
     input += 8;
@@ -197,14 +227,20 @@ int decodeBasicProgram (uint8_t *input, int inputLen, char *output, bool debug)
         int line = be16toh (table[i].line);
 
         if (debug)
-            outputPtr = outPrintf (outputPtr, "# line %d is at address %04x\n", line, be16toh (table[i].address));
+            outp = outPrintf (outp, "# line %d is at address %04x\n", line, be16toh (table[i].address));
 
         int address = be16toh (table[i].address) - header->lineNumbersBottom - 1;
-        outputPtr = outPrintf (outputPtr, "%d ", line);
+        outp = outPrintf (outp, "%d ", line);
 
-        decodeLine (&outputPtr, &input[address], debug);
+        decodeLine (&outp, &input[address], debug);
     }
 
-    return outputPtr - output;
+    if (debug)
+    {
+        printf ("# processed %ld out of %d space for output\n", outp-*output,
+        inputLen *2);
+    }
+
+    return outp - *output;
 }
 

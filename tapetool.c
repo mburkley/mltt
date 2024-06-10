@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2023 Mark Burkley.
+ * Copyright (c) 2004-2024 Mark Burkley.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -79,8 +79,7 @@ struct _block
 }
 block[2];
 
-static uint8_t program[MAX_BINARY_SIZE];
-static char basic[MAX_TEXT_SIZE];
+static uint8_t *program;
 
 static void decodeBlock (int byte)
 {
@@ -314,8 +313,8 @@ static void inputWav (wavState *wav)
 
     for (int i = 0; i < wavSampleCount (wav); i++)
     {
-        localMax = 0.99 * localMax;  // 0.99 ^ 32 = 0.725
-        localMin = 0.99 * localMin;
+        localMax = 0.8 * localMax;  // 0.99 ^ 32 = 0.725
+        localMin = 0.8 * localMin;
         sample = wavReadSample (wav);
 
         if (sample > localMax)
@@ -353,8 +352,6 @@ static void inputWav (wavState *wav)
 static int blockCount;
 static int recordCount;
 static int programSize;
-
-// static uint8_t program[MAX_BINARY_SIZE];
 
 static void outputByte (uint8_t byte)
 {
@@ -454,8 +451,7 @@ int main (int argc, char *argv[])
             return 1;
         }
 
-        programSize = filesReadBinary (binFile, program, MAX_PROGRAM_SIZE,
-                                       options.verbose);
+        programSize = filesReadBinary (binFile, &program, NULL, options.verbose);
 
         if (programSize < 0)
             return 1;
@@ -473,11 +469,13 @@ int main (int argc, char *argv[])
         inputWav (wav);
         wavFileClose (wav);
 
+        char *basic = NULL;
+
         if (options.basic)
-            decodeBasicProgram (program, blockCount * 64, basic, false);
+            decodeBasicProgram (program, blockCount * 64, &basic, false);
 
         if (options.extract)
-            filesWriteBinary (binFile, program, blockCount * 64, false);
+            filesWriteBinary (binFile, program, blockCount * 64, NULL, false);
 
         if (options.verbose)
             printf ("\n");

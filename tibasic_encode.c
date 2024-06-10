@@ -29,11 +29,14 @@
 #include "tibasic.h"
 #include "tibasic_tokens.h"
 
+#define MAX_LINE_NUMBER 32767
+
 static int currToken;
 static char currTokenValue[256];
-static uint8_t outputCode[MAX_TEXT_SIZE];
 static uint8_t *outp;
 static char *inp;
+static LineNumberTable lineTable[MAX_LINE_NUMBER];
+// static int lineNumberCount;
 
 static void emitString (int type)
 {
@@ -301,6 +304,7 @@ static void processLine (bool debug)
     acceptToken (TOKEN_EOL, debug);
 }
 
+#if 0
 static int lineCompare (const void *v1, const void *v2)
 {
     LineNumberTable *l1 = (LineNumberTable *)v1;
@@ -314,16 +318,24 @@ static int lineCompare (const void *v1, const void *v2)
 
     return 0;
 }
+#endif
 
-int encodeBasicProgram (char *input, int inputLen, uint8_t *outputFinal, bool debug)
+int encodeBasicProgram (char *input, int inputLen, uint8_t **output, bool debug)
 {
     int lineCount = 0;
 
-    inp = input;
-    outp = outputCode;
+    /*  Allocate a buffer to receive the tokenised output which is 50% bigger
+     *  than the source code input */
+    if ((*output = realloc (*output, inputLen * 1.5)) == NULL)
+    {
+        fprintf (stderr, "Can't allocate buffer for encoded basic\n");
+        exit (1);
+    }
 
-    FileHeader *header = (FileHeader*) outputFinal;
-    LineNumberTable *lineNumberTable = (LineNumberTable*) (outputFinal + sizeof (FileHeader));
+    inp = input;
+    outp = *output;
+    FileHeader *header = (FileHeader*) *output;
+    // LineNumberTable *lineTable = (LineNumberTable*) (*outputFinal + sizeof (FileHeader));
     acceptToken (0, debug); // Fetch the first token
 
     while (inp - input < inputLen)
@@ -336,8 +348,8 @@ int encodeBasicProgram (char *input, int inputLen, uint8_t *outputFinal, bool de
         if (line == 0)
             break;
 
-        lineNumberTable[lineCount].line = line;
-        lineNumberTable[lineCount].address = outp - outputCode;
+        lineTable[lineCount].line = line;
+        lineTable[lineCount].address = outp - *output;
         lineCount++;
         processLine (debug);
         *lineStart = outp - lineStart - 1; // tokenised line length
@@ -345,20 +357,22 @@ int encodeBasicProgram (char *input, int inputLen, uint8_t *outputFinal, bool de
     if (debug) printf ("done\n");
 
     /*  Sort line numbers into reverse order */
-    qsort (lineNumberTable, lineCount, sizeof (LineNumberTable), lineCompare);
+    // qsort (lineTable, lineCount, sizeof (LineNumberTable), lineCompare);
 
     int lenHeader = sizeof (FileHeader) + sizeof (LineNumberTable) * lineCount;
-    int lenCode = outp - outputCode;
+    int lenCode = outp - *output;
 
-    memcpy (outputFinal + lenHeader,
-            outputCode,
-            lenCode);
+    memmove (*output + lenHeader,
+             *output,
+             lenCode);
 
-    /*  Convert header and line numbers into be16 */
-    for (int i = 0; i < lineCount; i++)
+    /*  Convert header and line numbers into be16 in reverse order */
+    LineNumberTable *outputLineTable = (LineNumberTable*) (*output + sizeof (FileHeader));
+    for (int i = lineCount-1; i >= 0; i--)
     {
-        lineNumberTable[i].line = htobe16 (lineNumberTable[i].line);
-        lineNumberTable[i].address = htobe16 (PROGRAM_TOP - lenCode + lineNumberTable[i].address);
+        outputLineTable->line = htobe16 (lineTable[i].line);
+        outputLineTable->address = htobe16 (PROGRAM_TOP - lenCode + lineTable[i].address);
+        outputLineTable++;
     }
 
     header->programTop = htobe16 (PROGRAM_TOP);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2023 Mark Burkley.
+ * Copyright (c) 2004-2024 Mark Burkley.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -52,7 +52,7 @@
 #include "interrupt.h"
 #include "gpl.h"
 #include "cassette.h"
-#include "disk.h"
+#include "fdd.h"
 #include "ti994a.h"
 
 bool ti994aRunFlag;
