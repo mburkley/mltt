@@ -49,6 +49,7 @@ static char *dskFile;
 static DskInfo *dskInfo;
 
 #define MAX_OPEN_FILES MAX_FILE_COUNT
+#define FIRST_INODE      100
 
 typedef struct _FuseFileInfo
 {
@@ -104,17 +105,16 @@ static int tidsk_getattr(const char *path, struct stat *stbuf,
         stbuf->st_mode |= S_IWUSR | S_IWGRP | S_IWOTH;
 
     stbuf->st_size = dskFileLength (dskInfo, index);
-
-    stbuf->st_blocks = 1; // TODO
-    stbuf->st_blksize = 512;
-    stbuf->st_ino = index;
+    stbuf->st_blocks = dskFileSecCount (dskInfo, index);
+    stbuf->st_blksize = BYTES_PER_SECTOR;
+    stbuf->st_ino = FIRST_INODE + index;
     stbuf->st_ctime = 0;
     stbuf->st_atime = 0;
     stbuf->st_mtime = 0;
-    stbuf->st_dev = 45; // ??
+    stbuf->st_dev = 1; // Assuming mount points can have a common value here
     stbuf->st_nlink = 1;
-    // stbuf->st_uid = 1000; // TODO get these from running process
-    // stbuf->st_gid = 1000;
+    stbuf->st_uid = getuid();
+    stbuf->st_gid = getgid();
     stbuf->st_uid = 0;
     stbuf->st_gid = 0;
     stbuf->st_rdev = 0;
@@ -158,24 +158,8 @@ static int tidsk_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
     for (int i = 0; i < dskFileCount (dskInfo); i++)
     {
-        // struct stat st;
-        // memset(&st, 0, sizeof(st));
-        st.st_ino = i + 42;
-        // st.st_mode = S_IFREG;
+        st.st_ino = FIRST_INODE + i;
         st.st_mode = DT_REG << 12;
-        #if 0
-        st.st_size = 1;
-        st.st_blocks = 1;
-        st.st_blksize = 512;
-        st.st_ctime = 0;
-        st.st_atime = 0;
-        st.st_mtime = 0;
-        st.st_dev = 45; // ??
-        st.st_nlink = 1;
-        st.st_uid = 1000; // TODO get these from running process
-        st.st_gid = 1000;
-        st.st_rdev = 0;
-        #endif
 
         if (filler(buf, dskFileName (dskInfo, i), &st, 0, fill_dir_plus))
             break;
@@ -419,24 +403,37 @@ static int tidsk_fsync(const char *path, int isdatasync,
 static int tidsk_setxattr(const char *path, const char *name, const char *value,
 			size_t size, int flags)
 {
+    int index;
+
+    printf ("%s %s attr='%s' size=%ld\n", __func__, path, name, size);
+
     if (*path == '/')
         path++;
 
+    /*  We report no data for the mount point itself */
+    if (!*path)
+        return -ENODATA;
+
+    if ((index = dskCheckFileAccess (dskInfo, path, O_WRONLY)) < 0)
+        return -EACCES;
+
+    char data[11];
+    memcpy (data, value, size < 10 ? size : 10);
+    data[10] = 0;
+
     if (!strcmp (name, XATTR_FLAGS))
     {
+        dskFileFlagsSet (dskInfo, index, atoi (data));
+        return 0;
     }
+
     if (!strcmp (name, XATTR_RECLEN))
     {
+        dskFileRecLenSet (dskInfo, index, atoi (data));
+        return 0;
     }
-    printf ("%s %s TODO\n", __func__, path);
-    return 0;
 
-        #if 0
-	int res = lsetxattr(path, name, value, size, flags);
-	if (res == -1)
-		return -errno;
-	return 0;
-        #endif
+    return -ENODATA;
 }
 
 static int tidsk_getxattr(const char *path, const char *name, char *value,
@@ -510,8 +507,8 @@ static int tidsk_removexattr(const char *path, const char *name)
     if (*path == '/')
         path++;
 
-    printf ("%s %s TODO\n", __func__, path);
-    return 0;
+    printf ("%s %s attribute removal is not supported\n", __func__, path);
+    return -ENODATA;
 }
 
 static off_t tidsk_lseek(const char *path, off_t off, int whence, struct fuse_file_info *fi)

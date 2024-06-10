@@ -115,6 +115,8 @@ int dskReadFile (DskInfo *info, int index, uint8_t *buff, int offset, int size);
 int dskWriteFile (DskInfo *info, int index, uint8_t *buff, int offset, int size);
 int dskCheckFileAccess (DskInfo *info, const char *path, int mode);
 int dskCreateFile (DskInfo *info, const char *path, Tifiles *header);
+void dskEncodeVolumeHeader (DskVolumeHeader *vol, const char *name, int
+                            secPerTrk, int tracks, int sides, int density);
 
 DskInfo *dskOpenVolume (const char *name);
 void dskCloseVolume(DskInfo *info);
@@ -125,6 +127,9 @@ void dskFileTifiles (DskInfo *info, int index, Tifiles *header);
 int dskFileLength (DskInfo *info, int index);
 int dskFileFlags (DskInfo *info, int index);
 int dskFileRecLen (DskInfo *info, int index);
+void dskFileFlagsSet (DskInfo *info, int index, int reclen);
+void dskFileRecLenSet (DskInfo *info, int index, int reclen);
+int dskFileSecCount (DskInfo *info, int index);
 bool dskFileProtected (DskInfo *info, int index);
 int dskSectorCount (DskInfo *info);
 int dskSectorsFree (DskInfo *info);

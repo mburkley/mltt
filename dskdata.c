@@ -124,18 +124,19 @@ void dskAllocSectors (DskInfo *info, int start, int count)
     }
 }
 
-void dskEncodeVolumeHeader (DskInfo *info, const char *name)
+void dskEncodeVolumeHeader (DskVolumeHeader *vol, const char *name, int
+                            secPerTrk, int tracks, int sides, int density)
 {
-    DskVolumeHeader *v = &info->volhdr;
-    filesLinux2TI (name, v->tiname);
+    filesLinux2TI (name, vol->tiname);
     // v->sectors = htons (SECTORS_PER_DISK);
-    v->sectors = htons (720);  // TODO make this a param
-    v->secPerTrk = 9;
-    memcpy (v->dsk, "DSK", 3);
-    v->protect = ' ';
-    v->tracks = 40;
-    v->sides = 2;
-    v->density = 1;
+    int sectors = tracks * secPerTrk * sides;
+    vol->sectors = htobe16 (sectors);
+    vol->secPerTrk = secPerTrk;
+    memcpy (vol->dsk, "DSK", 3);
+    vol->protect = ' ';
+    vol->tracks = tracks;
+    vol->sides = sides;
+    vol->density = density;
 }
 
 int dskCheckFileAccess (DskInfo *info, const char *path, int mode)
@@ -186,6 +187,25 @@ int dskFileFlags (DskInfo *info, int index)
 int dskFileRecLen (DskInfo *info, int index)
 {
     return info->files[index].filehdr.recLen;
+}
+
+void dskFileFlagsSet (DskInfo *info, int index, int flags)
+{
+    info->files[index].filehdr.flags = flags;
+    fseek (info->fp, DSK_BYTES_PER_SECTOR * info->files[index].sector, SEEK_SET);
+    fwrite (&info->files[index].filehdr, 1, sizeof (DskFileHeader), info->fp);
+}
+
+void dskFileRecLenSet (DskInfo *info, int index, int recLen)
+{
+    info->files[index].filehdr.recLen = recLen;
+    fseek (info->fp, DSK_BYTES_PER_SECTOR * info->files[index].sector, SEEK_SET);
+    fwrite (&info->files[index].filehdr, 1, sizeof (DskFileHeader), info->fp);
+}
+
+int dskFileSecCount (DskInfo *info, int index)
+{
+    return info->files[index].filehdr.secCount;
 }
 
 bool dskFileProtected (DskInfo *info, int index)
