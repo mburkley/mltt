@@ -40,60 +40,6 @@
 #define DIR_HDR_SECTOR 1
 #define FIRST_DATA_SECTOR 34
 
-static void decodeChain (uint8_t chain[], uint16_t *p1, uint16_t *p2)
-{
-    *p1 = (chain[1]&0xF)<<8|chain[0];
-    *p2 = chain[1]>>4|chain[2]<<4;
-}
-
-static void encodeChain (uint8_t chain[], uint16_t p1, uint16_t p2)
-{
-    chain[0] = p1 & 0xff;
-    chain[1] = ((p1 >> 8) & 0x0F)|((p2&0x0f)<<4);
-    chain[2] = p2 >> 4;
-}
-
-static void decodeFileChains (DskFileInfo *file)
-{
-    // TODO why 23?
-    file->chainCount = 0;
-
-    for (int i = 0; i < 23; i++)
-    {
-        uint8_t *chain=file->filehdr.chain[i];
-
-        if (chain[0] != 0 || chain[1] != 0 || chain[2] !=0)
-        {
-            uint16_t start, len;
-            decodeChain (chain, &start, &len);
-
-            file->chains[file->chainCount].start = start;
-            file->chains[file->chainCount].end = start+len;
-            file->chainCount++;
-        }
-    }
-}
-
-static void encodeFileChains (DskFileInfo *file)
-{
-    // TODO why 23?
-
-    for (int i = 0; i < 23; i++)
-    {
-        uint8_t *chain=file->filehdr.chain[i];
-
-        if (i < file->chainCount)
-        {
-            encodeChain (chain,
-                         file->chains[i].start,
-                         file->chains[i].end - file->chains[i].start);
-        }
-        else
-        {
-            chain[0] = chain[1] = chain[2] = 0;
-        }
-    }
-}
 
 static bool sectorIsFree (DskInfo *info, int sector)
 {
@@ -241,7 +187,7 @@ static void readDirectory (DskInfo *info, int sector)
         fread (&file->filehdr, 1, sizeof (DskFileHeader), info->fp);
         file->sector = sector;
         filesTI2Linux (file->filehdr.tiname, file->osname);
-        decodeFileChains (file);
+        file->unpackChains ();
 
         file->length = be16toh (file->filehdr.secCount) * DSK_BYTES_PER_SECTOR;
 
@@ -387,16 +333,6 @@ int dskFileSeek (DskInfo *info, DskFileInfo *file, int offset, int whence)
     return file->pos;
 }
 
-const char *dskFileName (DskInfo *info, DskFileInfo *file)
-{
-    return file->osname;
-}
-
-int dskFileInode (DskInfo *info, DskFileInfo *file)
-{
-    return file->inode;
-}
-
 void dskFileTifiles (DskInfo *info, DskFileInfo *file, Tifiles *header)
 {
     header->secCount = file->filehdr.secCount;
@@ -406,48 +342,6 @@ void dskFileTifiles (DskInfo *info, DskFileInfo *file, Tifiles *header)
     header->recLen = file->filehdr.recLen;
     header->l3Alloc = file->filehdr.l3Alloc;
     memcpy (header->name, file->filehdr.tiname, 10);
-}
-
-int dskFileLength (DskInfo *info, DskFileInfo *file)
-{
-    printf ("# length of file inode %d is %d\n", file->inode,
-        file->length);
-    return file->length;
-}
-
-int dskFileFlags (DskInfo *info, DskFileInfo *file)
-{
-    return file->filehdr.flags;
-}
-
-int dskFileRecLen (DskInfo *info, DskFileInfo *file)
-{
-    return file->filehdr.recLen;
-}
-
-void dskFileFlagsSet (DskInfo *info, DskFileInfo *file, int flags)
-{
-    file->filehdr.flags = flags;
-    file->needsWrite = true;
-    writeDirectory (info);
-}
-
-void dskFileRecLenSet (DskInfo *info, DskFileInfo *file, int recLen)
-{
-    file->filehdr.recLen = recLen;
-    file->filehdr.recSec = BYTES_PER_SECTOR / recLen;
-    file->needsWrite = true;
-    writeDirectory (info);
-}
-
-int dskFileSecCount (DskInfo *info, DskFileInfo *file)
-{
-    return file->filehdr.secCount;
-}
-
-bool dskFileProtected (DskInfo *info, DskFileInfo *file)
-{
-    return file->filehdr.flags & FLAG_WP;
 }
 
 int dskFileCount (DskInfo *info)

@@ -7,7 +7,8 @@
 # grom ../roms/ParsecG.Bin 0x6000
 # load ../roms/froggerc.bin 0x6000
 # grom ../roms/froggerg.bin 0x6000
-diskfile 3 test.dsk RW
+# diskfile 3 test.dsk RW
+diskfile 3 edasm.dsk RW
 # TMP AREA
 
 # Uncomment this to capture ctrl-c (SIGINT) and return to consol debugger
@@ -42,10 +43,10 @@ disk ../roms/disk.bin
 # diskfile 1 ../disks/blankdsdd.dsk
 # diskfile 1 ../disks/mark.dsk
 # diskfile 2 ../disks/Miscellaneous.tidisk
-# diskfile 1 ../disks/EdAsmA.dsk RO
-diskfile 1 ./disk.dsk RW
-diskfile 2 ./test.dsk RW
-# diskfile 2 ../disks/EdAsmB.dsk RO
+diskfile 1 ../disks/EdAsmA.dsk RO
+# diskfile 1 ./disk.dsk RW
+# diskfile 2 ./test.dsk RW
+diskfile 2 ../disks/EdAsmB.dsk RO
 # diskdir 3 DISKDIR RW
 # diskdir 3 diskzap RW
 # diskfile 3 tmp.dsk RW
@@ -127,12 +128,12 @@ grom ../roms/AmazingG.Bin 0x6000
 # load ../roms/CongBngC.Bin 0x6000
 # grom ../roms/CongBngG.Bin 0x6000
 # load ../roms/DEFENDC.BIN 0x6000
-# grom ../roms/Ed-AssmG.Bin 0x6000
+grom ../roms/Ed-AssmG.Bin 0x6000
 # grom ../roms/HtWmpusG.Bin 0x6000
 # load ../roms/ParsecC.Bin 0x6000
 # grom ../roms/ParsecG.Bin 0x6000
 # grom ../roms/ZEROZAPG.BIN 0x6000
-grom ../roms/diskmang.bin 0x6000
+# grom ../roms/diskmang.bin 0x6000
 
 #
 #  Extended Basic
