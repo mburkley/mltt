@@ -37,14 +37,14 @@ LIBS=\
 -lm \
 -lfuse3
 
-TOOLS=disasm tapetool disktool hexed fir filetool fuse tibasic
+TOOLS=mltt-disasm mltt-tape mltt-disk mltt-file mltt-fuse mltt-basic
 
 CFLAGS=-Wall -ggdb3 -DVERSION=`cat VERSION` -I/usr/include/fuse3
 # LDFLAGS=
 
-all:  ti994a tests $(TOOLS)
+all:  mltt-emu tests $(TOOLS)
 
-ti994a: $(OBJECTS) console.o ti994a.o
+mltt-emu: $(OBJECTS) console.o ti994a.o
 	@echo "\t[LD] $@..."
 	@$(CC) $(LDFLAGS) -o $@ console.o ti994a.o $(OBJECTS) $(LIBS)
 
