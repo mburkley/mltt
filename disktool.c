@@ -38,23 +38,22 @@
 #include "tibasic.h"
 #include "dskdata.h"
 
-static void extractFile (DskInfo *info, const char *file)
+static void extractFile (DskInfo *info, const char *name)
 {
-    int index;
-
     char linuxFile[100];
-    filesTI2Linux (file, linuxFile);
+    filesTI2Linux (name, linuxFile);
 
-    if ((index = dskCheckFileAccess (info, linuxFile, 0)) < 0)
+    DskFileInfo *file;
+    if ((file = dskFileAccess (info, linuxFile, 0)) == NULL)
     {
         fprintf (stderr, "Can't access disk file %s\n", linuxFile);
         exit (1);
     }
 
-    int len = dskFileLength (info, index);
+    int len = dskFileLength (info, file);
 
     unsigned char *data = malloc (len);
-    dskReadFile (info, index, data, 0, len);
+    dskReadFile (info, file, data, 0, len);
 
     FILE *fp;
     if ((fp = fopen (linuxFile, "w")) == NULL)

@@ -7,7 +7,7 @@
 # grom ../roms/ParsecG.Bin 0x6000
 # load ../roms/froggerc.bin 0x6000
 # grom ../roms/froggerg.bin 0x6000
-diskfile 3 zap.dsk RW
+diskfile 3 test.dsk RW
 # TMP AREA
 
 # Uncomment this to capture ctrl-c (SIGINT) and return to consol debugger
