@@ -55,10 +55,11 @@ typedef struct
     // 0x38
     uint8_t bitmap[0xc8]; // bitmap 38-64, 38-91 or 38-eb for SSSD,DSSD,DSDD respec
 }
-DskVolumeHeader;
+DiskVolumeHeader;
 
-typedef struct
+class DiskVolume
 {
+private:
     DskVolumeHeader volhdr;
     char osname[FILENAME_LEN+100]; // TODO
     int fileCount;
@@ -66,47 +67,38 @@ typedef struct
     int sectorsFree;
     FILE *fp;
     // DskFileInfo files[MAX_FILE_COUNT];
-    struct _dskFileInfo *firstFile;
+    DiskFile *firstFile;
     int lastInode;
     bool volNeedsWrite;
     bool dirNeedsWrite;
-}
-DskInfo;
-
-DskFileInfo *dskFileFirst (DskInfo *info);
-DskFileInfo *dskFileNext (DskInfo *info, DskFileInfo *file);
-
-void dskOutputVolumeHeader (DskInfo *info, FILE *out);
-void dskOutputDirectory (DskInfo *info, FILE *out);
-
-int dskReadFile (DskInfo *info, DskFileInfo *file, uint8_t *buff, int offset, int size);
-int dskWriteFile (DskInfo *info, DskFileInfo *file, uint8_t *buff, int offset, int size);
-DskFileInfo * dskFileAccess (DskInfo *info, const char *path, int mode);
-DskFileInfo * dskFileOpen (DskInfo *info, const char *path, int mode);
-void dskFileClose (DskInfo *info, DskFileInfo *file);
-int dskFileSeek (DskInfo *info, DskFileInfo *file, int offset, int whence);
-DskFileInfo * dskCreateFile (DskInfo *info, const char *path, Tifiles *header);
-int dskUnlinkFile (DskInfo *info, const char *path);
-void dskEncodeVolumeHeader (DskVolumeHeader *vol, const char *name, int
-                            secPerTrk, int tracks, int sides, int density);
-
-DskInfo *dskOpenVolume (const char *name);
-void dskCloseVolume(DskInfo *info);
-
-// int dskFileCount (DskInfo *info);
-const char *dskFileName (DskInfo *info, DskFileInfo *file);
-void dskFileTifiles (DskInfo *info, DskFileInfo *file, Tifiles *header);
-int dskFileLength (DskInfo *info, DskFileInfo *file);
-int dskFileInode (DskInfo *info, DskFileInfo *file);
-int dskFileFlags (DskInfo *info, DskFileInfo *file);
-int dskFileRecLen (DskInfo *info, DskFileInfo *file);
-void dskFileFlagsSet (DskInfo *info, DskFileInfo *file, int reclen);
-void dskFileRecLenSet (DskInfo *info, DskFileInfo *file, int reclen);
-int dskFileSecCount (DskInfo *info, DskFileInfo *file);
-bool dskFileProtected (DskInfo *info, DskFileInfo *file);
-int dskFileCount (DskInfo *info);
-int dskSectorCount (DskInfo *info);
-int dskSectorsFree (DskInfo *info);
+    bool sectorIsFree (int sector);
+    int findFreeSector (int start);
+    void allocSectors (int start, int count);
+    void freeSectors (int start, int count);
+    DiskFile *fileAdd (const char *path);
+    void fileRemove (DiskFile *removeFile);
+    void readDirectory (int sector);
+    void writeDirectory ();
+    void freeFileResources (DiskFile *file);
+public:
+    void encodeVolumeHeader (DiskVolumeHeader *vol, const char *name, int
+                                secPerTrk, int tracks, int sides, int density);
+    DiskFile *fileAccess (const char *path, int mode);
+    DiskFile *fileOpen (const char *path, int mode);
+    void fileClose (DiskFile *file);
+    DiskFile *fileCreate (const char *path, Tifiles *header);
+    int fileUnlink (const char *path);
+    void outputHeader (FILE *out);
+    void outputDirectory (FILE *out);
+    int readFile (DiskFile *file, uint8_t *buff, int offset, int len);
+    int writeFile (DskFileInfo *file, uint8_t *buff, int offset, int len);
+    int fileCount () { return fileCount; }
+    int sectorCount () { return sectorCount; }
+    int sectorsFree () { return sectorsFree; }
+    DiskFile *fileFirst () { return info->firstFile; }
+    static DiskVolume *open (const char *name);
+    static void close (DiskVolume *vol);
+};
 
 #endif
 

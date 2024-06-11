@@ -22,6 +22,7 @@ public:
     int getLength () {return length; }
     int getFlags () { return filehdr.flags; }
     int getRecLen () { return filehdr.recLen; }
+    void setName ();
 
 
 
