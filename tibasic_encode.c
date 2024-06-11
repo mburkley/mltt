@@ -350,13 +350,13 @@ int encodeBasicProgram (char *input, int inputLen, uint8_t **output, bool debug)
     for (int i = lineCount-1; i >= 0; i--)
     {
         outputLineTable->line = htobe16 (lineTable[i].line);
-        outputLineTable->address = htobe16 (PROGRAM_TOP - lenCode + lineTable[i].address);
+        outputLineTable->address = htobe16 (PROGRAM_TOP - lenCode + lineTable[i].address + 1);
         outputLineTable++;
     }
 
     header->programTop = htobe16 (PROGRAM_TOP);
     header->lineNumbersTop = htobe16 (PROGRAM_TOP - lenCode);
-    header->lineNumbersBottom = htobe16 (PROGRAM_TOP - lenCode - lineCount * sizeof (LineNumberTable));
+    header->lineNumbersBottom = htobe16 (PROGRAM_TOP - lenCode - lineCount * sizeof (LineNumberTable) + 1);
     header->xorCheck = (header->lineNumbersTop ^ header->lineNumbersBottom);
 
     return lenHeader + lenCode;

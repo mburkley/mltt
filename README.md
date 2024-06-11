@@ -1,25 +1,63 @@
-# ti994a
-TI-99/4A emulator for Linux
-===========================
+mltt: Mark's Linux Tools for TI99
+=================================
+
+This is a collection of tools I use to create and maintain media for my TI99/4A
+computer.  It should build on most Linux distros but I have only tested on
+Debian and Ubuntu.
+
+To build, just clone from main and make.  libraries etc have to be manually installed.
+The emulator depends on GL, glut, pulse-audio and readline libraries.
+
+mlt99-emu - TI-99/4A emulator for Linux
+---------------------------------------
 
 This is an emulator for the TI-99/4A home computer which was my first PC back in
 1982.  I have been writing this emulator on and off for over 20 years.  It still
 has some outstanding issues but runs many games perfectly (munchman, ti
 invaders, etc).
 
-To build, download and type make.  libraries etc have to be manually installed.
-The emulator depends on GL, glut, pulse-audio and readline libraries.
-
-To run: ./ti994a <config-file>
+To run: ./mltt-emu [<config-file>]
 
 where <config-file> is the input file that contains instructions to load
 roms/groms/etc.  Default if unspecified is config.txt
 
-There are also command line tools to read/write cassette audio files, decode
-basic from tifiles and list or create sector dump disk files.
+Keyboard reads are a bit of a hack.  I read directly from /dev/input to ensure I
+get both keyup and keydown events.  The current user must be a member of the
+"input" group to read these.  Also note the emulator captures keystrokes even
+when it is not the app in focus!
+
+mlt99-disk - Tool to manage sector dump disk files
+--------------------------------------------------
+
+Allows examination of existing disk files, formatting of new disks and
+extracting files from disks.
+
+mlt99-tape - Tool to manage CS1 program recordings
+--------------------------------------------------
+
+mlt99-fuse - Fuse (file system in user space) driver to mount DSK files
+-----------------------------------------------------------------------
+
+This tool mounts a sector dump disk image to a specified mount point.  Filenames
+are converted from TI to Linux by changing to uppercase and replacing slash (/)
+with dot (.).
+
+mlt99-file - Tool to manage TIFILES basic programs, object files and EA5 binaries
+---------------------------------------------------------------------------------
+
+This tool can read and write various file formats.  It can add or remove TIFILES
+headers, tokenise or detokenise basic and encode / decode DIS/VAR files.
+
 
 Release Notes
 -------------
+
+version 0.92
+* Tidied up tools including fuse.
+* Added basic tokenise/detokenise and other conversions
+
+version 0.91
+* Improved reading of poor quality cassette recordings
 
 version 0.90
 * Added alpha lock support (# key toggles)
@@ -29,33 +67,19 @@ version 0.90
 * VDP max 4 sprites per line
 * Did some work on Overflow and Odd Parity status flags
 
-FUSE
-----
+FUSE notes
+----------
 The fuse tool mounts a sector-dump disk image as a directory.  Files are
-presented as they are on disk by default.  Optionally, if the -t flag is
-provided when fue is invoked, then all files will also have a 128-byte "TIFILES"
-header.
+presented as they are on disk.  I looked at automatically adding a TIFILES
+header to every file but there are too many corner cases to make this a viable
+option so the the files are not presented with TIFILES headers.  This does mean
+there is a possible loss of metadata (record size, etc) when copying to and from
+a mounted directory.  To capture the metadata, extended attributes are used
+instead.  mltt-file can read and write these attributes and can reconstruct a
+TIFILES header from them if necessary.
 
-Files presented by fuse have extended attributes.  These are user.tifiles.flags
+Instead files presented by fuse have extended attributes.  These are user.tifiles.flags
 and user.tifiles.reclen.  These are checked by the disktool program to find out
-more about the file if a TIFILES header is not present.
-
-Copying files into a fuse mounted directory causes a challenge when files may or
-may not have a tifiles header.  The following algorithm is used.  If the start
-of the file has the signature of a TIFILES header, then the first 128 bytes are
-not copied to the disk image but the meta-data from the header is used to
-construct the directory entry in the DSK image.  A flag is maintained internally to record that
-this file does not have a TIFILES header.  The flags and record len default to
-0.  Reading back the file will not provide a header even if the volume has been
-mounted with -t.  This is to ensure that a read of a file is consistent with the
-data that was written.
-
-If the file system is unmounted and remounted with -t then a TIFILES header will
-be added to all files.
-
-If the -d (decode) option is provided, then instead of the file on disk being
-presented, a decoded copy is presented instead.  If the file is detected as a
-basic program then detokenised basic is presented.  If the file is detected as a
-DIS/VAR file then text is presented.  When a file has been written and is
-closed, it is re-encoded before being stored to the file system.
+more about the file if a TIFILES header is not present.  Other fields such as
+record per sector and eof offset are calculated automatically.
 

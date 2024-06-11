@@ -137,13 +137,13 @@ int main (int argc, char *argv[])
     bool debug = false;
     bool doTifiles = false;
 
-    while ((c = getopt(argc, argv, "debv3t")) != -1)
+    while ((c = getopt(argc, argv, "dexbv3t")) != -1)
     {
         switch (c)
         {
-            case 'x' : debug = true; break;
+            case 'd' : debug = true; break;
             case 'e' : doEncode = true; break;
-            case 'd' : doDecode = true; break;
+            case 'x' : doDecode = true; break;
             case 'b' : convertBasic = true; break;
             case 'v' : convertVar = true; break;
             case '3' : convertEa3 = true; break;
@@ -157,11 +157,11 @@ int main (int argc, char *argv[])
         printf ("\nTIFILES reader / writer\n\n");
         printf ("usage: %s [-tbv3de] <in-file> [<out-file>]\n", argv[0]);
         printf ("\twhere <in-file> is a binary file with or without a TIFILES header\n");
-        printf ("\tand <out-file> is the output file.  Default action is to decode.\n");
-        printf ("\tIf <out-file> is not supplied then stdout is used (decode only).\n");
+        printf ("\tand <out-file> is the output file.  If <out-file> is not supplied\n");
+        printf ("\tthen stdout is used (decode only).\n");
         printf ("\tProviding <in-file> with no other options prints file information.\n");
-        printf ("\t\t-x=debug\n");
-        printf ("\t\t-d=decode\n");
+        printf ("\t\t-d=debug\n");
+        printf ("\t\t-x=decode\n");
         printf ("\t\t-e=encode\n");
         printf ("\t\t-b=basic program\n");
         printf ("\t\t-v=var/disp file\n");
@@ -247,14 +247,27 @@ int main (int argc, char *argv[])
         {
             size = decodeBasicProgram  (input, size, &output, debug);
             fprintf (stderr, "size=%d\n", size);
-            printf ("%-*.*s", size, size, output);
+
+            if (outfile[0])
+                filesWriteText (outfile, output, size, false);
+            else
+                printf ("%-*.*s", size, size, output);
             return 0;
         }
         else if (convertVar)
         {
             size = decodeDisVar (input, size, &output);
             fprintf (stderr, "size=%d\n", size);
-            printf ("%-*.*s", size, size, output);
+
+            if (outfile[0])
+                filesWriteText (outfile, output, size, false);
+            else
+                printf ("%-*.*s", size, size, output);
+        }
+        else
+        {
+            fprintf (stderr, "Please specify a conversion to decode\n");
+            exit (1);
         }
     }
     else if (outfile[0] != 0)
