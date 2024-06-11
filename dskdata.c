@@ -22,6 +22,8 @@
 
 /*
  *  Provides disk data structure operation functions
+ *
+ *  This should REALLY have been in C++ ...
  */
 
 #include <stdio.h>
@@ -36,6 +38,7 @@
 #define FIRST_INODE 100
 #define VOL_HDR_SECTOR 0
 #define DIR_HDR_SECTOR 1
+#define FIRST_DATA_SECTOR 34
 
 static void decodeChain (uint8_t chain[], uint16_t *p1, uint16_t *p2)
 {
@@ -432,6 +435,7 @@ void dskFileFlagsSet (DskInfo *info, DskFileInfo *file, int flags)
 void dskFileRecLenSet (DskInfo *info, DskFileInfo *file, int recLen)
 {
     file->filehdr.recLen = recLen;
+    file->filehdr.recSec = BYTES_PER_SECTOR / recLen;
     file->needsWrite = true;
     writeDirectory (info);
 }
@@ -599,50 +603,11 @@ void dskOutputVolumeHeader (DskInfo *info, FILE *out)
     printf ("\n");
 }
 
-#if 0
-void dskDumpContents (int sectorStart, int sectorCount, int recLen)
-{
-    if (!showContents)
-        return;
-
-    for (int i = sectorStart; i <= sectorStart+sectorCount; i++)
-    {
-        int8_t data[DSK_BYTES_PER_SECTOR];
-        fseek (diskFp, DSK_BYTES_PER_SECTOR * i, SEEK_SET);
-
-        fread (&data, sizeof (data), 1, diskFp);
-
-        for (int j = 0; j < DSK_BYTES_PER_SECTOR; j += recLen)
-        {
-            printf ("\n\t'");
-            for (int k = 0; k < recLen; k++)
-            {
-                printf ("%c", isalnum (data[j+k]) ? data[j+k] : '.');
-            }
-            printf ("'");
-        }
-    }
-}
-#endif
-
 static void printFileInfo (DskFileInfo *file, FILE *out)
 {
-    // int length;
-
     DskFileHeader *header = &file->filehdr;
     fprintf (out, "%-10.10s", header->tiname);
     fprintf (out, " %6d", file->sector);
-
-    #if 0
-    if (header->flags & 0x01)
-    {
-        length = (ntohs (header->secCount) - 1) * DSK_BYTES_PER_SECTOR + header->eof;
-        // if (showBasic)
-        //     prog = malloc (ntohs (header->secCount) * DSK_BYTES_PER_SECTOR);
-    }
-    else
-        length = be16toh(header->len);
-    #endif
 
     fprintf (out, " %6d", file->length);
 
@@ -650,7 +615,7 @@ static void printFileInfo (DskFileInfo *file, FILE *out)
     fprintf (out, " %8d", be16toh(header->secCount));
     fprintf (out, " %8d", header->recSec * be16toh (header->secCount));
     fprintf (out, " %10d", header->eofOffset);
-    fprintf (out, " %7d", le16toh (header->l3Alloc)); // NOTE : LE not BE
+    fprintf (out, " %7d", le16toh (header->l3Alloc)); // NOTE : LE not BE ?
     fprintf (out, " %7d", header->recLen);
 
     for (int i = 0; i < file->chainCount; i++)
@@ -661,11 +626,6 @@ static void printFileInfo (DskFileInfo *file, FILE *out)
 
 void dskOutputDirectory (DskInfo *info, FILE *out)
 {
-    // int count = diskAnalyseDirectory (disk, sector, headers);
-
-    // if (count < 0)
-    //     return count;
-
     fprintf (out, "Name       Sector Len    Flags               #Sectors #Records EOF-offset L3Alloc Rec-Len Sector chains\n");
     fprintf (out, "========== ====== ====== =================== ======== ======== ========== ======= ======= =======\n");
 
@@ -673,7 +633,6 @@ void dskOutputDirectory (DskInfo *info, FILE *out)
         printFileInfo (file, out);
 }
 
-// int diskReadData (uint8_t *buff, int offset, int sectorStart, int sectorCount)
 int dskReadFile (DskInfo *info, DskFileInfo *file, uint8_t *buff, int offset, int len)
 {
     int total = 0;
@@ -763,8 +722,12 @@ int dskWriteFile (DskInfo *info, DskFileInfo *file, uint8_t *buff, int offset, i
         if (secCount == 0)
         {
             /*  We have reached EOF.  Allocate a new sector */
-            sector = dskFindFreeSector (info, 34); // 34th sector seems to be
-            // standard for first data
+            if ((sector = dskFindFreeSector (info, FIRST_DATA_SECTOR)) == -1)
+            {
+                printf ("# disk full, can't write to file\n");
+                break;
+            }
+
             printf ("# Allocate new sector %d\n", sector);
             dskAllocSectors (info, sector, 1);
             secCount++;

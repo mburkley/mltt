@@ -26,16 +26,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#if 0
-#include <stdlib.h>
-#include <stdbool.h>
-#include <unistd.h>
-
-#include "mem.h"
-#include "cpu.h"
-#include "cru.h"
-#include "interrupt.h"
-#endif
 #include "trace.h"
 #include "dskfile.h"
 #include "fdd.h"
