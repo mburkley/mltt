@@ -52,9 +52,7 @@ static DskInfo *dskInfo;
 
 typedef struct _FuseFileInfo
 {
-    bool open;
-    int index;
-    off_t pos;
+    DskFileInfo *file;
     struct _FuseFileInfo *next;
 }
 FuseFileInfo;
@@ -79,8 +77,6 @@ static void *tidsk_init(struct fuse_conn_info *conn,
 static int tidsk_getattr(const char *path, struct stat *stbuf,
 		       struct fuse_file_info *fi)
 {
-    int index = 0;
-
     if (*path == '/')
         path++;
 
@@ -88,33 +84,42 @@ static int tidsk_getattr(const char *path, struct stat *stbuf,
 
     (void) fi;
 
+    DskFileInfo *file;
     if (!strcmp (path, ""))
+    {
         stbuf->st_mode = S_IFDIR;
+
+        // TODO set protected to be disk protected
+        stbuf->st_mode |= S_IWUSR | S_IWGRP | S_IWOTH;
+        stbuf->st_size = 256; // random number
+        stbuf->st_blocks = 256; // random number
+        stbuf->st_ino = 99; // random number
+    }
     else
     {
-        if ((index = dskCheckFileAccess (dskInfo, path, 0)) < 0)
+        if ((file = dskFileAccess (dskInfo, path, 0)) == NULL)
             return -ENOENT;
 
         stbuf->st_mode = S_IFREG;
+
+        if (!dskFileProtected (dskInfo, file))
+            stbuf->st_mode |= S_IWUSR | S_IWGRP | S_IWOTH;
+
+        stbuf->st_size = dskFileLength (dskInfo, file);
+        stbuf->st_blocks = dskFileSecCount (dskInfo, file);
+        stbuf->st_ino = dskFileInode (dskInfo, file);
     }
 
     stbuf->st_mode |= S_IRUSR | S_IRGRP | S_IROTH;
     
-    if (!dskFileProtected (dskInfo, index))
-        stbuf->st_mode |= S_IWUSR | S_IWGRP | S_IWOTH;
-
-    stbuf->st_size = dskFileLength (dskInfo, index);
-
-    stbuf->st_blocks = 1; // TODO
-    stbuf->st_blksize = 512;
-    stbuf->st_ino = index;
+    stbuf->st_blksize = BYTES_PER_SECTOR;
     stbuf->st_ctime = 0;
     stbuf->st_atime = 0;
     stbuf->st_mtime = 0;
-    stbuf->st_dev = 45; // ??
+    stbuf->st_dev = 1; // Assuming mount points can have a common value here
     stbuf->st_nlink = 1;
-    // stbuf->st_uid = 1000; // TODO get these from running process
-    // stbuf->st_gid = 1000;
+    stbuf->st_uid = getuid();
+    stbuf->st_gid = getgid();
     stbuf->st_uid = 0;
     stbuf->st_gid = 0;
     stbuf->st_rdev = 0;
@@ -132,7 +137,7 @@ static int tidsk_access(const char *path, int mask)
     if (!strcmp (path, ""))
         return 0;
 
-    if (dskCheckFileAccess (dskInfo, path, mask) < 0)
+    if (dskFileAccess (dskInfo, path, mask) == NULL)
         return -EACCES;
 
     return 0;
@@ -140,7 +145,7 @@ static int tidsk_access(const char *path, int mask)
 
 static int tidsk_readlink(const char *path, char *buf, size_t size)
 {
-    printf ("%s %s TODO\n", __func__, path);
+    printf ("%s %s unsupported\n", __func__, path);
     return -EINVAL;
 }
 
@@ -156,28 +161,14 @@ static int tidsk_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     if (strcmp (path, "/"))
         return -ENOTDIR;
 
-    for (int i = 0; i < dskFileCount (dskInfo); i++)
+    for (DskFileInfo *file = dskFileFirst (dskInfo);
+         file != NULL;
+         file = dskFileNext (dskInfo, file))
     {
-        // struct stat st;
-        // memset(&st, 0, sizeof(st));
-        st.st_ino = i + 42;
-        // st.st_mode = S_IFREG;
+        st.st_ino = dskFileInode (dskInfo, file);
         st.st_mode = DT_REG << 12;
-        #if 0
-        st.st_size = 1;
-        st.st_blocks = 1;
-        st.st_blksize = 512;
-        st.st_ctime = 0;
-        st.st_atime = 0;
-        st.st_mtime = 0;
-        st.st_dev = 45; // ??
-        st.st_nlink = 1;
-        st.st_uid = 1000; // TODO get these from running process
-        st.st_gid = 1000;
-        st.st_rdev = 0;
-        #endif
 
-        if (filler(buf, dskFileName (dskInfo, i), &st, 0, fill_dir_plus))
+        if (filler(buf, dskFileName (dskInfo, file), &st, 0, fill_dir_plus))
             break;
     }
 
@@ -201,7 +192,11 @@ static int tidsk_unlink(const char *path)
     if (*path == '/')
         path++;
 
-    printf ("%s %s TODO\n", __func__, path);
+    printf ("%s %s\n", __func__, path);
+
+    if (dskUnlinkFile (dskInfo, path) != 0)
+        return -EACCES;
+
     return 0;
 }
 
@@ -262,41 +257,35 @@ static int tidsk_truncate(const char *path, off_t size,
 static int tidsk_create(const char *path, mode_t mode,
 		      struct fuse_file_info *fi)
 {
-    int index;
-
     if (*path == '/')
         path++;
 
     printf ("%s %s\n", __func__, path);
 
     /*  Error if file exists */
-    if (dskCheckFileAccess (dskInfo, path, fi->flags) >= 0)
+    if (dskFileAccess (dskInfo, path, fi->flags) != NULL)
         return -EACCES;
 
     FuseFileInfo *f = fuseFileHandleList;
     if (f == NULL)
         return -EBADF;
 
-    fuseFileHandleList = f->next;
-
     Tifiles header;
     filesInitTifiles (&header, path, 0, BYTES_PER_SECTOR, 0, false, false);
 
-    if ((index = dskCreateFile (dskInfo, path, &header)) < 0)
+    DskFileInfo *file;
+    if ((file = dskCreateFile (dskInfo, path, &header)) == NULL)
         return -EACCES;
 
+    fuseFileHandleList = f->next;
     fi->fh = f - fuseFileInfo;
     printf ("file info array index=%ld\n", fi->fh);
-    f->pos = 0;
-    f->index = index;
-    f->open = true;
+    f->file = file;
     return 0;
 }
 
 static int tidsk_open(const char *path, struct fuse_file_info *fi)
 {
-    int index;
-
     if (*path == '/')
         path++;
 
@@ -306,61 +295,57 @@ static int tidsk_open(const char *path, struct fuse_file_info *fi)
     if (f == NULL)
         return -EBADF;
 
-    fuseFileHandleList = f->next;
-
-    if ((index = dskCheckFileAccess (dskInfo, path, fi->flags)) < 0)
+    DskFileInfo *file;
+    if ((file = dskFileOpen (dskInfo, path, fi->flags)) == NULL)
         return -EACCES;
 
     /*  We need to store the file info element as an integer so calculate the
      *  offset into the file info array and use that as the index */
     fi->fh = f - fuseFileInfo;
     printf ("file info array index=%ld\n", fi->fh);
-    f->pos = 0;
-    f->index = index;
-    f->open = true;
+    f->file = file;
+    fuseFileHandleList = f->next;
     return 0;
 }
 
 static int tidsk_read (const char *path, char *buf, size_t size, off_t offset,
                        struct fuse_file_info *fi)
 {
-    int index;
-
     if (*path == '/')
         path++;
 
     printf ("%s\n", __func__);
 
+    DskFileInfo *file;
     if (fi == NULL)
     {
-        if ((index = dskCheckFileAccess (dskInfo, path, O_RDONLY)) < 0)
+        if ((file = dskFileAccess (dskInfo, path, O_RDONLY)) == NULL)
             return -EACCES;
     }
     else
-        index = fuseFileInfo[fi->fh].index;
+        file = fuseFileInfo[fi->fh].file;
 
-    return dskReadFile (dskInfo, index, (uint8_t*) buf, offset, size);
+    return dskReadFile (dskInfo, file, (uint8_t*) buf, offset, size);
 }
 
 static int tidsk_write(const char *path, const char *buf, size_t size,
 		     off_t offset, struct fuse_file_info *fi)
 {
-    int index;
-
     if (*path == '/')
         path++;
 
     printf ("%s\n", __func__);
 
+    DskFileInfo *file;
     if(fi == NULL)
     {
-        if ((index = dskCheckFileAccess (dskInfo, path, O_WRONLY)) < 0)
+        if ((file = dskFileAccess (dskInfo, path, O_WRONLY)) == NULL)
             return -EACCES;
     }
     else
-        index = fuseFileInfo[fi->fh].index;
+        file = fuseFileInfo[fi->fh].file;
 
-    return dskWriteFile (dskInfo, index, (uint8_t*) buf, offset, size);
+    return dskWriteFile (dskInfo, file, (uint8_t*) buf, offset, size);
 }
 
 static int tidsk_statfs(const char *path, struct statvfs *stbuf)
@@ -392,9 +377,10 @@ static int tidsk_release(const char *path, struct fuse_file_info *fi)
     // if (f == NULL)
     //     return -EBADF;
 
+    dskFileClose (dskInfo, f->file);
     f->next = fuseFileHandleList;
+    f->file = NULL;
     fuseFileHandleList = f;
-    f->open = false;
 
     return 0;
 }
@@ -419,31 +405,6 @@ static int tidsk_fsync(const char *path, int isdatasync,
 static int tidsk_setxattr(const char *path, const char *name, const char *value,
 			size_t size, int flags)
 {
-    if (*path == '/')
-        path++;
-
-    if (!strcmp (name, XATTR_FLAGS))
-    {
-    }
-    if (!strcmp (name, XATTR_RECLEN))
-    {
-    }
-    printf ("%s %s TODO\n", __func__, path);
-    return 0;
-
-        #if 0
-	int res = lsetxattr(path, name, value, size, flags);
-	if (res == -1)
-		return -errno;
-	return 0;
-        #endif
-}
-
-static int tidsk_getxattr(const char *path, const char *name, char *value,
-			size_t size)
-{
-    int index;
-
     printf ("%s %s attr='%s' size=%ld\n", __func__, path, name, size);
 
     if (*path == '/')
@@ -453,7 +414,43 @@ static int tidsk_getxattr(const char *path, const char *name, char *value,
     if (!*path)
         return -ENODATA;
 
-    if ((index = dskCheckFileAccess (dskInfo, path, O_WRONLY)) < 0)
+    DskFileInfo *file;
+    if ((file = dskFileAccess (dskInfo, path, O_WRONLY)) == NULL)
+        return -EACCES;
+
+    char data[11];
+    memcpy (data, value, size < 10 ? size : 10);
+    data[10] = 0;
+
+    if (!strcmp (name, XATTR_FLAGS))
+    {
+        dskFileFlagsSet (dskInfo, file, atoi (data));
+        return 0;
+    }
+
+    if (!strcmp (name, XATTR_RECLEN))
+    {
+        dskFileRecLenSet (dskInfo, file, atoi (data));
+        return 0;
+    }
+
+    return -ENODATA;
+}
+
+static int tidsk_getxattr(const char *path, const char *name, char *value,
+			size_t size)
+{
+    printf ("%s %s attr='%s' size=%ld\n", __func__, path, name, size);
+
+    if (*path == '/')
+        path++;
+
+    /*  We report no data for the mount point itself */
+    if (!*path)
+        return -ENODATA;
+
+    DskFileInfo *file;
+    if ((file = dskFileAccess (dskInfo, path, O_WRONLY)) == NULL)
         return -EACCES;
 
     /*  Note we must check if this is an attribute we have BEFORE we check the
@@ -466,7 +463,7 @@ static int tidsk_getxattr(const char *path, const char *name, char *value,
         if (size == 0)
             return 100;
 
-        int flags = dskFileFlags (dskInfo, index);
+        int flags = dskFileFlags (dskInfo, file);
         sprintf (value, "%d", flags);
         return strlen (value);
     }
@@ -475,7 +472,7 @@ static int tidsk_getxattr(const char *path, const char *name, char *value,
         if (size == 0)
             return 100;
 
-        int len = dskFileRecLen (dskInfo, index);
+        int len = dskFileRecLen (dskInfo, file);
         sprintf (value, "%d", len);
         return strlen (value);
     }
@@ -510,8 +507,8 @@ static int tidsk_removexattr(const char *path, const char *name)
     if (*path == '/')
         path++;
 
-    printf ("%s %s TODO\n", __func__, path);
-    return 0;
+    printf ("%s %s attribute removal is not supported\n", __func__, path);
+    return -ENODATA;
 }
 
 static off_t tidsk_lseek(const char *path, off_t off, int whence, struct fuse_file_info *fi)
@@ -529,7 +526,7 @@ static off_t tidsk_lseek(const char *path, off_t off, int whence, struct fuse_fi
 
     FuseFileInfo *f = &fuseFileInfo[fi->fh];
 
-    if (!f->open)
+    if (!f->file)
     {
         errno = EBADF;
         return -1;
@@ -537,17 +534,13 @@ static off_t tidsk_lseek(const char *path, off_t off, int whence, struct fuse_fi
 
     /*  We don't support sparse files so any seek for data is the same as a seek
      *  set and a seek hole is the same as a seek end */
-    switch (whence)
-    {
-    case SEEK_DATA:
-    case SEEK_SET: f->pos = off; break;
-    case SEEK_CUR: f->pos += off; break;
-    case SEEK_HOLE:
-    case SEEK_END: f->pos = dskFileLength (dskInfo, f->index) + off; break;
-    default: printf ("# whence=%d ?\n", whence); break;
-    }
+    if (whence == SEEK_DATA) 
+        whence = SEEK_SET;
 
-    return f->pos;
+    if (whence == SEEK_HOLE) 
+        whence = SEEK_END;
+
+    return dskFileSeek (dskInfo, f->file, off, whence);
 }
 
 static const struct fuse_operations tidsk_oper = {

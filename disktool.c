@@ -38,23 +38,22 @@
 #include "tibasic.h"
 #include "dskdata.h"
 
-static void extractFile (DskInfo *info, const char *file)
+static void extractFile (DskInfo *info, const char *name)
 {
-    int index;
-
     char linuxFile[100];
-    filesTI2Linux (file, linuxFile);
+    filesTI2Linux (name, linuxFile);
 
-    if ((index = dskCheckFileAccess (info, linuxFile, 0)) < 0)
+    DskFileInfo *file;
+    if ((file = dskFileAccess (info, linuxFile, 0)) == NULL)
     {
         fprintf (stderr, "Can't access disk file %s\n", linuxFile);
         exit (1);
     }
 
-    int len = dskFileLength (info, index);
+    int len = dskFileLength (info, file);
 
     unsigned char *data = malloc (len);
-    dskReadFile (info, index, data, 0, len);
+    dskReadFile (info, file, data, 0, len);
 
     FILE *fp;
     if ((fp = fopen (linuxFile, "w")) == NULL)
@@ -72,36 +71,79 @@ int main (int argc, char *argv[])
 {
     char c;
     bool extract = false;
-    bool add = false;
-    bool remove = false;
+    bool format = false;
+    // bool add = false;
+    // bool remove = false;
     const char *file;
+    char *volName = "BLANK";
+    int tracks = 40;
+    int secPerTrk = 9;
+    int sides = 1;
 
-    while ((c = getopt(argc, argv, "x:r:a:")) != -1)
+    while ((c = getopt(argc, argv, "x:r:a:ft:n:p:s:")) != -1)
     {
+        /*  Extract works but add and remove do not.  Not sure there is any
+         *  point in implementing now when fuse is available */
         switch (c)
         {
             case 'x' : extract = true; file=optarg; break;
-            case 'r' : remove = true; file=optarg; break;
-            case 'a' : add = true; file=optarg; break;
+            case 'f' : format = true; break;
+            case 't':  tracks = atoi (optarg); break;
+            case 'n':  volName = optarg; break;
+            case 'p':  secPerTrk = atoi (optarg); break;
+            case 's':  sides = atoi (optarg); break;
+            // case 'r' : remove = true; file=optarg; break;
+            // case 'a' : add = true; file=optarg; break;
             default: printf ("Unknown option '%c'\n", c);
         }
     }
 
     if (argc - optind < 1)
     {
-        printf ("\nSector dump disk file read tool\n\n"
-                "usage: %s [-x <extract-file>] [-r <remove-file>] [-a <add-file>] <dsk-file>\n\n", argv[0]);
+        printf ("\nSector dump disk file read tool\n\n");
+                // "usage: %s [-x <extract-file>] [-r <remove-file>] [-a <add-file>] <dsk-file>\n\n", argv[0]);
+        printf ("usage: %s [-x <extract-file>] "
+                "[-f -n <name> -t <tracks> -p <sectors-per-track> -s <sides>]] <dsk-file>\n", argv[0]);
+        printf ("\twhere -f \"formats\" a new disk image, defaults are 720, 40, 9, 1\n\n");
         return 1;
+    }
+
+    if (format)
+    {
+        struct
+        {
+            DskVolumeHeader vol;
+            uint8_t blank[0];
+        }
+        *data;
+
+        int sectors = tracks * secPerTrk * sides;
+        int size = sectors * BYTES_PER_SECTOR;
+
+        if (sectors == 0)
+        {
+            fprintf (stderr, "Can't format a disk with zero sectors\n");
+            exit (1);
+        }
+
+        data = calloc (size, 1);
+        dskEncodeVolumeHeader (&data->vol, volName, secPerTrk, tracks, sides, 1);
+
+        size = filesWriteBinary (argv[optind], (uint8_t*) data, size, NULL, false);
+        printf ("Wrote %d bytes to create volume '%s' with %d sectors\n", size, volName, sectors);
+        return 0;
     }
 
     DskInfo *info = dskOpenVolume (argv[optind]);
 
     if (extract)
         extractFile (info, file);
+    #if 0
     else if (add)
         ;
     else if (remove)
         ;
+    #endif
     else
     {
         dskOutputVolumeHeader (info, stdout);

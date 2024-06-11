@@ -36,7 +36,6 @@ static char currTokenValue[256];
 static uint8_t *outp;
 static char *inp;
 static LineNumberTable lineTable[MAX_LINE_NUMBER];
-// static int lineNumberCount;
 
 static void emitString (int type)
 {
@@ -304,22 +303,6 @@ static void processLine (bool debug)
     acceptToken (TOKEN_EOL, debug);
 }
 
-#if 0
-static int lineCompare (const void *v1, const void *v2)
-{
-    LineNumberTable *l1 = (LineNumberTable *)v1;
-    LineNumberTable *l2 = (LineNumberTable *)v2;
-
-    if (l1->line < l2->line)
-        return 1;
-
-    if (l1->line > l2->line)
-        return -1;
-
-    return 0;
-}
-#endif
-
 int encodeBasicProgram (char *input, int inputLen, uint8_t **output, bool debug)
 {
     int lineCount = 0;
@@ -335,7 +318,6 @@ int encodeBasicProgram (char *input, int inputLen, uint8_t **output, bool debug)
     inp = input;
     outp = *output;
     FileHeader *header = (FileHeader*) *output;
-    // LineNumberTable *lineTable = (LineNumberTable*) (*outputFinal + sizeof (FileHeader));
     acceptToken (0, debug); // Fetch the first token
 
     while (inp - input < inputLen)
@@ -355,9 +337,6 @@ int encodeBasicProgram (char *input, int inputLen, uint8_t **output, bool debug)
         *lineStart = outp - lineStart - 1; // tokenised line length
     }
     if (debug) printf ("done\n");
-
-    /*  Sort line numbers into reverse order */
-    // qsort (lineTable, lineCount, sizeof (LineNumberTable), lineCompare);
 
     int lenHeader = sizeof (FileHeader) + sizeof (LineNumberTable) * lineCount;
     int lenCode = outp - *output;
