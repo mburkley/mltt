@@ -41,18 +41,17 @@
 #include <sys/xattr.h>
 
 #include "files.h"
-#include "dskdata.h"
+#include "diskvolume.h"
 
 static int fill_dir_plus = 0;
-static char *dskFile;
 
-static DskInfo *dskInfo;
+static DiskVolume *volume;
 
 #define MAX_OPEN_FILES MAX_FILE_COUNT
 
 typedef struct _FuseFileInfo
 {
-    DskFileInfo *file;
+    DiskFile *file;
     struct _FuseFileInfo *next;
 }
 FuseFileInfo;
@@ -84,7 +83,7 @@ static int tidsk_getattr(const char *path, struct stat *stbuf,
 
     (void) fi;
 
-    DskFileInfo *file;
+    DiskFile *file;
     if (!strcmp (path, ""))
     {
         stbuf->st_mode = S_IFDIR;
@@ -161,7 +160,7 @@ static int tidsk_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     if (strcmp (path, "/"))
         return -ENOTDIR;
 
-    for (DskFileInfo *file = dskFileFirst (dskInfo);
+    for (DiskFile *file = dskFileFirst (dskInfo);
          file != NULL;
          file = dskFileNext (dskInfo, file))
     {
@@ -273,7 +272,7 @@ static int tidsk_create(const char *path, mode_t mode,
     Tifiles header;
     filesInitTifiles (&header, path, 0, BYTES_PER_SECTOR, 0, false, false);
 
-    DskFileInfo *file;
+    DiskFile *file;
     if ((file = dskCreateFile (dskInfo, path, &header)) == NULL)
         return -EACCES;
 
@@ -295,7 +294,7 @@ static int tidsk_open(const char *path, struct fuse_file_info *fi)
     if (f == NULL)
         return -EBADF;
 
-    DskFileInfo *file;
+    DiskFile *file;
     if ((file = dskFileOpen (dskInfo, path, fi->flags)) == NULL)
         return -EACCES;
 
@@ -316,7 +315,7 @@ static int tidsk_read (const char *path, char *buf, size_t size, off_t offset,
 
     printf ("%s\n", __func__);
 
-    DskFileInfo *file;
+    DiskFile *file;
     if (fi == NULL)
     {
         if ((file = dskFileAccess (dskInfo, path, O_RDONLY)) == NULL)
@@ -336,7 +335,7 @@ static int tidsk_write(const char *path, const char *buf, size_t size,
 
     printf ("%s\n", __func__);
 
-    DskFileInfo *file;
+    DiskFile *file;
     if(fi == NULL)
     {
         if ((file = dskFileAccess (dskInfo, path, O_WRONLY)) == NULL)
@@ -352,8 +351,8 @@ static int tidsk_statfs(const char *path, struct statvfs *stbuf)
 {
     printf ("%s %s\n", __func__, path);
 
-    stbuf->f_bsize = DSK_BYTES_PER_SECTOR;
-    stbuf->f_frsize = DSK_BYTES_PER_SECTOR;
+    stbuf->f_bsize = DISK_BYTES_PER_SECTOR;
+    stbuf->f_frsize = DISK_BYTES_PER_SECTOR;
     stbuf->f_blocks = dskSectorCount (dskInfo);
     stbuf->f_bfree = dskSectorsFree (dskInfo);
     stbuf->f_bavail = dskSectorsFree (dskInfo);
@@ -414,7 +413,7 @@ static int tidsk_setxattr(const char *path, const char *name, const char *value,
     if (!*path)
         return -ENODATA;
 
-    DskFileInfo *file;
+    DiskFile *file;
     if ((file = dskFileAccess (dskInfo, path, O_WRONLY)) == NULL)
         return -EACCES;
 
@@ -449,7 +448,7 @@ static int tidsk_getxattr(const char *path, const char *name, char *value,
     if (!*path)
         return -ENODATA;
 
-    DskFileInfo *file;
+    DiskFile *file;
     if ((file = dskFileAccess (dskInfo, path, O_WRONLY)) == NULL)
         return -EACCES;
 
@@ -583,9 +582,9 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    dskFile = strdup (argv[optind]);
+    const char *diskFile = strdup (argv[optind]);
 
-    if ((dskInfo = dskOpenVolume (dskFile)) == NULL)
+    if ((volume = DiskVolume::open (diskFile)) == NULL)
         exit (1);
 
     return fuse_main(argc-optind, &argv[optind], &tidsk_oper, NULL);

@@ -19,8 +19,8 @@ cassette.o \
 parse.o \
 mem.o \
 fdd.o \
-dskfile.o \
-dskdata.o \
+diskfile.o \
+diskvolume.o \
 sams.o \
 wav.o \
 files.o \
@@ -59,3 +59,7 @@ $(TOOLS): %: $(OBJECTS) %.o
 %.o: %.c
 	@echo "\t[CC] $<..."
 	@$(CC) -c $(CFLAGS) $< -o $@
+
+%.o: %.cc
+	@echo "\t[CC] $<..."
+	@$(CXX) -c $(CFLAGS) $< -o $@

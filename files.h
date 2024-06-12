@@ -33,7 +33,6 @@
 #define FLAG_PROG       0x01
 
 #define SIZEOF_TIFILES_HEADER   0x80
-#define BYTES_PER_SECTOR        0x100
 
 typedef struct _tifiles
 {

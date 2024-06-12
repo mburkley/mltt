@@ -36,14 +36,14 @@
 #include "parse.h"
 #include "files.h"
 #include "tibasic.h"
-#include "dskdata.h"
+#include "diskvolume.h"
 
 static void extractFile (DskInfo *info, const char *name)
 {
     char linuxFile[100];
     filesTI2Linux (name, linuxFile);
 
-    DskFileInfo *file;
+    DiskFile *file;
     if ((file = dskFileAccess (info, linuxFile, 0)) == NULL)
     {
         fprintf (stderr, "Can't access disk file %s\n", linuxFile);
@@ -127,7 +127,7 @@ int main (int argc, char *argv[])
         }
 
         data = calloc (size, 1);
-        dskEncodeVolumeHeader (&data->vol, volName, secPerTrk, tracks, sides, 1);
+        // diskVolume.encodeHeader (&data->vol, volName, secPerTrk, tracks, sides, 1);
 
         /*  Mark sector 0 and sector 1 as allocated */
         data->vol.bitmap[0] = 3;

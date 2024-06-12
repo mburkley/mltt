@@ -23,9 +23,9 @@
 #ifndef __DISKFILE_H
 #define __DISKFILE_H
 
-#include "dskdata.h"
+// #include "dskdata.h"
 
-void diskFileLoad (int drive, bool readOnly, char *name);
+void diskFileLoad (int drive, bool readOnly, const char *name);
 
 #endif
 

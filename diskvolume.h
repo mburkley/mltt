@@ -27,14 +27,12 @@
 #ifndef __DISKDATA_H
 #define __DISKDATA_H
 
-#include "files.h"
-#include "types.h"
+// #include "files.h"
+// #include "types.h"
+#include "diskfile.h"
+#include "disksector.h"
 
-#define DSK_BYTES_PER_SECTOR    256
-#define MAX_FILE_CHAINS         76
-#define MAX_FILE_COUNT          128
-#define DISK_FILENAME_MAX       1024
-#define FILENAME_LEN            11
+// #define DISK_FILENAME_MAX       1024
 
 typedef struct
 {
@@ -59,28 +57,8 @@ DiskVolumeHeader;
 
 class DiskVolume
 {
-private:
-    DskVolumeHeader volhdr;
-    char osname[FILENAME_LEN+100]; // TODO
-    int fileCount;
-    int sectorCount;
-    int sectorsFree;
-    FILE *fp;
-    // DskFileInfo files[MAX_FILE_COUNT];
-    DiskFile *firstFile;
-    int lastInode;
-    bool volNeedsWrite;
-    bool dirNeedsWrite;
-    bool sectorIsFree (int sector);
-    int findFreeSector (int start);
-    void allocSectors (int start, int count);
-    void freeSectors (int start, int count);
-    DiskFile *fileAdd (const char *path);
-    void fileRemove (DiskFile *removeFile);
-    void readDirectory (int sector);
-    void writeDirectory ();
-    void freeFileResources (DiskFile *file);
 public:
+    DiskVolume ();
     void encodeVolumeHeader (DiskVolumeHeader *vol, const char *name, int
                                 secPerTrk, int tracks, int sides, int density);
     DiskFile *fileAccess (const char *path, int mode);
@@ -91,13 +69,35 @@ public:
     void outputHeader (FILE *out);
     void outputDirectory (FILE *out);
     int readFile (DiskFile *file, uint8_t *buff, int offset, int len);
-    int writeFile (DskFileInfo *file, uint8_t *buff, int offset, int len);
-    int fileCount () { return fileCount; }
-    int sectorCount () { return sectorCount; }
-    int sectorsFree () { return sectorsFree; }
-    DiskFile *fileFirst () { return info->firstFile; }
-    static DiskVolume *open (const char *name);
-    static void close (DiskVolume *vol);
+    int writeFile (DiskFile *file, uint8_t *buff, int offset, int len);
+    int fileCount () { return _fileCount; }
+    int sectorCount () { return _sectorCount; }
+    int sectorsFree () { return _sectorsFree; }
+    void open (const char *name);
+    void close ();
+private:
+    DiskVolumeHeader _volhdr;
+    uint8_t _dirHdr[DISK_BYTES_PER_SECTOR/2][2];
+    DiskSector *sectorMap;
+    char osname[FILENAME_LEN+100]; // TODO
+    int _fileCount;
+    int _sectorCount;
+    int _sectorsFree;
+    FILE *_fp;
+    // DiskFile files[MAX_FILE_COUNT];
+    vector<_files>;
+    int _lastInode;
+    bool _volNeedsWrite;
+    bool _dirNeedsWrite;
+    bool sectorIsFree (int sector);
+    int findFreeSector (int start);
+    void allocSectors (int start, int count);
+    void freeSectors (int start, int count);
+    DiskFile *fileAdd (const char *path);
+    void fileRemove (DiskFile *removeFile);
+    void readDirectory (int sector);
+    void sync ();
+    void freeFileResources (DiskFile *file);
 };
 
 #endif

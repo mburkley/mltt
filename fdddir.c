@@ -42,13 +42,13 @@
 
 #define SECTORS_PER_DISK 720
 
-static unsigned char diskData[SECTORS_PER_DISK][DSK_BYTES_PER_SECTOR];
+static unsigned char diskData[SECTORS_PER_DISK][DISK_BYTES_PER_SECTOR];
 static int dirSector;
 static char dirName[512];
 
 static bool fileExists[32];
 
-// static uint8_t dirData[DSK_BYTES_PER_SECTOR/2][2];
+// static uint8_t dirData[DISK_BYTES_PER_SECTOR/2][2];
 // static int fileSectorsAlloc = 0;
 static int dataSectorsAlloc = 32;
 static int fileCount;
@@ -77,8 +77,8 @@ static void buildDirEnt (const char *name, const char *fname, int len)
         f->flags |= 0x80;
 
     fileLinux2TI (name, f->name);
-    int fileSecCount = len / DSK_BYTES_PER_SECTOR;
-    f->eof = len - fileSecCount * DSK_BYTES_PER_SECTOR;
+    int fileSecCount = len / DISK_BYTES_PER_SECTOR;
+    f->eof = len - fileSecCount * DISK_BYTES_PER_SECTOR;
     if (f->eof != 0)
         fileSecCount++;
     f->alloc = htons(fileSecCount);
@@ -117,7 +117,7 @@ static void writeDisk (const char *name)
         exit(1);
     }
 
-    fwrite (diskData, DSK_BYTES_PER_SECTOR, SECTORS_PER_DISK, fp);
+    fwrite (diskData, DISK_BYTES_PER_SECTOR, SECTORS_PER_DISK, fp);
     fclose (fp);
 }
 #endif
@@ -129,7 +129,7 @@ static void dirSeek (int sector)
 
 static void dirRead (unsigned char *buffer)
 {
-    memcpy (buffer, diskData[dirSector], DSK_BYTES_PER_SECTOR);
+    memcpy (buffer, diskData[dirSector], DISK_BYTES_PER_SECTOR);
     printf ("read sector %d\n", dirSector);
 }
 
@@ -140,7 +140,7 @@ static void dirRead (unsigned char *buffer)
  */
 static void dirWrite (unsigned char *buffer)
 {
-    memcpy (diskData[dirSector], buffer, DSK_BYTES_PER_SECTOR);
+    memcpy (diskData[dirSector], buffer, DISK_BYTES_PER_SECTOR);
     printf ("write sector %d\n", dirSector);
 
     /*  We are only interested in updats to directory entries */
@@ -173,10 +173,10 @@ static void dirWrite (unsigned char *buffer)
         fp = fopen (fname, "r+");
         ASSERT (fp != NULL, "Can't open dir file for update");
     }
-    int length = (ntohs (f->alloc) - 1) * DSK_BYTES_PER_SECTOR + f->eof;
+    int length = (ntohs (f->alloc) - 1) * DISK_BYTES_PER_SECTOR + f->eof;
 
     if (f->eof == 0)
-        length += DSK_BYTES_PER_SECTOR;
+        length += DISK_BYTES_PER_SECTOR;
 
     // re-write the file from the image in memory
     for (int j = 0; j < MAX_FILE_CHAINS; j++)
@@ -186,7 +186,7 @@ static void dirWrite (unsigned char *buffer)
         if (start == 0)
             break;
         printf ("chain (%d to %d)\n", start,start+len);
-        int count = DSK_BYTES_PER_SECTOR*(len+1);
+        int count = DISK_BYTES_PER_SECTOR*(len+1);
         if (count > length)
             count = length;
         fwrite (diskData[start], count, 1, fp);
@@ -247,7 +247,7 @@ static void dirSelect (const char *name, bool readOnly)
     }
     printf ("total %d\n", size);
 
-    if (size > (720-32)*DSK_BYTES_PER_SECTOR)
+    if (size > (720-32)*DISK_BYTES_PER_SECTOR)
     {
         fprintf(stderr, "%s won't fit on a DSDD\n", name);
         ASSERT (false, "dir too big");

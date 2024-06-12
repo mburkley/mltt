@@ -1,44 +1,83 @@
-void DiskFile::setName (const char *path)
+#include <string.h>
+
+#include "diskfile.h"
+
+DiskFile::DiskFile (DiskSector& sectorMap)
 {
-    strncpy (osname, path, 10);
-    filesLinux2TI (osname, filehdr.tiname);
+    _sectorMap = sectorMap;
 }
 
-void dskFileFlagsSet (DskInfo *info, DskFileInfo *file, int flags)
+void DiskFile::setName (const char *path)
+{
+    // strncpy (osname, path, 10);
+    osname = path;
+    filesLinux2TI (osname.c_str(), filehdr.tiname);
+}
+
+void DiskFile::setFlags (int flags)
 {
     filehdr.flags = flags;
     needsWrite = true;
-    writeDirectory (info);
 }
 
-void dskFileRecLenSet (DskInfo *info, DskFileInfo *file, int recLen)
+void DiskFile::setRecLen (int recLen)
 {
     filehdr.recLen = recLen;
     filehdr.recSec = BYTES_PER_SECTOR / recLen;
     needsWrite = true;
-    writeDirectory (info);
 }
 
-int dskFileSecCount (DskInfo *info, DskFileInfo *file)
+/*  Free the sectors belonging to a file */
+void DiskFile::freeResources ()
 {
-    return filehdr.secCount;
+    if (_refCount != 0)
+        return;
+
+    printf ("# file remove dir sector %d\n", sector);
+    /*  Walk the sector allocation chain for this file and free all sectors */
+    for (int chain = 0; chain < chainCount; chain++)
+    {
+        printf ("# start=%d end=%d\n", chains[chain].start, chains[chain].end);
+        _sectorMap->freeSectors (chains[chain].start,
+                        chains[chain].end - chains[chain].start + 1);
+    }
+
+    /*  Free the directory entry sector and free the file info struct */
+    _sectorMap->freeSectors (file->sector, 1);
+    volume->fileRemove (file);
+
+    /*  Write the updated volume header, dir entry and directory entry allocation sector */
+    printf ("# FAT write needed\n");
+    // volume->volNeedsWrite = true;
+    _bitmap.setFatUpdate ();
+    // volume->writeDirectory ();
 }
 
-bool dskFileProtected (DskInfo *info, DskFileInfo *file)
+void DiskFile::close ()
 {
-    return filehdr.flags & FLAG_WP;
+    _refCount--;
+
+    if (unlinked)
+        freeResources ();
+        // TODO go through to sector and volume
 }
 
-
-void DiskVolume::fileClose (DiskFile *file)
+void DiskFile::unlink()
 {
-    refCount--;
-
-    if (refCount == 0 && unlinked)
-        freeFileResources (info, file);
+    if (_refCount == 0)
+        freeResources ();
+    else
+    {
+        /*  File is still open somewhere.  Mark it as unlinked so it does not
+         *  appear in any more listings and write out the directory sector
+         *  without this file */
+        _unlinked = true;
+        _bitmap.setDirUpdate ();
+        // TODO writeDirectory ();
+    }
 }
 
-int fileSeek (DiskFile *file, int offset, int whence)
+int DiskFile::seek (int offset, int whence)
 {
     switch (whence)
     {
@@ -50,7 +89,7 @@ int fileSeek (DiskFile *file, int offset, int whence)
     return pos;
 }
 
-void dskFileTifiles (DskInfo *info, DskFileInfo *file, Tifiles *header)
+void DiskFile::fromTifiles (Tifiles *header)
 {
     header->secCount = filehdr.secCount;
     header->flags = filehdr.flags;
@@ -59,11 +98,6 @@ void dskFileTifiles (DskInfo *info, DskFileInfo *file, Tifiles *header)
     header->recLen = filehdr.recLen;
     header->l3Alloc = filehdr.l3Alloc;
     memcpy (header->name, filehdr.tiname, 10);
-}
-
-DskFileInfo *dskFileNext (DskInfo *info, DskFileInfo *file)
-{
-    return next;
 }
 
 void DiskFile::printInfo (FILE *out)
@@ -98,25 +132,24 @@ int DiskFile::read (uint8_t *buff, int offset, int len)
         printf ("# start=%d end=%d\n", chains[i].start, chains[i].end);
         for (int j = chains[i].start; j <= chains[i].end; j++)
         {
-            if (offset > DSK_BYTES_PER_SECTOR)
+            if (offset > DISK_BYTES_PER_SECTOR)
             {
-                offset -= DSK_BYTES_PER_SECTOR;
+                offset -= DISK_BYTES_PER_SECTOR;
                 printf ("# advance, offset now %d\n", offset);
                 continue;
             }
 
             int count = len;
 
-            fseek (fp, DSK_BYTES_PER_SECTOR * j + offset, SEEK_SET);
+            // TODO check for read past EOF
 
             /*  If the read spans more than one sector then read only up to the
              *  end of the currect sector for now in case the next sector is in
              *  a difference chain */
-            if (offset + len > DSK_BYTES_PER_SECTOR)
-                count = DSK_BYTES_PER_SECTOR - offset;
+            if (offset + len > DISK_BYTES_PER_SECTOR)
+                count = DISK_BYTES_PER_SECTOR - offset;
 
-            printf ("read %d bytes from sector %d\n", count, j);
-            fread (buff, 1, count, fp);
+            _sector.read (j, buff, offset, count);
             buff += count;
             offset = 0;
             len -= count;
@@ -148,7 +181,7 @@ int DiskFile::write (uint8_t *buff, int offset, int len)
 
         for (sector = chains[chain].start; sector <= chains[chain].end; sector++)
         {
-            if (offset < DSK_BYTES_PER_SECTOR)
+            if (offset < DISK_BYTES_PER_SECTOR)
             {
                 printf ("# offset %d begins in chain %d sector %d\n",
                         offset, chain, sector);
@@ -156,7 +189,7 @@ int DiskFile::write (uint8_t *buff, int offset, int len)
                 break;
             }
 
-            offset -= DSK_BYTES_PER_SECTOR;
+            offset -= DISK_BYTES_PER_SECTOR;
             secCount--;
         }
 
@@ -176,14 +209,14 @@ int DiskFile::write (uint8_t *buff, int offset, int len)
         if (secCount == 0)
         {
             /*  We have reached EOF.  Allocate a new sector */
-            if ((sector = dskFindFreeSector (FIRST_DATA_SECTOR)) == -1)
+            if ((sector = _sectorMap.findFree (FIRST_DATA_SECTOR)) == -1)
             {
                 printf ("# disk full, can't write to file\n");
                 break;
             }
 
             printf ("# Allocate new sector %d\n", sector);
-            dskAllocSectors (sector, 1);
+            _sectorMap.alloc (sector, 1);
             secCount++;
             filehdr.secCount = htobe16 (be16toh (filehdr.secCount) + 1);
 
@@ -207,14 +240,12 @@ int DiskFile::write (uint8_t *buff, int offset, int len)
             }
         }
 
-        if (offset + len > DSK_BYTES_PER_SECTOR)
-            count = DSK_BYTES_PER_SECTOR - offset;
+        if (offset + len > DISK_BYTES_PER_SECTOR)
+            count = DISK_BYTES_PER_SECTOR - offset;
         else
             count = len;
 
-        fseek (fp, DSK_BYTES_PER_SECTOR * sector + offset, SEEK_SET);
-        printf ("# writing %d bytes to sector %d offset %d\n", count, sector, offset);
-        total += fwrite (buff, 1, count, fp);
+        total += _sector.write (sector, buff, offset, count);
 
         offset = 0;
         len -= count;
@@ -239,13 +270,38 @@ int DiskFile::write (uint8_t *buff, int offset, int len)
     {
         length = newLength;
         // filehdr.len = htobe16 (newLength);
-        filehdr.eofOffset = newLength % DSK_BYTES_PER_SECTOR;
+        filehdr.eofOffset = newLength % DISK_BYTES_PER_SECTOR;
     }
 
     encodeFileChains (file);
     needsWrite = true;
-    writeDirectory ();
+    // writeDirectory ();
 
     return total;
+}
+
+DiskFile::readDirEnt (int sector)
+{
+    _bitmap.read (sector, &_filehdr, 0, DISK_BYTES_PER_SECTOR);
+    _sector = sector;
+    filesTI2Linux (filehdr.tiname, osname);
+    unpackChains ();
+
+    _length = be16toh (_filehdr.secCount) * DISK_BYTES_PER_SECTOR;
+
+    if (file->filehdr.eofOffset != 0)
+        file->length -= (DISK_BYTES_PER_SECTOR - file->filehdr.eofOffset);
+
+    _needsWrite = false;
+}
+
+DiskFile::sync()
+{
+    if (_needsWrite)
+    {
+        printf ("# write dirent sector %d\n", file->sector);
+        _bitmap.write (_sector, &_filehdr, 0, DISK_BYTES_PER_SECTOR);
+        _needsWrite = false;
+    }
 }
 

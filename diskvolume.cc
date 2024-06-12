@@ -38,221 +38,89 @@
 #define DIR_HDR_SECTOR 1
 #define FIRST_DATA_SECTOR 34
 
-bool DiskVolume::sectorIsFree (int sector)
+DiskVolume::DiskVolume ()
 {
-    int byte = sector / 8;
-    int bit = sector % 8;
-
-    if (volhdr.bitmap[byte] & (1<<bit))
-        return false;
-
-    return true;
-}
-
-int DiskVolume::findFreeSector (int start)
-{
-    int i;
-
-    for (i = start; i < sectorCount; i++)
-    {
-        if (sectorIsFree (i))
-            return i;
-    }
-
-    return -1;
-}
-
-void DiskVolume::allocSectors (int start, int count)
-{
-    for (int i = start; i < start+count; i++)
-    {
-        int byte = i / 8;
-        int bit = i % 8;
-        volhdr.bitmap[byte] |= (1<<bit);
-    }
-
-    volNeedsWrite = true;
-}
-
-void DiskVolume::freeSectors (int start, int count)
-{
-    printf ("# free %d sectors starting at %d\n", count, start);
-    for (int i = start; i < start+count; i++)
-    {
-        int byte = i / 8;
-        int bit = i % 8;
-        volhdr.bitmap[byte] &= ~(1<<bit);
-    }
-
-    volNeedsWrite = true;
+    sectorMap = new DiskSector (volhdr.bitmap);
 }
 
 /*  Insert a new file name into the directory maintaining alphabetic order.  If
  *  path is NULL, then add it to the end of the list */
 DiskFile *DiskVolume::fileAdd (const char *path)
 {
-    DiskFile *newFile = new DiskFile (lastInode++);
-    DiskFile *prevFile = nullptr;
+    DiskFile *file = new DiskFile (lastInode++);
+
+    bool insert = false;
 
     if (path)
-        newFile->setName (path);
-
-    /*  Find where alphabetically the new file should go.  Use the TI names for
-     *  the comparison as the order must be as TI would expect. */
-    for (DskFileInfo *file = firstFile; file != NULL; file = file->next)
     {
-        if (path && strcmp (newFile->filehdr.tiname, file->filehdr.tiname) < 0)
+        file->setName (path);
+
+        /*  Find where alphabetically the new file should go.  Use the TI names for
+         *  the comparison as the order must be as TI would expect. */
+        for (auto it = begin (_files); it != end (_files); it++)
         {
-            printf ("# %s comes before %s; break;\n", newFile->filehdr.tiname,
-                    file->filehdr.tiname);
-            break;
+            if (strcmp (file->filehdr.tiname, it->filehdr.tiname) < 0)
+            {
+                printf ("# %s comes before %s; break;\n", file->filehdr.tiname,
+                        it->filehdr.tiname);
+                _files.insert (it, file);
+                insert = true;
+                break;
+            }
         }
-
-        prevFile = file;
     }
 
-    /*  Add the file to the file list */
-    if (prevFile)
-    {
-        newFile->next = prevFile->next;
-        prevFile->next = newFile;
-    }
-    else
-    {
-        newFile->next = firstFile;
-        firstFile = newFile;
-    }
+    if (!insert)
+        _files.insert (end (_files), file);
 
-    dirNeedsWrite = true;
-    fileCount++;
+    _bitmap.setDirUpdated ();
+    _fileCount++;
     return newFile;
 }
 
-/*  Remove a file from the file list and free its structure but don't deallocate
- *  its sectors */
-void DiskVolume::fileRemove (DiskFile *removeFile)
+void DiskVolume::readDirectory ()
 {
-    DskFileInfo *prevFile = NULL;
-    /*  Remove the file from the file list */
-    for (DskFileInfo *file = firstFile; file != NULL; file = file->next)
-    {
-        if (file == removeFile)
-            break;
+    // uint8_t data[DISK_BYTES_PER_SECTOR/2][2];
 
-        prevFile = file;
-    }
 
-    /*  Remove the file from the file list */
-    if (prevFile)
-        prevFile->next = removeFile->next;
-    else
-        firstFile = removeFile->next;
-
-    dirNeedsWrite = true;
-    fileCount--;
-    free (removeFile);
-}
-
-void DiskVolume::readDirectory (int sector)
-{
-    uint8_t data[DSK_BYTES_PER_SECTOR/2][2];
-
-    fseek (fp, DSK_BYTES_PER_SECTOR * sector, SEEK_SET);
-    fread (&data, 1, sizeof (data), fp);
-
+    _bitmap.readDirSector();
     lastInode = FIRST_INODE;
 
-    for (int i = 0; i < DSK_BYTES_PER_SECTOR/2; i++)
+    for (int i = 0; i < DISK_BYTES_PER_SECTOR/2; i++)
     {
-        int sector = data[i][0] << 8 | data[i][1];
+        int sector = dirHdr[i][0] << 8 | dirHdr[i][1];
 
         if (sector == 0)
             break;
 
-        DiskFile *file = fileAdd (NULL);
-
-        fseek (fp, DSK_BYTES_PER_SECTOR * sector, SEEK_SET);
-        fread (&file->filehdr, 1, sizeof (DskFileHeader), fp);
-        file->sector = sector;
-        filesTI2Linux (file->filehdr.tiname, file->osname);
-        file->unpackChains ();
-
-        file->length = be16toh (file->filehdr.secCount) * DSK_BYTES_PER_SECTOR;
-
-        if (file->filehdr.eofOffset != 0)
-            file->length -= (DSK_BYTES_PER_SECTOR - file->filehdr.eofOffset);
-
-        file->needsWrite = false;
+        DiskFile *file = fileAdd (nullptr);
+        file->readDirEnt (sector);
     }
 }
 
-void DiskVolume::writeDirectory ()
+void DiskVolume::sync ()
 {
-    uint8_t data[DSK_BYTES_PER_SECTOR/2][2];
-    memset (data, 0, DSK_BYTES_PER_SECTOR);
+    // uint8_t data[DISK_BYTES_PER_SECTOR/2][2];
+    // memset (data, 0, DISK_BYTES_PER_SECTOR);
+    memset (_dirHdr, 0, DISK_BYTES_PER_SECTOR);
 
     int entry = 0;
 
-    for (DskFileInfo *file = firstFile; file != NULL; file = file->next)
+    for (auto it = begin (_files); it != end (_files); it++)
     {
         /*  Files that have been unlinked still exist but do not get an entry in
          *  the directory sector */
-        if (file->unlinked)
+        if (it->isUnlinked ())
             continue;
 
-        data[entry][0] = file->sector >> 8;
-        data[entry][1] = file->sector & 0xff;
+        _dirHdr[entry][0] = it->_dirSector () >> 8;
+        _dirHdr[entry][1] = it->_dirSector () & 0xff;
 
-        if (file->needsWrite)
-        {
-            printf ("# write dirent sector %d\n", file->sector);
-            fseek (fp, DSK_BYTES_PER_SECTOR * file->sector, SEEK_SET);
-            fwrite (&file->filehdr, 1, sizeof (DskFileHeader), fp);
-            file->needsWrite = false;
-        }
-
+        file->sync ();
         entry++;
     }
 
-    if (dirNeedsWrite)
-    {
-        fseek (fp, DSK_BYTES_PER_SECTOR * DIR_HDR_SECTOR, SEEK_SET);
-        fwrite (&data, 1, DSK_BYTES_PER_SECTOR, fp);
-        dirNeedsWrite = false;
-        printf ("# Wrote dir\n");
-    }
-
-    if (volNeedsWrite)
-    {
-        fseek (fp, DSK_BYTES_PER_SECTOR * VOL_HDR_SECTOR, SEEK_SET);
-        fwrite (&volhdr, 1, DSK_BYTES_PER_SECTOR, fp);
-        volNeedsWrite = false;
-        printf ("# Wrote FAT\n");
-    }
-
-    fflush (fp);
-}
-
-/*  Free the sectors belonging to a file */
-void DiskVolume::freeFileResources (DiskFile *file)
-{
-    printf ("# file remove dir sector %d\n", file->sector);
-    /*  Walk the sector allocation chain for this file and free all sectors */
-    for (int chain = 0; chain < file->chainCount; chain++)
-    {
-        printf ("# start=%d end=%d\n", file->chains[chain].start, file->chains[chain].end);
-        freeSectors (file->chains[chain].start,
-                        file->chains[chain].end - file->chains[chain].start + 1);
-    }
-
-    /*  Free the directory entry sector and free the file info struct */
-    freeSectors (file->sector, 1);
-    fileRemove (file);
-
-    /*  Write the updated volume header, dir entry and directory entry allocation sector */
-    printf ("# FAT write needed\n");
-    volNeedsWrite = true;
-    writeDirectory ();
+    _bitmap.sync();
 }
 
 void DiskVolume::encodeVolumeHeader (DiskVolumeHeader *vol, const char *name, int
@@ -274,20 +142,20 @@ DiskFile *DiskVolume::fileAccess (const char *path, int mode)
 {
     // TODO check mode
 
-    for (DiskFile *file = firstFile; file != NULL; file = file->next)
+    for (auto it = begin (_files); it != end (_files); it++)
     {
-        printf ("compare %s %s\n", path, file->osname);
-        if (!strcmp (path, file->osname))
+        printf ("compare %s %s\n", path, it->getOsName ());
+        if (!strcmp (path, it->getOsName ()))
         {
-            printf ("# %s %s inode=%d\n", __func__, path, file->inode);
-            return file;
+            printf ("# %s %s inode=%d\n", __func__, path, it->getInode ());
+            return it;
         }
     }
 
-    return NULL;
+    return nullptr;
 }
 
-DskFileInfo *DiskVolume::fileOpen (const char *path, int mode)
+DiskFile *DiskVolume::fileOpen (const char *path, int mode)
 {
     DiskFile *file = fileAccess (path, mode);
 
@@ -297,7 +165,7 @@ DskFileInfo *DiskVolume::fileOpen (const char *path, int mode)
         return file;
     }
 
-    return NULL;
+    return nullptr;
 }
 
 DiskFile *DiskVolume::fileCreate (const char *path, Tifiles *header)
@@ -333,47 +201,69 @@ DiskFile *DiskVolume::fileCreate (const char *path, Tifiles *header)
     return file;
 }
 
+/*  Remove a file from the file list and free its structure but don't deallocate
+ *  its sectors */
+void DiskVolume::fileRemove (DiskFile *removeFile)
+{
+    DiskFile *prevFile = NULL;
+    /*  Remove the file from the file list */
+    for (DiskFile *file = firstFile; file != NULL; file = file->next)
+    {
+        if (file == removeFile)
+            break;
+
+        prevFile = file;
+    }
+
+    /*  Remove the file from the file list */
+    if (prevFile)
+        prevFile->next = removeFile->next;
+    else
+        firstFile = removeFile->next;
+
+    dirNeedsWrite = true;
+    fileCount--;
+    free (removeFile);
+}
+
 /*  Remove a file name from the directory and free its sectors */
 int DiskVolume::fileUnlink (const char *path)
 {
-    uint8_t data[DSK_BYTES_PER_SECTOR/2][2];
+    uint8_t data[DISK_BYTES_PER_SECTOR/2][2];
 
-    fseek (fp, DSK_BYTES_PER_SECTOR * 1, SEEK_SET);
+    fseek (fp, DISK_BYTES_PER_SECTOR * 1, SEEK_SET);
     fread (&data, 1, sizeof (data), fp);
 
-    DskFileInfo *file;
-    for (file = firstFile; file != NULL; file = file->next)
+    for (auto it = begin (_files); it != end (_files); it++)
     {
-        printf ("# compare %s to inode %d=%s\n", path, file->inode, file->osname);
-        if (!strcmp (path, file->osname))
+        printf ("# compare %s to inode %d=%s\n", path, it->getInode (), it->getOsName ());
+        if (!strcmp (path, it->getOsName ()))
         {
             printf ("# %s found %s\n", __func__, path);
-            break;
+            it->unlink ();
+            return 0;
         }
     }
-    // fseek (fp, DSK_BYTES_PER_SECTOR * 1, SEEK_SET);
+    // fseek (fp, DISK_BYTES_PER_SECTOR * 1, SEEK_SET);
     // fread (&data, 1, sizeof (data), fp);
 
-    if (file == NULL)
-    {
-        printf ("# Can't find %s to unlink\n", path);
-        return -1;
-    }
-
-    if (file->refCount == 0)
-        freeFileResources (file);
-    else
-    {
-        /*  File is still open somewhere.  Mark it as unlinked so it does not
-         *  appear in any more listings and write out the directory sector
-         *  without this file */
-        file->unlinked = true;
-        dirNeedsWrite = true;
-        writeDirectory ();
-    }
-
-    return 0;
+    printf ("# Can't find %s to unlink\n", path);
+    return -1;
 }
+
+#if 0
+void DiskVolume::setFileFlags (DiskFile& file, int flags)
+{
+    file.setFlags (flags);
+    writeDirectory ();
+}
+
+void DiskVolume::setFileRecLen (DiskFile& file, int recLen)
+{
+    file.setRecLen (recLen);
+    writeDirectory ();
+}
+#endif
 
 void DiskVolume::outputHeader (FILE *out)
 {
@@ -433,7 +323,7 @@ void DiskVolume::outputDirectory (FILE *out)
     fprintf (out, "Name       Sector Len    Flags               #Sectors #Records EOF-offset L3Alloc Rec-Len Sector chains\n");
     fprintf (out, "========== ====== ====== =================== ======== ======== ========== ======= ======= =======\n");
 
-    for (DskFileInfo *file = firstFile; file != NULL; file = file->next)
+    for (DiskFile *file = firstFile; file != NULL; file = file->next)
         printFileInfo (file, out);
 }
 
