@@ -108,9 +108,9 @@ static void emitToken (int token)
 }
 
 
-static int findToken (const char *token, int len)
+static int findToken (const char *token, unsigned len)
 {
-    for (int i = 0; i < NUM_TOKENS; i++)
+    for (unsigned i = 0; i < NUM_TOKENS; i++)
         if (strlen (tokens[i].token) == len &&
             !strncmp (tokens[i].token, token, len))
         {
@@ -160,7 +160,7 @@ static void parseIdentifier (bool debug)
     else
         end++; // get a single character
             
-    int len = end - inp;
+    unsigned len = end - inp;
 
     if ((currToken = findToken (inp, len)) != -1)
     {
@@ -309,7 +309,7 @@ int encodeBasicProgram (char *input, int inputLen, uint8_t **output, bool debug)
 
     /*  Allocate a buffer to receive the tokenised output which is 50% bigger
      *  than the source code input */
-    if ((*output = realloc (*output, inputLen * 1.5)) == NULL)
+    if ((*output = (uint8_t*) realloc (*output, inputLen * 1.5)) == NULL)
     {
         fprintf (stderr, "Can't allocate buffer for encoded basic\n");
         exit (1);

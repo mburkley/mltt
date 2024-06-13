@@ -29,7 +29,7 @@
 
 int outputLevel;
 
-int mprintf (int level, char *s, ...)
+int mprintf (int level, const char *s, ...)
 {
     va_list ap;
 
@@ -43,7 +43,7 @@ int mprintf (int level, char *s, ...)
     return 0;
 }
 
-void halt (char *s)
+void halt (const char *s)
 {
     printf ("HALT: %s\n", s);
 

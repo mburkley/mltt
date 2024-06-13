@@ -117,7 +117,7 @@ static char * printOper (uint16_t mode, uint16_t reg, uint16_t *pc)
 static void unasmTwoOp (uint16_t opCode, uint16_t *pc, uint16_t sMode, uint16_t sReg,
                         uint16_t dMode, uint16_t dReg)
 {
-    char *name = "****";
+    const char *name = "****";
     char op[20];
     char out[31];
 
@@ -163,7 +163,7 @@ static void unasmTwoOp (uint16_t opCode, uint16_t *pc, uint16_t sMode, uint16_t 
 static void unasmOneOp (uint16_t opCode, uint16_t *pc, uint16_t sMode, uint16_t
 sReg)
 {
-    char *name = "****";
+    const char *name = "****";
     char out[31];
 
     switch (opCode)
@@ -194,7 +194,7 @@ sReg)
 static void unasmImmed (uint16_t opCode, uint16_t *pc, uint16_t sReg)
 {
     char out[31];
-    char *name = "****";
+    const char *name = "****";
     bool showReg = true;
     bool showOper = true;
     bool showData = true;
@@ -251,7 +251,7 @@ static void unasmImmed (uint16_t opCode, uint16_t *pc, uint16_t sReg)
 static void unasmJump (uint16_t opCode, uint16_t pc, int8_t offset)
 {
     char out[31];
-    char *name = "****";
+    const char *name = "****";
     int pcOffset = 1;
 
     switch (opCode)

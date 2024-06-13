@@ -34,6 +34,7 @@
 #include <sys/xattr.h>
 
 #include "types.h"
+#include "disk.h"
 #include "parse.h"
 #include "files.h"
 #include "tibasic.h"
@@ -75,7 +76,7 @@ static void addTifilesHeader (const char *infile, const char *outfile,
                               uint8_t *data, int size)
 {
     FileMetaData meta;
-    filesInitMeta (&meta, outfile, size, BYTES_PER_SECTOR, 0, true, false);
+    filesInitMeta (&meta, outfile, size, DISK_BYTES_PER_SECTOR, 0, true, false);
 
     printf ("Creating %s with a TIFILES header\n", outfile);
     char str[10];
@@ -104,9 +105,9 @@ static void addTifilesHeader (const char *infile, const char *outfile,
     }
 
     if (meta.header.recLen != 0)
-        meta.header.recSec = BYTES_PER_SECTOR / meta.header.recLen;
+        meta.header.recSec = DISK_BYTES_PER_SECTOR / meta.header.recLen;
 
-    meta.header.eofOffset = len % BYTES_PER_SECTOR;
+    meta.header.eofOffset = len % DISK_BYTES_PER_SECTOR;
     filesWriteBinary (outfile, data, size, &meta, false);
 }
 
@@ -189,7 +190,7 @@ int main (int argc, char *argv[])
     }
 
     char *infile = argv[optind];
-    char *outfile = "";
+    const char *outfile = "";
 
     if (argc - optind >= 2)
         outfile = argv[optind + 1];
@@ -219,7 +220,7 @@ int main (int argc, char *argv[])
             size = encodeBasicProgram  (input, size, &output, debug);
 
             if (metap)
-                filesInitMeta (metap, outfile, size, BYTES_PER_SECTOR, 0, true, false);
+                filesInitMeta (metap, outfile, size, DISK_BYTES_PER_SECTOR, 0, true, false);
 
             filesWriteBinary (outfile, output, size, metap, debug);
             return 0;
@@ -229,7 +230,7 @@ int main (int argc, char *argv[])
             size = encodeDisVar (input, size, &output);
 
             if (metap)
-                filesInitMeta (metap, outfile, size, BYTES_PER_SECTOR, 80, false, false);
+                filesInitMeta (metap, outfile, size, DISK_BYTES_PER_SECTOR, 80, false, false);
 
             printf ("size=%d\n", size);
             filesWriteBinary (outfile, output, size, metap, debug);

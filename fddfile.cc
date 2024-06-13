@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "trace.h"
-#include "dskfile.h"
+#include "fddfile.h"
 #include "fdd.h"
 
 /*  Maintain static state even though we have multiple drives.  This is ok
@@ -73,7 +73,7 @@ static void fileDeselect(void)
     diskFile = NULL;
 }
 
-void diskFileLoad (int drive, bool readOnly, char *name)
+void diskFileLoad (int drive, bool readOnly, const char *name)
 {
     FILE *fp;
     fddHandler handler =

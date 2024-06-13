@@ -38,22 +38,22 @@
 #include "tibasic.h"
 #include "diskvolume.h"
 
-static void extractFile (DskInfo *info, const char *name)
+static void extractFile (DiskVolume& volume, const char *name)
 {
     char linuxFile[100];
     filesTI2Linux (name, linuxFile);
 
     DiskFile *file;
-    if ((file = dskFileAccess (info, linuxFile, 0)) == NULL)
+    if ((file = volume.fileAccess (linuxFile, 0)) == nullptr)
     {
         fprintf (stderr, "Can't access disk file %s\n", linuxFile);
         exit (1);
     }
 
-    int len = dskFileLength (info, file);
+    int len = file->getLength ();
 
-    unsigned char *data = malloc (len);
-    dskReadFile (info, file, data, 0, len);
+    uint8_t *data = (uint8_t*) malloc (len);
+    file->read (data, 0, len);
 
     FILE *fp;
     if ((fp = fopen (linuxFile, "w")) == NULL)
@@ -69,13 +69,14 @@ static void extractFile (DskInfo *info, const char *name)
 
 int main (int argc, char *argv[])
 {
+    DiskVolume volume;
     char c;
     bool extract = false;
     bool format = false;
     // bool add = false;
     // bool remove = false;
     const char *file;
-    char *volName = "BLANK";
+    const char *volName = "BLANK";
     int tracks = 40;
     int secPerTrk = 9;
     int sides = 1;
@@ -110,15 +111,15 @@ int main (int argc, char *argv[])
 
     if (format)
     {
-        struct
+        struct _data
         {
-            DskVolumeHeader vol;
+            DiskVolumeHeader vol;
             uint8_t blank[0];
         }
         *data;
 
         int sectors = tracks * secPerTrk * sides;
-        int size = sectors * BYTES_PER_SECTOR;
+        int size = sectors * DISK_BYTES_PER_SECTOR;
 
         if (sectors == 0)
         {
@@ -126,7 +127,7 @@ int main (int argc, char *argv[])
             exit (1);
         }
 
-        data = calloc (size, 1);
+        data = (struct _data *) calloc (size, 1);
         // diskVolume.encodeHeader (&data->vol, volName, secPerTrk, tracks, sides, 1);
 
         /*  Mark sector 0 and sector 1 as allocated */
@@ -137,10 +138,15 @@ int main (int argc, char *argv[])
         return 0;
     }
 
-    DskInfo *info = dskOpenVolume (argv[optind]);
+
+    if (!volume.open (argv[optind]))
+    {
+        fprintf (stderr, "Can't open %s\n", argv[optind]);
+        exit (1);
+    }
 
     if (extract)
-        extractFile (info, file);
+        extractFile (volume, file);
     #if 0
     else if (add)
         ;
@@ -149,11 +155,11 @@ int main (int argc, char *argv[])
     #endif
     else
     {
-        dskOutputVolumeHeader (info, stdout);
-        dskOutputDirectory (info, stdout);
+        volume.outputHeader (stdout);
+        volume.outputDirectory (stdout);
     }
 
-    dskCloseVolume (info);
+    volume.close ();
 
     return 0;
 }

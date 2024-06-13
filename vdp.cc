@@ -309,7 +309,7 @@ void vdpWrite (uint8_t *ptr, uint16_t addr, uint16_t data, int size)
 void vdpInitGraphics (bool statusPane, int scale)
 {
     int argc=1;
-    char *argv[] = { "foo" };
+    char *argv[] = { (char*)"foo" };
     glutInit(&argc, argv);
     glutInitWindowPosition(10,10);
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
@@ -322,7 +322,7 @@ void vdpInitGraphics (bool statusPane, int scale)
         statusPaneInit (VDP_STATUS_PANE_WIDTH * 8, frameBufferYSize,
                         VDP_XSIZE * scale);
 
-    frameBuffer = calloc (frameBufferXSize * frameBufferYSize,
+    frameBuffer = (struct _frameBuffer*) calloc (frameBufferXSize * frameBufferYSize,
                           sizeof (struct _frameBuffer));
 
     if (frameBuffer == NULL)

@@ -61,6 +61,7 @@ static int blockBytes = 0;
 static int blockCount;
 static int blockIndex;
 static int recordCount;
+static int programSize;
 
 struct _header
 {
@@ -349,9 +350,6 @@ static void inputWav (wavState *wav)
 #define MAX_PROGRAM_SIZE    0x4000
 #define BIT_DURATION        730000 // 730 usec = 1370 Hz
 
-static int blockCount;
-static int recordCount;
-static int programSize;
 
 static void outputByte (uint8_t byte)
 {

@@ -34,7 +34,7 @@ int encodeDisVar (char *input, int len, uint8_t **output)
 {
     /*  Allocate a buffer to receive the output which is 50% bigger
      *  than the source code input */
-    if ((*output = realloc (*output, len * 1.5)) == NULL)
+    if ((*output = (uint8_t*) realloc (*output, len * 1.5)) == NULL)
     {
         fprintf (stderr, "Can't allocate buffer for dis/var \n");
         exit (1);
@@ -87,7 +87,7 @@ int decodeDisVar (uint8_t *input, int len, char **output)
 {
     /*  Allocate a buffer to receive the output which is 50% bigger
      *  than the source code input */
-    if ((*output = realloc (*output, len * 1.5)) == NULL)
+    if ((*output = (char*) realloc (*output, len * 1.5)) == NULL)
     {
         fprintf (stderr, "Can't allocate buffer for dis/var \n");
         exit (1);

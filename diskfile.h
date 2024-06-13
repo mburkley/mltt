@@ -59,6 +59,19 @@ public:
     void readDirEnt ();
     void sync();
 
+    #if 0
+    vector<std::string> getFileList ()
+    {
+        vector<std::string> x;
+        for (auto file:_files)
+            x.push_back (file->:wqa
+
+    void enumerateFiles (void (*cb)(Diskfile*,void*buf,void (*filler)()));
+    {
+        for (auto file : _files) cb(file, buf, filler);
+    }
+    #endif
+
 private:
     DiskFileHeader _filehdr;
     DiskSector *_sectorMap;

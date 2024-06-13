@@ -32,6 +32,7 @@
 #include <arpa/inet.h>
 
 #include "types.h"
+#include "disk.h"
 #include "parse.h"
 #include "files.h"
 #include "tibasic.h"
@@ -86,7 +87,7 @@ int main (int argc, char *argv[])
         if (header)
         {
             FileMetaData meta;
-            filesInitMeta (&meta, argv[optind+1], size, BYTES_PER_SECTOR, 0, true, false);
+            filesInitMeta (&meta, argv[optind+1], size, DISK_BYTES_PER_SECTOR, 0, true, false);
             filesWriteBinary (argv[optind+1], binary, size, &meta, true);
         }
         else

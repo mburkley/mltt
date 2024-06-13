@@ -148,7 +148,7 @@ void gromLoad (char *file, uint16_t addr)
     }
 
     fseek (fp, 0, SEEK_END);
-    int len = ftell (fp);
+    unsigned len = ftell (fp);
     fseek (fp, 0, SEEK_SET);
 
     printf("%s %s %x-%x\n", __func__, file, addr, addr+len);

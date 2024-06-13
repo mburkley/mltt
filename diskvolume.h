@@ -35,7 +35,10 @@
 #include "diskfile.h"
 #include "disksector.h"
 
-// #define DISK_FILENAME_MAX       1024
+#define VOL_HDR_SECTOR          0
+#define DIR_HDR_SECTOR          1
+#define FIRST_DIR_ENTRY         2
+#define FIRST_DATA_SECTOR      34
 
 typedef struct
 {
@@ -71,31 +74,36 @@ public:
     bool fileUnlink (const char *path);
     void outputHeader (FILE *out);
     void outputDirectory (FILE *out);
-    int readFile (DiskFile *file, uint8_t *buff, int offset, int len);
-    int writeFile (DiskFile *file, uint8_t *buff, int offset, int len);
-    int fileCount () { return _fileCount; }
-    int sectorCount () { return _sectorCount; }
-    int sectorsFree () { return _sectorsFree; }
+    // int readFile (DiskFile *file, uint8_t *buff, int offset, int len);
+    // int writeFile (DiskFile *file, uint8_t *buff, int offset, int len);
+    int getFileCount () { return _fileCount; }
+    int getSectorCount () { return _sectorCount; }
+    int getSectorsFree () { return _sectorsFree; }
     bool open (const char *name);
     void close ();
+    DiskFile *getFileByIndex (int ix)
+    {
+        // if (ix >= _files.size())
+        //     return -1;
+
+        return _files[ix];
+    }
 private:
     DiskVolumeHeader _volHdr;
     uint8_t _dirHdr[DISK_BYTES_PER_SECTOR/2][2];
     DiskSector *_sectors;
-    // char osname[FILENAME_LEN+100]; // TODO
     std::string _osname;
     int _fileCount;
     int _sectorCount;
     int _sectorsFree;
     FILE *_fp;
-    // DiskFile files[MAX_FILE_COUNT];
     std::vector<DiskFile *> _files;
     int _lastInode;
+    bool _volNeedsWrite;
+    bool _dirNeedsWrite;
 
-    // bool _volNeedsWrite;
-    // bool _dirNeedsWrite;
     void readDirectory ();
-    // void sync ();
+    void sync ();
     void freeFileResources (DiskFile *file);
     void addFileToList (DiskFile *file);
     void removeFileFromList (DiskFile *file);

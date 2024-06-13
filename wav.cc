@@ -89,7 +89,7 @@ wavState *wavFileOpenRead (const char *name, bool showParams)
     wavHeader hdr;
     wavState *state;
 
-    if ((state = calloc (1, sizeof (wavState))) == NULL)
+    if ((state = (wavState*) calloc (1, sizeof (wavState))) == NULL)
     {
         halt ("Failed to allocate wav state\n");
         return NULL;
@@ -134,7 +134,7 @@ wavState *wavFileOpenWrite (const char *name, int bits)
     wavHeader hdr;
     wavState *state;
 
-    if ((state = calloc (1, sizeof (wavState))) == NULL)
+    if ((state = (wavState*) calloc (1, sizeof (wavState))) == NULL)
     {
         halt ("Failed to allocate wav state\n");
         return NULL;

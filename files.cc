@@ -112,7 +112,7 @@ int filesReadText (const char *name, char **data, bool verbose)
     int fileSize = ftell (fp);
     fseek (fp, 0, SEEK_SET);
 
-    if ((*data = realloc (*data, fileSize)) == NULL)
+    if ((*data = (char*) realloc (*data, fileSize)) == NULL)
     {
         fprintf (stderr, "Failed to allocate %d bytes\n", fileSize);
         fclose (fp);
@@ -211,7 +211,7 @@ int filesReadBinary (const char *name, uint8_t **data, FileMetaData *meta, bool 
         }
     }
 
-    if ((*data = realloc (*data, fileSize)) == NULL)
+    if ((*data = (uint8_t*) realloc (*data, fileSize)) == NULL)
     {
         fprintf (stderr, "Failed to allocate %d bytes\n", fileSize);
         fclose (fp);

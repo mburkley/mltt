@@ -37,7 +37,6 @@
 
 DiskVolume::DiskVolume ()
 {
-    // _sectors = new DiskSector (_volHdr.bitmap);
     _sectors = nullptr;
     _osname = "";
     _fileCount = 0;
@@ -51,8 +50,6 @@ DiskVolume::DiskVolume ()
  *  path is NULL, then add it to the end of the list */
 void DiskVolume::addFileToList (DiskFile *file)
 {
-    // DiskFile *file = new DiskFile (lastInode++);
-
     bool insert = false;
 
     /*  Find where alphabetically the new file should go.  Use the TI names for
@@ -87,16 +84,15 @@ void DiskVolume::removeFileFromList (DiskFile *file)
     }
 
     _files = newFiles;
-    // _files.remove (_files.begin(), _files.end(), file);
-    // _sectors.setDirUpdate ();
     _fileCount--;
-    // sync ();
+    updateDirectory ();
+    sync ();
     delete file;
 }
 
 void DiskVolume::readDirectory ()
 {
-    _sectors->readDirSector();
+    _sectors->read (DIR_HDR_SECTOR, (uint8_t*) _dirHdr, 0, DISK_BYTES_PER_SECTOR);
 
     for (int i = 0; i < DISK_BYTES_PER_SECTOR/2; i++)
     {
@@ -113,8 +109,6 @@ void DiskVolume::readDirectory ()
 
 void DiskVolume::updateDirectory ()
 {
-    // uint8_t data[DISK_BYTES_PER_SECTOR/2][2];
-    // memset (data, 0, DISK_BYTES_PER_SECTOR);
     memset (_dirHdr, 0, DISK_BYTES_PER_SECTOR);
 
     int entry = 0;
@@ -133,7 +127,7 @@ void DiskVolume::updateDirectory ()
         entry++;
     }
 
-    _sectors->setDirUpdate ();
+    _dirNeedsWrite = true;
 }
 
 void DiskVolume::encodeVolumeHeader (DiskVolumeHeader *vol, const char *name, int
@@ -187,8 +181,7 @@ DiskFile *DiskVolume::fileCreate (const char *path)
     file->create ();
     addFileToList (file);
     updateDirectory ();
-    _sectors->setDirUpdate ();
-    _sectors->sync();
+    sync();
 
     return file;
 }
@@ -196,11 +189,6 @@ DiskFile *DiskVolume::fileCreate (const char *path)
 /*  Remove a file name from the directory and free its sectors */
 bool DiskVolume::fileUnlink (const char *path)
 {
-    // uint8_t data[DISK_BYTES_PER_SECTOR/2][2];
-
-    // fseek (_fp, DISK_BYTES_PER_SECTOR * 1, SEEK_SET);
-    // fread (&data, 1, sizeof (data), fp);
-
     for (auto it : _files)
     // for (auto it = begin (_files); it != end (_files); it++)
     {
@@ -211,30 +199,14 @@ bool DiskVolume::fileUnlink (const char *path)
             printf ("# %s found %s\n", __func__, path);
             it->unlink ();
             updateDirectory ();
-            _sectors->sync ();
+            sync ();
             return true;
         }
     }
-    // fseek (fp, DISK_BYTES_PER_SECTOR * 1, SEEK_SET);
-    // fread (&data, 1, sizeof (data), fp);
 
     printf ("# Can't find %s to unlink\n", path);
     return false;
 }
-
-#if 0
-void DiskVolume::setFileFlags (DiskFile& file, int flags)
-{
-    file.setFlags (flags);
-    writeDirectory ();
-}
-
-void DiskVolume::setFileRecLen (DiskFile& file, int recLen)
-{
-    file.setRecLen (recLen);
-    writeDirectory ();
-}
-#endif
 
 void DiskVolume::outputHeader (FILE *out)
 {
@@ -299,6 +271,26 @@ void DiskVolume::outputDirectory (FILE *out)
         f->printInfo (out);
 }
 
+void DiskVolume::sync ()
+{
+    if (_dirNeedsWrite)
+    {
+        _sectors->write (DIR_HDR_SECTOR, (uint8_t*) _dirHdr, 0, DISK_BYTES_PER_SECTOR);
+        _dirNeedsWrite = false;
+        printf ("# Wrote dir\n");
+    }
+
+    if (_volNeedsWrite || _sectors->getBitmapChanged ())
+    {
+        _sectors->write (VOL_HDR_SECTOR, (uint8_t*) &_volHdr, 0, DISK_BYTES_PER_SECTOR);
+        _volNeedsWrite = false;
+        _sectors->clearBitmapChanged ();
+        printf ("# Wrote FAT\n");
+    }
+
+    fflush (_fp);
+}
+
 bool DiskVolume::open (const char *name)
 {
     assert (_fp == nullptr);
@@ -311,7 +303,7 @@ bool DiskVolume::open (const char *name)
     }
 
     // uint8_t *zap = (uint8_t*) &(_dirHdr[0][0]);
-    _sectors = new DiskSector ((uint8_t*)&_volHdr, (uint8_t*) _dirHdr, _volHdr.bitmap, _fp);
+    _sectors = new DiskSector (_volHdr.bitmap, _sectorCount, _fp);
     _sectors->read (0, (uint8_t*) &_volHdr, 0, sizeof (DiskVolumeHeader));
     // TODO tmp
     char osname[100];

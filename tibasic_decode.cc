@@ -130,7 +130,7 @@ static void decodeLine (char **output, uint8_t *data, bool debug)
         }
         else
         {
-            int i;
+            unsigned i;
             for (i = 0; i < NUM_TOKENS; i++)
                 if (tokens[i].byte == *data)
                 {
@@ -182,7 +182,7 @@ int decodeBasicProgram (uint8_t *input, int inputLen, char **output, bool debug)
 
     /*  Allocate a buffer to receive the decoded output which is 50% bigger
      *  than the tokenised code input */
-    if ((*output = realloc (*output, inputLen * 2)) == NULL)
+    if ((*output = (char*) realloc (*output, inputLen * 2)) == NULL)
     {
         fprintf (stderr, "Can't allocate buffer for encoded basic\n");
         exit (1);
