@@ -5,6 +5,7 @@
 
 #include "types.h"
 #include "disk.h"
+#include "disksector.h"
 
 #define MAX_FILE_CHAINS         76
 #define FILENAME_LEN            11
@@ -28,27 +29,41 @@ DiskFileHeader;
 class DiskFile
 {
 public:
-    // const char *getName () { return osname; }
-    std::string& getName () { return _osname; }
+    DiskFile (const char *path, DiskSector *sectorMap, int dirSector, int inode);
+    DiskFile (const char *path, int dirSector);
+    std::string& getOSName () { return _osname; }
+    char *getTIName () { return _filehdr.tiname; }
     int getInode () { return _inode; }
     int getLength () {return _length; }
     int getFlags () { return _filehdr.flags; }
     int getRecLen () { return _filehdr.recLen; }
     void setName (const char *path);
     bool isProtected () { return _filehdr.flags & FLAG_WP; }
+    bool isUnlinked () { return _unlinked; }
+    int getDirSector () { return _dirSector; }
     int getSecCount () { return _filehdr.secCount; }
     void setRecLen (int recLen);
     void setFlags (int flags);
+    void close ();
+    void unlink();
     int seek (int offset, int whence);
+    bool create ();
+    int read (uint8_t *buff, int offset, int len);
+    int write (uint8_t *buff, int offset, int len);
+    void toTifiles (Tifiles *header);
     void fromTifiles (Tifiles *header);
-    DiskFile *next () { return _next; }
-    int dirSector () { return _sector; }
+    void printInfo (FILE *out);
     std::string& getOsName () { return _osname; }
+    void incRefCount () { _refCount++; }
+    void decRefCount () { _refCount--; }
+    void readDirEnt ();
+    void sync();
 
 private:
     DiskFileHeader _filehdr;
-    std::string _osname; // [FILENAME_LEN+100]; // TODO
-    int _sector;
+    DiskSector *_sectorMap;
+    std::string _osname;
+    int _dirSector;
     int _length;
     struct
     {
@@ -61,8 +76,12 @@ private:
     bool _unlinked;
     int _refCount;
     int _inode;
-    int pos;
+    int _pos;
     void freeResources ();
+    void decodeOneChain (uint8_t chain[], uint16_t *p1, uint16_t *p2);
+    void encodeOneChain (uint8_t chain[], uint16_t p1, uint16_t p2);
+    void encodeChain ();
+    void decodeChain ();
 };
 
 #endif

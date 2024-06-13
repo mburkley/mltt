@@ -24,11 +24,14 @@
  *  Defines floppy disk data structures
  */
 
-#ifndef __DISKDATA_H
-#define __DISKDATA_H
+#ifndef __DISKVOLUME_H
+#define __DISKVOLUME_H
 
 // #include "files.h"
 // #include "types.h"
+#include <vector>
+
+#include "disk.h"
 #include "diskfile.h"
 #include "disksector.h"
 
@@ -64,8 +67,8 @@ public:
     DiskFile *fileAccess (const char *path, int mode);
     DiskFile *fileOpen (const char *path, int mode);
     void fileClose (DiskFile *file);
-    DiskFile *fileCreate (const char *path, Tifiles *header);
-    int fileUnlink (const char *path);
+    DiskFile *fileCreate (const char *path);
+    bool fileUnlink (const char *path);
     void outputHeader (FILE *out);
     void outputDirectory (FILE *out);
     int readFile (DiskFile *file, uint8_t *buff, int offset, int len);
@@ -73,31 +76,30 @@ public:
     int fileCount () { return _fileCount; }
     int sectorCount () { return _sectorCount; }
     int sectorsFree () { return _sectorsFree; }
-    void open (const char *name);
+    bool open (const char *name);
     void close ();
 private:
-    DiskVolumeHeader _volhdr;
+    DiskVolumeHeader _volHdr;
     uint8_t _dirHdr[DISK_BYTES_PER_SECTOR/2][2];
-    DiskSector *sectorMap;
-    char osname[FILENAME_LEN+100]; // TODO
+    DiskSector *_sectors;
+    // char osname[FILENAME_LEN+100]; // TODO
+    std::string _osname;
     int _fileCount;
     int _sectorCount;
     int _sectorsFree;
     FILE *_fp;
     // DiskFile files[MAX_FILE_COUNT];
-    vector<_files>;
+    std::vector<DiskFile *> _files;
     int _lastInode;
-    bool _volNeedsWrite;
-    bool _dirNeedsWrite;
-    bool sectorIsFree (int sector);
-    int findFreeSector (int start);
-    void allocSectors (int start, int count);
-    void freeSectors (int start, int count);
-    DiskFile *fileAdd (const char *path);
-    void fileRemove (DiskFile *removeFile);
-    void readDirectory (int sector);
-    void sync ();
+
+    // bool _volNeedsWrite;
+    // bool _dirNeedsWrite;
+    void readDirectory ();
+    // void sync ();
     void freeFileResources (DiskFile *file);
+    void addFileToList (DiskFile *file);
+    void removeFileFromList (DiskFile *file);
+    void updateDirectory ();
 };
 
 #endif

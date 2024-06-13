@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "disk.h"
 #include "files.h"
 #include "file_disvar.h"
 
@@ -41,7 +42,7 @@ int encodeDisVar (char *input, int len, uint8_t **output)
 
     char *end = input;
     uint8_t *outp = *output;
-    int spaceInSector = BYTES_PER_SECTOR;
+    int spaceInSector = DISK_BYTES_PER_SECTOR;
 
     while (len--)
     {
@@ -68,7 +69,7 @@ int encodeDisVar (char *input, int len, uint8_t **output)
                 // spaceInSector--;
                 while (--spaceInSector > 0)
                     *outp++ = 0;
-                spaceInSector = BYTES_PER_SECTOR;
+                spaceInSector = DISK_BYTES_PER_SECTOR;
             }
 
             *outp++ = reclen;
@@ -95,7 +96,7 @@ int decodeDisVar (uint8_t *input, int len, char **output)
     char *outp = *output;
 
     int pos = 0;
-    int sectorsRemain = (len + 1) / BYTES_PER_SECTOR;
+    int sectorsRemain = (len + 1) / DISK_BYTES_PER_SECTOR;
 
     // printf ("remaining sectors %d\n", sectorsRemain);
 
@@ -105,8 +106,8 @@ int decodeDisVar (uint8_t *input, int len, char **output)
 
         if (reclen == 0xff)
         {
-            int sector = pos / BYTES_PER_SECTOR;
-            pos = (sector + 1) * BYTES_PER_SECTOR;
+            int sector = pos / DISK_BYTES_PER_SECTOR;
+            pos = (sector + 1) * DISK_BYTES_PER_SECTOR;
             sectorsRemain--;
             // printf ("adv next, remain=%d\n", sectorsRemain);
             continue;

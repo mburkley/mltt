@@ -23,6 +23,10 @@
 #ifndef __FILES_H
 #define __FILES_H
 
+#ifdef __CPP__
+extern "C" {
+#endif
+
 #include "types.h"
 
 #define FLAG_VAR        0x80
@@ -81,6 +85,8 @@ int filesReadTIFiles(const char *name, uint8_t *data, int maxLength);
 char *filesShowFlags (uint8_t flags);
 void filesLinux2TI (const char *lname, char tname[]);
 void filesTI2Linux (const char *tname, char *lname);
-
+#ifdef __CPP__
+}
+#endif
 #endif
 

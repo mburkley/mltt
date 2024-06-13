@@ -269,11 +269,11 @@ static int tidsk_create(const char *path, mode_t mode,
     if (f == NULL)
         return -EBADF;
 
-    Tifiles header;
-    filesInitTifiles (&header, path, 0, BYTES_PER_SECTOR, 0, false, false);
+    // Tifiles header;
+    // filesInitTifiles (&header, path, 0, BYTES_PER_SECTOR, 0, false, false);
 
     DiskFile *file;
-    if ((file = dskCreateFile (dskInfo, path, &header)) == NULL)
+    if ((file = volume->createFile (path)) == NULL)
         return -EACCES;
 
     fuseFileHandleList = f->next;

@@ -21,7 +21,7 @@
  */
 
 /*
- *  Provides disk data structure operation functions
+ *  Implements Disk volume
  */
 
 #include <stdio.h>
@@ -34,71 +34,84 @@
 #include "diskvolume.h"
 
 #define FIRST_INODE 100
-#define VOL_HDR_SECTOR 0
-#define DIR_HDR_SECTOR 1
-#define FIRST_DATA_SECTOR 34
 
 DiskVolume::DiskVolume ()
 {
-    sectorMap = new DiskSector (volhdr.bitmap);
+    // _sectors = new DiskSector (_volHdr.bitmap);
+    _sectors = nullptr;
+    _osname = "";
+    _fileCount = 0;
+    _sectorCount = 0;
+    _sectorsFree = 0;
+    _fp = nullptr;
+    _lastInode = FIRST_INODE;
 }
 
 /*  Insert a new file name into the directory maintaining alphabetic order.  If
  *  path is NULL, then add it to the end of the list */
-DiskFile *DiskVolume::fileAdd (const char *path)
+void DiskVolume::addFileToList (DiskFile *file)
 {
-    DiskFile *file = new DiskFile (lastInode++);
+    // DiskFile *file = new DiskFile (lastInode++);
 
     bool insert = false;
 
-    if (path)
+    /*  Find where alphabetically the new file should go.  Use the TI names for
+     *  the comparison as the order must be as TI would expect. */
+    for (auto it = begin (_files); it != end (_files); it++)
     {
-        file->setName (path);
-
-        /*  Find where alphabetically the new file should go.  Use the TI names for
-         *  the comparison as the order must be as TI would expect. */
-        for (auto it = begin (_files); it != end (_files); it++)
+        if (strcmp (file->getTIName (), (*it)->getTIName ()) < 0)
         {
-            if (strcmp (file->filehdr.tiname, it->filehdr.tiname) < 0)
-            {
-                printf ("# %s comes before %s; break;\n", file->filehdr.tiname,
-                        it->filehdr.tiname);
-                _files.insert (it, file);
-                insert = true;
-                break;
-            }
+            printf ("# %s comes before %s; break;\n", file->getTIName (),
+            (*it)->getTIName ());
+            _files.insert (it, file);
+            insert = true;
+            break;
         }
     }
 
     if (!insert)
         _files.insert (end (_files), file);
 
-    _bitmap.setDirUpdated ();
     _fileCount++;
-    return newFile;
+}
+
+void DiskVolume::removeFileFromList (DiskFile *file)
+{
+    /*  Remove the file from the file list vector */
+    std::vector<DiskFile *> newFiles;
+    // for (auto it = begin (_files); it != end (_files); ++it)
+    for (auto f : _files)
+    {
+        if (f != file)
+            newFiles.push_back (f);
+    }
+
+    _files = newFiles;
+    // _files.remove (_files.begin(), _files.end(), file);
+    // _sectors.setDirUpdate ();
+    _fileCount--;
+    // sync ();
+    delete file;
 }
 
 void DiskVolume::readDirectory ()
 {
-    // uint8_t data[DISK_BYTES_PER_SECTOR/2][2];
-
-
-    _bitmap.readDirSector();
-    lastInode = FIRST_INODE;
+    _sectors->readDirSector();
 
     for (int i = 0; i < DISK_BYTES_PER_SECTOR/2; i++)
     {
-        int sector = dirHdr[i][0] << 8 | dirHdr[i][1];
+        int sector = _dirHdr[i][0] << 8 | _dirHdr[i][1];
 
         if (sector == 0)
             break;
 
-        DiskFile *file = fileAdd (nullptr);
-        file->readDirEnt (sector);
+        DiskFile *file = new DiskFile ("", _sectors, sector, _lastInode++);
+        file->readDirEnt ();
+        addFileToList (file);
     }
 }
 
-void DiskVolume::sync ()
+void DiskVolume::updateDirectory ()
 {
     // uint8_t data[DISK_BYTES_PER_SECTOR/2][2];
     // memset (data, 0, DISK_BYTES_PER_SECTOR);
@@ -110,17 +123,17 @@ void DiskVolume::sync ()
     {
         /*  Files that have been unlinked still exist but do not get an entry in
          *  the directory sector */
-        if (it->isUnlinked ())
+        if ((*it)->isUnlinked ())
             continue;
 
-        _dirHdr[entry][0] = it->_dirSector () >> 8;
-        _dirHdr[entry][1] = it->_dirSector () & 0xff;
+        _dirHdr[entry][0] = (*it)->getDirSector () >> 8;
+        _dirHdr[entry][1] = (*it)->getDirSector () & 0xff;
 
-        file->sync ();
+        (*it)->sync ();
         entry++;
     }
 
-    _bitmap.sync();
+    _sectors->setDirUpdate ();
 }
 
 void DiskVolume::encodeVolumeHeader (DiskVolumeHeader *vol, const char *name, int
@@ -144,11 +157,11 @@ DiskFile *DiskVolume::fileAccess (const char *path, int mode)
 
     for (auto it = begin (_files); it != end (_files); it++)
     {
-        printf ("compare %s %s\n", path, it->getOsName ());
-        if (!strcmp (path, it->getOsName ()))
+        printf ("compare %s %s\n", path, (*it)->getOSName ().c_str());
+        if ((*it)->getOSName () == path)
         {
-            printf ("# %s %s inode=%d\n", __func__, path, it->getInode ());
-            return it;
+            printf ("# %s %s inode=%d\n", __func__, path, (*it)->getInode ());
+            return *it;
         }
     }
 
@@ -161,94 +174,52 @@ DiskFile *DiskVolume::fileOpen (const char *path, int mode)
 
     if (file)
     {
-        file->refCount++;
+        file->incRefCount ();
         return file;
     }
 
     return nullptr;
 }
 
-DiskFile *DiskVolume::fileCreate (const char *path, Tifiles *header)
+DiskFile *DiskVolume::fileCreate (const char *path)
 {
-    /* Find free sector for directory entry */
-    int dirSector;
-    if ((dirSector = findFreeSector (2)) == -1)
-    {
-        printf ("# disk full, can't create file\n");
-        return NULL;
-    }
-
-    DiskFile *file = fileAdd (path);
-
-    allocSectors (dirSector, 1);
-    file->sector = dirSector;
-             
-    /*  Populate the rest of the dir entry struct */
-    // file->filehdr.len = 0;
-    file->filehdr.secCount = 0; // header->secCount;
-    file->filehdr.flags = header->flags;
-    file->filehdr.recSec = header->recSec;
-    file->filehdr.l3Alloc = header->l3Alloc;
-    file->filehdr.eofOffset = header->eofOffset;
-    file->filehdr.recLen = header->recLen;
-    file->needsWrite = true;
-
-    file->refCount++;
-    file->needsWrite = true;
-    dirNeedsWrite = true;
-    writeDirectory ();
+    DiskFile *file = new DiskFile (path, _sectors, 0, _lastInode++);
+    file->create ();
+    addFileToList (file);
+    updateDirectory ();
+    _sectors->setDirUpdate ();
+    _sectors->sync();
 
     return file;
 }
 
-/*  Remove a file from the file list and free its structure but don't deallocate
- *  its sectors */
-void DiskVolume::fileRemove (DiskFile *removeFile)
-{
-    DiskFile *prevFile = NULL;
-    /*  Remove the file from the file list */
-    for (DiskFile *file = firstFile; file != NULL; file = file->next)
-    {
-        if (file == removeFile)
-            break;
-
-        prevFile = file;
-    }
-
-    /*  Remove the file from the file list */
-    if (prevFile)
-        prevFile->next = removeFile->next;
-    else
-        firstFile = removeFile->next;
-
-    dirNeedsWrite = true;
-    fileCount--;
-    free (removeFile);
-}
-
 /*  Remove a file name from the directory and free its sectors */
-int DiskVolume::fileUnlink (const char *path)
+bool DiskVolume::fileUnlink (const char *path)
 {
-    uint8_t data[DISK_BYTES_PER_SECTOR/2][2];
+    // uint8_t data[DISK_BYTES_PER_SECTOR/2][2];
 
-    fseek (fp, DISK_BYTES_PER_SECTOR * 1, SEEK_SET);
-    fread (&data, 1, sizeof (data), fp);
+    // fseek (_fp, DISK_BYTES_PER_SECTOR * 1, SEEK_SET);
+    // fread (&data, 1, sizeof (data), fp);
 
-    for (auto it = begin (_files); it != end (_files); it++)
+    for (auto it : _files)
+    // for (auto it = begin (_files); it != end (_files); it++)
     {
-        printf ("# compare %s to inode %d=%s\n", path, it->getInode (), it->getOsName ());
-        if (!strcmp (path, it->getOsName ()))
+        printf ("# compare %s to inode %d=%s\n", path, it->getInode (),
+        it->getOsName ().c_str());
+        if (it->getOsName () == path)
         {
             printf ("# %s found %s\n", __func__, path);
             it->unlink ();
-            return 0;
+            updateDirectory ();
+            _sectors->sync ();
+            return true;
         }
     }
     // fseek (fp, DISK_BYTES_PER_SECTOR * 1, SEEK_SET);
     // fread (&data, 1, sizeof (data), fp);
 
     printf ("# Can't find %s to unlink\n", path);
-    return -1;
+    return false;
 }
 
 #if 0
@@ -267,26 +238,26 @@ void DiskVolume::setFileRecLen (DiskFile& file, int recLen)
 
 void DiskVolume::outputHeader (FILE *out)
 {
-    fprintf (out,"Vol-Label='%-10.10s'", volhdr.tiname);
-    fprintf (out,", sectors=%d", ntohs (volhdr.sectors));
-    fprintf (out,", sec/trk:%d", volhdr.secPerTrk);
-    fprintf (out,", DSR:'%-3.3s'", volhdr.dsk);
-    fprintf (out,", Protect:'%c'", volhdr.protect);
-    fprintf (out,", tracks:%d", volhdr.tracks);
-    fprintf (out,", sides:%d", volhdr.sides);
-    fprintf (out,", density:%02X", volhdr.density);
+    fprintf (out,"Vol-Label='%-10.10s'", _volHdr.tiname);
+    fprintf (out,", sectors=%d", ntohs (_volHdr.sectors));
+    fprintf (out,", sec/trk:%d", _volHdr.secPerTrk);
+    fprintf (out,", DSR:'%-3.3s'", _volHdr.dsk);
+    fprintf (out,", Protect:'%c'", _volHdr.protect);
+    fprintf (out,", tracks:%d", _volHdr.tracks);
+    fprintf (out,", sides:%d", _volHdr.sides);
+    fprintf (out,", density:%02X", _volHdr.density);
 
-    if (volhdr.date[0])
-        fprintf (out,", year:%-8.8s", volhdr.date);
+    if (_volHdr.date[0])
+        fprintf (out,", year:%-8.8s", _volHdr.date);
 
     fprintf (out,"\nSectors allocated " );
 
     #if 1
     // TODO move the bitmap size calc out of output func
     int max = 0x64;
-    if (volhdr.sides==2)
+    if (_volHdr.sides==2)
     {
-        if (volhdr.density == 1)
+        if (_volHdr.density == 1)
             max = 0x91;
         else
             max = 0xeb;
@@ -295,7 +266,7 @@ void DiskVolume::outputHeader (FILE *out)
     bool inuse = false;
     for (int i = 0; i <= max - 0x38; i++)
     {
-        uint8_t map=volhdr.bitmap[i];
+        uint8_t map=_volHdr.bitmap[i];
 
         for (int j = 0; j < 8; j++)
         {
@@ -323,46 +294,51 @@ void DiskVolume::outputDirectory (FILE *out)
     fprintf (out, "Name       Sector Len    Flags               #Sectors #Records EOF-offset L3Alloc Rec-Len Sector chains\n");
     fprintf (out, "========== ====== ====== =================== ======== ======== ========== ======= ======= =======\n");
 
-    for (DiskFile *file = firstFile; file != NULL; file = file->next)
-        printFileInfo (file, out);
+    for (auto f : _files)
+    // for (DiskFile *file = firstFile; file != NULL; file = file->next)
+        f->printInfo (out);
 }
 
-DiskVolume *DiskVolume::open (const char *name)
+bool DiskVolume::open (const char *name)
 {
-    FILE *fp;
+    assert (_fp == nullptr);
+    assert (_sectors == nullptr);
 
-    if ((fp = fopen (name, "r+")) == NULL)
+    if ((_fp = fopen (name, "r+")) == NULL)
     {
         printf ("Can't open %s\n", name);
-        return nullptr;
+        return false;
     }
 
-    DiskVolume *vol = new DiskVolume;
-    vol->fp = fp;
+    // uint8_t *zap = (uint8_t*) &(_dirHdr[0][0]);
+    _sectors = new DiskSector ((uint8_t*)&_volHdr, (uint8_t*) _dirHdr, _volHdr.bitmap, _fp);
+    _sectors->read (0, (uint8_t*) &_volHdr, 0, sizeof (DiskVolumeHeader));
+    // TODO tmp
+    char osname[100];
+    filesTI2Linux (_volHdr.tiname, osname);
+    _osname = osname;
 
-    fseek (fp, 0, SEEK_SET);
-    fread (&vol->volhdr, 1, sizeof (DskVolumeHeader), fp);
-    filesTI2Linux (vol->volhdr.tiname, vol->osname);
+    _sectorCount = be16toh (_volHdr.sectors);
+    _sectorsFree = 0;
 
-    vol->sectorCount = be16toh (vol->volhdr.sectors);
-    vol->sectorsFree = 0;
-
-    for (int i = 0; i < vol->sectorCount; i++)
+    for (int i = 0; i < _sectorCount; i++)
     {
-        if (vol->sectorIsFree (i))
-            vol->sectorsFree++;
+        if (_sectors->isFree (i))
+            _sectorsFree++;
     }
 
-    printf ("# Volume %s has %d sectors (%d free)\n", vol->osname,
-            vol->sectorCount, vol->sectorsFree);
-    vol->readDirectory (1);
+    printf ("# Volume %s has %d sectors (%d free)\n", _osname.c_str(),
+            _sectorCount, _sectorsFree);
+    readDirectory ();
 
-    return vol;
+    return true;
 }
 
-void DiskVolume::close (DiskVolume *vol)
+void DiskVolume::close ()
 {
-    fclose (vol->fp);
-    delete vol;
+    fclose (_fp);
+    _fp = nullptr;
+    delete _sectors;
+    _sectors = nullptr;
 }
 

@@ -75,16 +75,14 @@ void DiskSector::sync ()
 {
     if (_dirWriteNeeded)
     {
-        fseek (fp, DISK_BYTES_PER_SECTOR * DIR_HDR_SECTOR, SEEK_SET);
-        fwrite (_dirHdr, 1, DISK_BYTES_PER_SECTOR, fp);
+        write (DIR_HDR_SECTOR, _dirHdr, 0, DISK_BYTES_PER_SECTOR);
         _dirWriteNeeded = false;
         printf ("# Wrote dir\n");
     }
 
     if (_volWriteNeeded)
     {
-        fseek (fp, DISK_BYTES_PER_SECTOR * VOL_HDR_SECTOR, SEEK_SET);
-        fwrite (_volHdr, 1, DISK_BYTES_PER_SECTOR, fp);
+        write (VOL_HDR_SECTOR, _volHdr, 0, DISK_BYTES_PER_SECTOR);
         _volWriteNeeded = false;
         printf ("# Wrote FAT\n");
     }
@@ -94,6 +92,6 @@ void DiskSector::sync ()
 
 void DiskSector::readDirSector ()
 {
-    fseek (_fp, DISK_BYTES_PER_SECTOR * DIR_HDR_SECTOR, SEEK_SET);
-    fread (_dirHdr, 1, DISK_BYTES_PER_SECTOR, fp);
+    read (DIR_HDR_SECTOR, _dirHdr, 0, DISK_BYTES_PER_SECTOR);
 }
+

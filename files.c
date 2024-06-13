@@ -38,6 +38,7 @@
 #include <ctype.h>
 
 #include "files.h"
+#include "disk.h"
 #include "types.h"
 
 char *filesShowFlags (uint8_t flags)
@@ -177,7 +178,7 @@ int filesReadBinary (const char *name, uint8_t **data, FileMetaData *meta, bool 
 
         if (meta)
         {
-            filesInitMeta (meta, name, fileSize, BYTES_PER_SECTOR, 0, false, false);
+            filesInitMeta (meta, name, fileSize, DISK_BYTES_PER_SECTOR, 0, false, false);
             meta->hasTifilesHeader = false;
         }
     }
