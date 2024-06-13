@@ -146,23 +146,6 @@ static int tidsk_readlink(const char *path, char *buf, size_t size)
     return -EINVAL;
 }
 
-#if 0
-static bool readddir_callback (DiskFile *file, void *buf, void (*fill)())
-{
-
-    st.st_ino = file->getInode ();
-    st.st_mode = DT_REG << 12;
-
-    // fuse_fill_dir_t filler = (fuse_fill_dir_t) fill;
-
-    if (filler(buf, file->getOSName().c_str(), &st, 0, (fuse_fill_dir_flags)0))
-        break;
-    }
-
-    return true;
-}
-#endif
-
 static int tidsk_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		       off_t offset, struct fuse_file_info *fi,
 		       enum fuse_readdir_flags flags)
@@ -208,7 +191,7 @@ static int tidsk_unlink(const char *path)
 
     printf ("%s %s\n", __func__, path);
 
-    if (volume.fileUnlink (path) != 0)
+    if (!volume.fileUnlink (path))
         return -EACCES;
 
     return 0;
@@ -229,10 +212,20 @@ static int tidsk_symlink(const char *from, const char *to)
 
 static int tidsk_rename(const char *from, const char *to, unsigned int flags)
 {
+    if (*to == '/')
+        to++;
+
     if (*from == '/')
         from++;
 
-    printf ("%s %s %s TODO\n", __func__, from, to);
+    DiskFile *file;
+
+    if ((file = volume.fileOpen (from, flags)) == NULL)
+        return -EACCES;
+
+    printf ("%s from=%s to=%s\n", __func__, from, to);
+
+    volume.fileRename (file, to);
 
     return 0;
 }
@@ -381,6 +374,12 @@ static int tidsk_statfs(const char *path, struct statvfs *stbuf)
     return 0;
 }
 
+/*  No need to do anything */
+static int tidsk_flush (const char *path, struct fuse_file_info *fi)
+{
+    return 0;
+}
+
 static int tidsk_release(const char *path, struct fuse_file_info *fi)
 {
     if (*path == '/')
@@ -391,7 +390,7 @@ static int tidsk_release(const char *path, struct fuse_file_info *fi)
     // if (f == NULL)
     //     return -EBADF;
 
-    f->file->close ();
+    volume.fileClose (f->file);
     f->next = fuseFileHandleList;
     f->file = nullptr;
     fuseFileHandleList = f;
@@ -574,7 +573,7 @@ static const struct fuse_operations tidsk_oper = {
 	.read		= tidsk_read,
 	.write		= tidsk_write,
 	.statfs		= tidsk_statfs,
-// flush
+        .flush          = tidsk_flush,
 	.release	= tidsk_release,
 	.fsync		= tidsk_fsync,
         .setxattr	= tidsk_setxattr,

@@ -37,7 +37,7 @@
 
 #define VOL_HDR_SECTOR          0
 #define DIR_HDR_SECTOR          1
-#define FIRST_DIR_ENTRY         2
+// #define FIRST_DIR_ENTRY         2
 #define FIRST_DATA_SECTOR      34
 
 typedef struct
@@ -51,13 +51,13 @@ typedef struct
     uint8_t tracks;
     uint8_t sides;
     uint8_t density; // SS=1,DS=2
-    uint8_t tbd3; // reserved
-    uint8_t fill1[11];
+    uint8_t __reserved1[0x0c];
     // 0x20
     uint8_t date[8];
-    uint8_t fill2[16];
+    uint8_t __reserved2[0x10];
     // 0x38
-    uint8_t bitmap[0xc8]; // bitmap 38-64, 38-91 or 38-eb for SSSD,DSSD,DSDD respec
+    uint8_t bitmap[0xb4]; // bitmap 38-63, 38-91 or 38-eb for SSSD,DSSD,DSDD respec
+    uint8_t __reserved3[0x14];
 }
 DiskVolumeHeader;
 
@@ -65,13 +65,12 @@ class DiskVolume
 {
 public:
     DiskVolume ();
-    void encodeVolumeHeader (DiskVolumeHeader *vol, const char *name, int
-                                secPerTrk, int tracks, int sides, int density);
     DiskFile *fileAccess (const char *path, int mode);
     DiskFile *fileOpen (const char *path, int mode);
     void fileClose (DiskFile *file);
     DiskFile *fileCreate (const char *path);
     bool fileUnlink (const char *path);
+    void fileRename (DiskFile *file, const char *path);
     void outputHeader (FILE *out);
     void outputDirectory (FILE *out);
     // int readFile (DiskFile *file, uint8_t *buff, int offset, int len);
@@ -81,13 +80,9 @@ public:
     int getSectorsFree () { return _sectorsFree; }
     bool open (const char *name);
     void close ();
-    DiskFile *getFileByIndex (int ix)
-    {
-        // if (ix >= _files.size())
-        //     return -1;
-
-        return _files[ix];
-    }
+    DiskFile *getFileByIndex (int ix) { return _files[ix]; }
+    static void format (DiskVolumeHeader *vol, const char *name, int
+                        secPerTrk, int tracks, int sides, int density);
 private:
     DiskVolumeHeader _volHdr;
     uint8_t _dirHdr[DISK_BYTES_PER_SECTOR/2][2];

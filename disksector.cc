@@ -1,9 +1,11 @@
 #include "disksector.h"
 
-DiskSector::DiskSector (uint8_t *bitmap, int sectorCount, FILE *fp)
+/*  This layer needs to know how to flush the bitmap */
+DiskSector::DiskSector (uint8_t *bitmap, uint8_t *bitmapSectorData, int bitmapSector, FILE *fp)
 {
     _bitmap = bitmap;
-    _sectorCount = sectorCount;
+    _bitmapSector = bitmapSector;
+    _bitmapSectorData = bitmapSectorData;
     _fp = fp;
 }
 
@@ -59,7 +61,7 @@ void DiskSector::free (int start, int count)
 int DiskSector::read (int sector, uint8_t data[], int offset, int len)
 {
     fseek (_fp, DISK_BYTES_PER_SECTOR * sector + offset, SEEK_SET);
-    printf ("read %d bytes from sector %d\n", len, sector);
+    printf ("# read %d bytes from sector %d\n", len, sector);
     return fread (data, 1, len, _fp);
 }
 
@@ -67,6 +69,17 @@ int DiskSector::write (int sector, uint8_t data[], int offset, int len)
 {
     fseek (_fp, DISK_BYTES_PER_SECTOR * sector + offset, SEEK_SET);
     printf ("# writing %d bytes to sector %d offset %d\n", len, sector, offset);
-    return fwrite (data, 1, len, _fp);
+    len = fwrite (data, 1, len, _fp);
+    fflush (_fp);
+    return len;
 }
 
+void DiskSector::sync ()
+{
+    if (_bitmapChanged)
+    {
+        printf ("# Write FAT\n");
+        write (_bitmapSector, _bitmapSectorData, 0, DISK_BYTES_PER_SECTOR);
+        _bitmapChanged = false;
+    }
+}

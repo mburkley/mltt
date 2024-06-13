@@ -3,13 +3,28 @@
 
 #include "diskfile.h"
 
-DiskFile::DiskFile (const char *path, DiskSector *sectorMap, int dirSector, int inode)
+DiskFile::DiskFile (const char *path, DiskSector *sectorMap, int dirSector, int
+                    firstDataSector, int inode)
 {
+    memset (&_filehdr, 0, sizeof (DiskFileHeader));
     _sectorMap = sectorMap;
     _dirSector = dirSector;
+    _firstDataSector = firstDataSector;
+    _length = 0;
+    _chainCount = 0;
+    _unlinked = false;
+    _refCount = 0;
+    _pos = 0;
     _inode = inode;
     _osname = path;
     filesLinux2TI (_osname.c_str(), _filehdr.tiname);
+}
+
+void DiskFile::setOSName (const char *path)
+{
+    _osname = path;
+    filesLinux2TI (_osname.c_str(), _filehdr.tiname);
+    _needsWrite = true;
 }
 
 void DiskFile::decodeOneChain (uint8_t chain[], uint16_t *p1, uint16_t *p2)
@@ -67,16 +82,12 @@ void DiskFile::encodeChain ()
     }
 }
 
-
-// void DiskFile::setName (const char *path)
-// {
-    // strncpy (osname, path, 10);
-// }
-
 void DiskFile::setFlags (int flags)
 {
+    printf ("# flags changed to %d\n", flags);
     _filehdr.flags = flags;
     _needsWrite = true;
+    sync();
 }
 
 void DiskFile::setRecLen (int recLen)
@@ -84,6 +95,7 @@ void DiskFile::setRecLen (int recLen)
     _filehdr.recLen = recLen;
     _filehdr.recSec = DISK_BYTES_PER_SECTOR / recLen;
     _needsWrite = true;
+    sync();
 }
 
 /*  Free the sectors belonging to a file */
@@ -108,30 +120,40 @@ void DiskFile::freeResources ()
     /*  Write the updated volume header, dir entry and directory entry allocation sector */
     printf ("# FAT write needed\n");
     // volume->volNeedsWrite = true;
-    _sectorMap->setVolUpdate ();
+    // _sectorMap->setBitmapChanged ();
     // volume->writeDirectory ();
 }
 
-void DiskFile::close ()
+bool DiskFile::close ()
 {
     _refCount--;
 
-    if (_unlinked)
+    if (_refCount == 0 &&_unlinked)
+    {
         freeResources ();
-        // TODO go through to sector and volume
+        return true;
+    }
+        
+    return false;
 }
 
-void DiskFile::unlink()
+/*  Removes a file and retruns true if the file is closed.  If it still open,
+ *  marks it as unlinked and returns false */
+bool DiskFile::unlink()
 {
     if (_refCount == 0)
+    {
         freeResources ();
+        return true;
+    }
     else
     {
         /*  File is still open somewhere.  Mark it as unlinked so it does not
          *  appear in any more listings and write out the directory sector
          *  without this file */
         _unlinked = true;
-        _sectorMap->setDirUpdate ();
+        return false;
+        // _sectorMap->setDirUpdate ();
         // TODO writeDirectory ();
     }
 }
@@ -151,7 +173,7 @@ int DiskFile::seek (int offset, int whence)
 bool DiskFile::create ()
 {
     /* Find free sector for directory entry */
-    if ((_dirSector = _sectorMap->findFree (FIRST_DIR_ENTRY)) == -1)
+    if ((_dirSector = _sectorMap->findFree (0)) == -1)
     {
         printf ("# disk full, can't create file\n");
         return false;
@@ -159,6 +181,8 @@ bool DiskFile::create ()
 
     _refCount++;
     _sectorMap->alloc (_dirSector, 1);
+    _needsWrite = true;
+    sync ();
     return true;
 }
 
@@ -292,7 +316,7 @@ int DiskFile::write (uint8_t *buff, int offset, int len)
         if (secCount == 0)
         {
             /*  We have reached EOF.  Allocate a new sector */
-            if ((sector = _sectorMap->findFree (FIRST_DATA_SECTOR)) == -1)
+            if ((sector = _sectorMap->findFree (_firstDataSector)) == -1)
             {
                 printf ("# disk full, can't write to file\n");
                 break;
@@ -318,7 +342,6 @@ int DiskFile::write (uint8_t *buff, int offset, int len)
                 _chains[chain].start =
                 _chains[chain].end = sector;
                 _chainCount++;
-                _needsWrite = true;
                 chain++;
             }
         }
@@ -358,7 +381,7 @@ int DiskFile::write (uint8_t *buff, int offset, int len)
 
     encodeChain ();
     _needsWrite = true;
-    // writeDirectory ();
+    sync();
 
     return total;
 }
@@ -388,5 +411,7 @@ void DiskFile::sync()
         _sectorMap->write (_dirSector, (uint8_t*) &_filehdr, 0, DISK_BYTES_PER_SECTOR);
         _needsWrite = false;
     }
+
+    _sectorMap->sync ();
 }
 

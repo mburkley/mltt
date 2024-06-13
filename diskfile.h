@@ -7,8 +7,8 @@
 #include "disk.h"
 #include "disksector.h"
 
-#define MAX_FILE_CHAINS         76
-#define FILENAME_LEN            11
+#define MAX_FILE_CHAINS         76  // 0x1c to 0xff divided by 3
+#define FILENAME_LEN            10
 
 typedef struct
 {
@@ -29,9 +29,11 @@ DiskFileHeader;
 class DiskFile
 {
 public:
-    DiskFile (const char *path, DiskSector *sectorMap, int dirSector, int inode);
-    DiskFile (const char *path, int dirSector);
+    DiskFile (const char *path, DiskSector *sectorMap, int dirSector,
+              int firstDataSector, int inode);
+    // DiskFile (const char *path, int dirSector);
     std::string& getOSName () { return _osname; }
+    void setOSName (const char *path);
     char *getTIName () { return _filehdr.tiname; }
     int getInode () { return _inode; }
     int getLength () {return _length; }
@@ -44,8 +46,8 @@ public:
     int getSecCount () { return _filehdr.secCount; }
     void setRecLen (int recLen);
     void setFlags (int flags);
-    void close ();
-    void unlink();
+    bool close ();
+    bool unlink();
     int seek (int offset, int whence);
     bool create ();
     int read (uint8_t *buff, int offset, int len);
@@ -53,30 +55,17 @@ public:
     void toTifiles (Tifiles *header);
     void fromTifiles (Tifiles *header);
     void printInfo (FILE *out);
-    std::string& getOsName () { return _osname; }
     void incRefCount () { _refCount++; }
     void decRefCount () { _refCount--; }
     void readDirEnt ();
     void sync();
-
-    #if 0
-    vector<std::string> getFileList ()
-    {
-        vector<std::string> x;
-        for (auto file:_files)
-            x.push_back (file->:wqa
-
-    void enumerateFiles (void (*cb)(Diskfile*,void*buf,void (*filler)()));
-    {
-        for (auto file : _files) cb(file, buf, filler);
-    }
-    #endif
 
 private:
     DiskFileHeader _filehdr;
     DiskSector *_sectorMap;
     std::string _osname;
     int _dirSector;
+    int _firstDataSector;
     int _length;
     struct
     {

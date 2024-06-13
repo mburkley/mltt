@@ -121,23 +121,25 @@ int main (int argc, char *argv[])
         int sectors = tracks * secPerTrk * sides;
         int size = sectors * DISK_BYTES_PER_SECTOR;
 
-        if (sectors == 0)
+        if (sectors < 2)
         {
-            fprintf (stderr, "Can't format a disk with zero sectors\n");
+            fprintf (stderr, "Can't format a disk without at least 2 sectors\n");
+            exit (1);
+        }
+
+        if (sectors > 1440)
+        {
+            fprintf (stderr, "Can't format a disk with more than 1440 sectors\n");
             exit (1);
         }
 
         data = (struct _data *) calloc (size, 1);
-        // diskVolume.encodeHeader (&data->vol, volName, secPerTrk, tracks, sides, 1);
-
-        /*  Mark sector 0 and sector 1 as allocated */
-        data->vol.bitmap[0] = 3;
+        DiskVolume::format (&data->vol, volName, secPerTrk, tracks, sides, 1);
 
         size = filesWriteBinary (argv[optind], (uint8_t*) data, size, NULL, false);
         printf ("Wrote %d bytes to create volume '%s' with %d sectors\n", size, volName, sectors);
         return 0;
     }
-
 
     if (!volume.open (argv[optind]))
     {

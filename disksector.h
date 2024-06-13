@@ -9,18 +9,20 @@
 class DiskSector
 {
 public:
-    DiskSector (uint8_t *bitmap, int sectorCount, FILE *fp);
+    DiskSector (uint8_t *bitmap, uint8_t *bitmapSectorData, int bitmapSector, FILE *fp);
+    void setSectorCount (int count) { _sectorCount = count; }
     bool isFree (int sector);
     int findFree (int start);
     void alloc (int start, int count);
     void free (int start, int count);
     int read (int sector, uint8_t data[], int offset, int len);
     int write (int sector, uint8_t data[], int offset, int len);
-    bool getBitmapChanged () { return _bitmapChanged; }
-    void clearBitmapChanged () { _bitmapChanged = false; }
+    void sync ();
 
 private:
-    uint8_t *_bitmap;
+    uint8_t *_bitmap;           // The allocation bitmap ("FAT")
+    int _bitmapSector;          // The sector it is contained it
+    uint8_t *_bitmapSectorData;  // The whole sector
     FILE *_fp;
     int _sectorCount;
     bool _bitmapChanged;
