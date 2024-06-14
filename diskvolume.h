@@ -1,0 +1,112 @@
+/*
+ * Copyright (c) 2004-2024 Mark Burkley.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+/*
+ *  Defines floppy disk data structures
+ */
+
+#ifndef __DISKVOLUME_H
+#define __DISKVOLUME_H
+
+// #include "files.h"
+// #include "types.h"
+#include <vector>
+#include <string>
+
+using namespace std;
+
+#include "disk.h"
+#include "diskfile.h"
+#include "disksector.h"
+
+#define VOL_HDR_SECTOR          0
+#define DIR_HDR_SECTOR          1
+// #define FIRST_DIR_ENTRY         2
+#define FIRST_DATA_SECTOR      34
+
+typedef struct
+{
+    char tiname[10];
+    int16_t sectors;
+    uint8_t secPerTrk;
+    char dsk[3];
+    // 0x10
+    uint8_t protect; // 'P' = protected, ' '=not
+    uint8_t tracks;
+    uint8_t sides;
+    uint8_t density; // SS=1,DS=2
+    uint8_t __reserved1[0x0c];
+    // 0x20
+    uint8_t date[8];
+    uint8_t __reserved2[0x10];
+    // 0x38
+    uint8_t bitmap[0xb4]; // bitmap 38-63, 38-91 or 38-eb for SSSD,DSSD,DSDD respec
+    uint8_t __reserved3[0x14];
+}
+DiskVolumeHeader;
+
+class DiskVolume
+{
+public:
+    DiskVolume ();
+    DiskFile *fileAccess (const char *path, int mode);
+    DiskFile *fileOpen (const char *path, int mode);
+    void fileClose (DiskFile *file);
+    DiskFile *fileCreate (const char *path);
+    bool fileUnlink (const char *path);
+    void fileRename (DiskFile *file, const char *path);
+    void outputHeader (FILE *out);
+    void outputDirectory (FILE *out);
+    // int readFile (DiskFile *file, uint8_t *buff, int offset, int len);
+    // int writeFile (DiskFile *file, uint8_t *buff, int offset, int len);
+    int getFileCount () { return _fileCount; }
+    int getSectorCount () { return _sectorCount; }
+    int getSectorsFree () { return _sectorsFree; }
+    bool open (const char *name);
+    void close ();
+    DiskFile *getFileByIndex (int ix) { return _files[ix]; }
+    static void format (DiskVolumeHeader *vol, string name, int
+                        secPerTrk, int tracks, int sides, int density);
+private:
+    DiskVolumeHeader _volHdr;
+    uint8_t _dirHdr[DISK_BYTES_PER_SECTOR/2][2];
+    DiskSector *_sectors;
+    string _osname;
+    int _fileCount;
+    int _sectorCount;
+    int _sectorsFree;
+    FILE *_fp;
+    vector<DiskFile *> _files;
+    int _lastInode;
+    bool _volNeedsWrite;
+    bool _dirNeedsWrite;
+
+    void readDirectory ();
+    void sync ();
+    void freeFileResources (DiskFile *file);
+    void addFileToList (DiskFile *file);
+    void removeFileFromList (DiskFile *file);
+    void updateDirectory ();
+};
+
+#endif
+

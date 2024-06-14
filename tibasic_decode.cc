@@ -130,7 +130,7 @@ static void decodeLine (char **output, uint8_t *data, bool debug)
         }
         else
         {
-            int i;
+            unsigned i;
             for (i = 0; i < NUM_TOKENS; i++)
                 if (tokens[i].byte == *data)
                 {
@@ -176,20 +176,11 @@ static bool decodeBasicFileCheck (FileHeader *header)
     return true;
 }
 
-int decodeBasicProgram (uint8_t *input, int inputLen, char **output, bool debug)
+int decodeBasicProgram (uint8_t *input, int inputLen, char *output, bool debug)
 {
     FileHeader *header = (FileHeader*) input;
 
-    /*  Allocate a buffer to receive the decoded output which is 50% bigger
-     *  than the tokenised code input */
-    if ((*output = realloc (*output, inputLen * 2)) == NULL)
-    {
-        fprintf (stderr, "Can't allocate buffer for encoded basic\n");
-        exit (1);
-    }
-
-    printf ("allocated %d\n", inputLen*2);
-    char *outp = *output;
+    char *outp = output;
 
     header->xorCheck = be16toh (header->xorCheck);
     header->lineNumbersTop = be16toh (header->lineNumbersTop);
@@ -237,10 +228,10 @@ int decodeBasicProgram (uint8_t *input, int inputLen, char **output, bool debug)
 
     if (debug)
     {
-        printf ("# processed %ld out of %d space for output\n", outp-*output,
+        printf ("# processed %ld out of %d space for output\n", outp-output,
         inputLen *2);
     }
 
-    return outp - *output;
+    return outp - output;
 }
 

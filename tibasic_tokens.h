@@ -69,7 +69,7 @@ typedef struct _fileHeader
 typedef struct _Token
 {
     uint8_t byte;
-    char *token;
+    const char *token;
 }
 Token;
 static Token tokens[] =

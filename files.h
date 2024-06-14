@@ -23,6 +23,8 @@
 #ifndef __FILES_H
 #define __FILES_H
 
+#include <string>
+
 #include "types.h"
 
 #define FLAG_VAR        0x80
@@ -33,7 +35,6 @@
 #define FLAG_PROG       0x01
 
 #define SIZEOF_TIFILES_HEADER   0x80
-#define BYTES_PER_SECTOR        0x100
 
 typedef struct _tifiles
 {
@@ -59,29 +60,55 @@ typedef struct _tifiles
 }
 Tifiles;
 
-typedef struct _fileMetaData
+class Files
 {
-    bool hasTifilesHeader;
-    Tifiles header;
-    int16_t secCount;
-    int16_t l3Alloc;
-    uint16_t extHeader;
-    char osname[11];
-}
-FileMetaData;
+private:
+    /* The has header field is set if a TIFILES header is seen on an input file.
+     * If it is set to false before a read then it is assumed the input
+     * definitely does not have a TIFILES header and the methods do not look for
+     * one */
+    bool _hasTifilesHeader;
+    Tifiles _header;
+    // int16_t _secCount;
+    // int16_t _l3Alloc;
+    // uint16_t _extHeader;
+    std::string _osname;
+    uint8_t *_data;
+    int _allocLen;
+    int _dataLen;
+    bool _verbose;
+public:
+    Files (const char *name, bool hasTIfiles, bool verbose);
+    bool realloc (int length);
+    bool hasTIfiles () { return _hasTifilesHeader; }
+    void setData (uint8_t *data, int dataLen) { _data = data; _dataLen = dataLen; }
+    uint8_t *getData () { return _data; }
+    int getSize () { return _dataLen; }
+    bool setSize (int size);
+    int getFlags () { return _header.flags; }
+    void setFlags (int flags) { _header.flags = flags; }
+    void setRecLen (int recLen);
+    int getRecLen () { return _header.recLen; }
+    int getSecCount () { return _header.secCount; }
+    int getRecSec () { return _header.recSec; }
+    int getEofOffset () { return _header.eofOffset; }
+    char *getTiname () { return _header.name; }
+    // void initMeta (const char *name, int length, int sectorSize,
+    //                int recLen, bool program, bool readOnly);
+    void initTifiles (const char *name, int length, int sectorSize,
+                      int recLen, bool program, bool readOnly);
+    int read ();
+    int write ();
+    int readTIFiles(uint8_t *data, int maxLength);
+    void getxattr (bool show);
+    void setxattr ();
+    static char *showFlags (uint8_t flags);
+    // static void Linux2TI (const char *lname, char tname[]);
+    static void Linux2TI (std::string lname, char tname[]);
+    // static void TI2Linux (const char tname[], char *lname);
+    static void TI2Linux (const char tname[], std::string& lname);
+};
 
-void filesInitMeta (FileMetaData *meta, const char *name, int length, int sectorSize, int recLen, bool program, bool readOnly);
-void filesInitTifiles (Tifiles *header, const char *name, int length, int
-sectorSize, int recLen, bool program, bool readOnly);
-int filesReadText (const char *name, char **data, bool verbose);
-int filesReadBinary (const char *name, uint8_t **data, FileMetaData *meta, bool verbose);
-int filesWriteText (const char *name, char *data, int length, bool verbose);
-int filesWriteBinary (const char *name, uint8_t *data, int length,
-                      FileMetaData *meta, bool verbose);
-int filesReadTIFiles(const char *name, uint8_t *data, int maxLength);
-char *filesShowFlags (uint8_t flags);
-void filesLinux2TI (const char *lname, char tname[]);
-void filesTI2Linux (const char *tname, char *lname);
 
 #endif
 

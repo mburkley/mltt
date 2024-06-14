@@ -108,9 +108,9 @@ static void emitToken (int token)
 }
 
 
-static int findToken (const char *token, int len)
+static int findToken (const char *token, unsigned len)
 {
-    for (int i = 0; i < NUM_TOKENS; i++)
+    for (unsigned i = 0; i < NUM_TOKENS; i++)
         if (strlen (tokens[i].token) == len &&
             !strncmp (tokens[i].token, token, len))
         {
@@ -160,7 +160,7 @@ static void parseIdentifier (bool debug)
     else
         end++; // get a single character
             
-    int len = end - inp;
+    unsigned len = end - inp;
 
     if ((currToken = findToken (inp, len)) != -1)
     {
@@ -303,21 +303,13 @@ static void processLine (bool debug)
     acceptToken (TOKEN_EOL, debug);
 }
 
-int encodeBasicProgram (char *input, int inputLen, uint8_t **output, bool debug)
+int encodeBasicProgram (char *input, int inputLen, uint8_t *output, bool debug)
 {
     int lineCount = 0;
 
-    /*  Allocate a buffer to receive the tokenised output which is 50% bigger
-     *  than the source code input */
-    if ((*output = realloc (*output, inputLen * 1.5)) == NULL)
-    {
-        fprintf (stderr, "Can't allocate buffer for encoded basic\n");
-        exit (1);
-    }
-
     inp = input;
-    outp = *output;
-    FileHeader *header = (FileHeader*) *output;
+    outp = output;
+    FileHeader *header = (FileHeader*) output;
     acceptToken (0, debug); // Fetch the first token
 
     while (inp - input < inputLen)
@@ -331,7 +323,7 @@ int encodeBasicProgram (char *input, int inputLen, uint8_t **output, bool debug)
             break;
 
         lineTable[lineCount].line = line;
-        lineTable[lineCount].address = outp - *output;
+        lineTable[lineCount].address = outp - output;
         lineCount++;
         processLine (debug);
         *lineStart = outp - lineStart - 1; // tokenised line length
@@ -339,14 +331,14 @@ int encodeBasicProgram (char *input, int inputLen, uint8_t **output, bool debug)
     if (debug) printf ("done\n");
 
     int lenHeader = sizeof (FileHeader) + sizeof (LineNumberTable) * lineCount;
-    int lenCode = outp - *output;
+    int lenCode = outp - output;
 
-    memmove (*output + lenHeader,
-             *output,
+    memmove (output + lenHeader,
+             output,
              lenCode);
 
     /*  Convert header and line numbers into be16 in reverse order */
-    LineNumberTable *outputLineTable = (LineNumberTable*) (*output + sizeof (FileHeader));
+    LineNumberTable *outputLineTable = (LineNumberTable*) (output + sizeof (FileHeader));
     for (int i = lineCount-1; i >= 0; i--)
     {
         outputLineTable->line = htobe16 (lineTable[i].line);

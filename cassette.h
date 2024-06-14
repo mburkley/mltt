@@ -25,19 +25,38 @@
 
 #include "types.h"
 
+#include "wav.h"
+
 #define CASSETTE_AMPLITUDE 16383 // 2^14-1, 3dB attenuation
 #define CASSETTE_SAMPLE_RATE 44100
 #define CASSETTE_BITS_PER_SAMPLE    8
 #define CASSETTE_FILE_NAME "cassette.wav"
 
-bool cassetteMotor(int index, uint8_t value);
-bool cassetteAudioGate(int index, uint8_t value);
-bool cassetteTapeOutput(int index, uint8_t value);
-void cassetteModulationToggle (void);
-uint8_t cassetteTapeInput(int index, uint8_t value);
-void cassetteTimerExpired (int duration);
-void cassetteFileOpenWrite (const char *name);
-void cassetteFileCloseWrite (void);
+/*  TODO all methods and data in this class need to be completely static until
+ *  the CRU callbacks are refactored.  */
+class Cassette
+{
+public:
+    static bool motor(int index, uint8_t value);
+    static bool audioGate(int index, uint8_t value);
+    static bool tapeOutput(int index, uint8_t value);
+    static void modulationToggle (void);
+    static uint8_t tapeInput(int index, uint8_t value);
+    static void timerExpired (int duration);
+    static void fileOpenWrite (const char *name);
+    static void fileCloseWrite (void);
+private:
+    /*  Maintain a file sample counter.  For write, this is how many samples we have
+     *  generated.  For read, it is how many samples are remaining in the file
+     */
+    static int _sampleCount;
+    static struct timespec _audioStart; // The time at which we last read audio
+    static int _modulationState;
+    static int _modulationNext;
+    static int _modulationReadSamples;
+    static WavFile _wavFile;
+    static int modulationRead (void);
+};
 
 #endif
 

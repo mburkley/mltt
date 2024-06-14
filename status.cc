@@ -97,17 +97,16 @@ static void statusClearToEol (void)
     statusPosX = 0;
 }
 
-static void statusPrintf (char *fmt, ...)
+static void statusPrintf (const char *fmt, ...)
 {
     char line[1024];
-    int i;
     va_list ap;
 
     va_start (ap, fmt);
     vsprintf (line, fmt, ap);
     va_end (ap);
 
-    for (i = 0; i <strlen (line); i++)
+    for (unsigned i = 0; i < strlen (line); i++)
     {
         if (line[i] == '\n')
         {

@@ -37,8 +37,8 @@
 #define LVL_CASSETTE    0x0800
 #define LVL_DISK        0x1000
 
-int mprintf (int level, char *s, ...);
-void halt (char *s);
+int mprintf (int level, const char *s, ...);
+void halt (const char *s);
 extern int outputLevel;
 #define ASSERT(condition,text) \
 { \

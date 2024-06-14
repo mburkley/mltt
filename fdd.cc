@@ -60,8 +60,9 @@
 #define DISK_STATUS_BUSY                0x01
 
 static uint8_t diskId[6];
-static uint8_t diskSector[256];
+static uint8_t diskSector[DISK_BYTES_PER_SECTOR];
 static int sectorsPerTrack = 9;
+static int tracksPerSide = 40;
 
 /*  Declare one extra drive handler as drives are numbered 1 to 3 and 0 means no
  *  drive selected */
@@ -91,13 +92,13 @@ static void seekDisk (void)
     if (fdd.side)
     {
         /*  Add the offset for the first side */
-        sector += sectorsPerTrack * DISK_TRACKS_PER_SIDE;
+        sector += sectorsPerTrack * tracksPerSide;
 
         /*  For double sided disks saved in a sector-dump (.dsk file), the track
          *  number is "inverted" so track 39 is the first track on the second
          *  side and track 0 is the last track.
          */
-        sector += (DISK_TRACKS_PER_SIDE - 1 - fdd.track) * sectorsPerTrack;
+        sector += (tracksPerSide - 1 - fdd.track) * sectorsPerTrack;
     }
     else
         sector += fdd.track * sectorsPerTrack;
@@ -155,7 +156,7 @@ static void trackUpdate (bool inward)
 {
     if (inward)
     {
-        if (fdd.track < DISK_TRACKS_PER_SIDE)
+        if (fdd.track < tracksPerSide)
             fdd.track++;
     }
     else
@@ -236,7 +237,7 @@ void fddWrite (uint16_t addr, uint16_t data, uint16_t size)
 
             fdd.buffer = diskSector;
             fdd.bufferPos = 0;
-            fdd.bufferLen = DSK_BYTES_PER_SECTOR;
+            fdd.bufferLen = DISK_BYTES_PER_SECTOR;
             break;
         case 0x90:
             printf ("TODO read multiple sector\n");
@@ -245,7 +246,7 @@ void fddWrite (uint16_t addr, uint16_t data, uint16_t size)
             mprintf (LVL_DISK, "write single sector mark=%d\n", data&3);
             fdd.buffer = diskSector;
             fdd.bufferPos = 0;
-            fdd.bufferLen = DSK_BYTES_PER_SECTOR;
+            fdd.bufferLen = DISK_BYTES_PER_SECTOR;
             break;
         case 0xB0:
             printf ("TODO write multiple sector mark=%d\n", data&3);

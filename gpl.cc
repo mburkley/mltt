@@ -39,7 +39,7 @@
 typedef struct
 {
     int value;
-    char *mme;
+    const char *mme;
 } MME;
 
 static MME mnemonics[] =
@@ -108,10 +108,10 @@ static MME mnemonics[] =
 
 struct _scratchPadUsage
 {
-    char *mnemonic;
+    const char *mnemonic;
     uint16_t addrStart;
     uint16_t addrEnd;
-    char *description;
+    const char *description;
 }
 scratchPadUsage[] =
 {
@@ -240,9 +240,9 @@ static void showAddress (gplOperand *op)
 static void interpret (void)
 {
     int i;
-    char *m = "????";
+    const char *m = "????";
 
-    for (i = 0; i < sizeof (mnemonics) / sizeof (MME); i++)
+    for (i = 0; i < (int) (sizeof (mnemonics) / sizeof (MME)); i++)
         if (mnemonics[i].value == gplState.opCode)
             m = mnemonics[i].mme;
 
@@ -551,7 +551,7 @@ void gplDisassemble (uint16_t addr, uint8_t data)
 
 void gplShowScratchPad (uint16_t addr)
 {
-    for (int i = 0; i < NSCRATCH; i++)
+    for (unsigned i = 0; i < NSCRATCH; i++)
     {
         struct _scratchPadUsage *pad = &scratchPadUsage[i];
 
@@ -566,7 +566,7 @@ void gplShowScratchPad (uint16_t addr)
 
 uint16_t gplScratchPadNext (uint16_t addr)
 {
-    for (int i = 0; i < NSCRATCH; i++)
+    for (unsigned i = 0; i < NSCRATCH; i++)
     {
         struct _scratchPadUsage *pad = &scratchPadUsage[i];
 

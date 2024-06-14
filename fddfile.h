@@ -20,33 +20,12 @@
  * SOFTWARE.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
+#ifndef __DISKFILE_H
+#define __DISKFILE_H
 
-#include "trace.h"
-#include "vdp.h"
+// #include "dskdata.h"
 
-int outputLevel;
+void diskFileLoad (int drive, bool readOnly, const char *name);
 
-int mprintf (int level, char *s, ...)
-{
-    va_list ap;
-
-    va_start (ap, s);
-
-    if (level & outputLevel)
-        vprintf (s, ap);
-
-    va_end (ap);
-
-    return 0;
-}
-
-void halt (char *s)
-{
-    printf ("HALT: %s\n", s);
-
-    exit (1);
-}
+#endif
 

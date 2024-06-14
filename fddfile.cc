@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "trace.h"
-#include "dskfile.h"
+#include "fddfile.h"
 #include "fdd.h"
 
 /*  Maintain static state even though we have multiple drives.  This is ok
@@ -38,13 +38,13 @@ static void fileSeek (int sector)
 {
     ASSERT (diskFile != NULL, "file not open in seek");
     printf("XX seek %d\n", sector);
-    fseek (diskFile, sector * DSK_BYTES_PER_SECTOR, SEEK_SET);
+    fseek (diskFile, sector * DISK_BYTES_PER_SECTOR, SEEK_SET);
 }
 
 static void fileRead (unsigned char *buffer)
 {
     ASSERT (diskFile != NULL, "file not open in read");
-    int res=fread (buffer, 1, DSK_BYTES_PER_SECTOR, diskFile);
+    int res = fread (buffer, 1, DISK_BYTES_PER_SECTOR, diskFile);
     printf("XX read %d\n", res);
 }
 
@@ -52,7 +52,7 @@ static void fileWrite (unsigned char *buffer)
 {
     ASSERT (diskFile != NULL, "file not open in write");
     /*  If the file was opened read only then write will fail quietly */
-    int res =fwrite (buffer, 1, DSK_BYTES_PER_SECTOR, diskFile);
+    int res = fwrite (buffer, 1, DISK_BYTES_PER_SECTOR, diskFile);
     printf("XX write %d\n", res);
 }
 
@@ -73,7 +73,7 @@ static void fileDeselect(void)
     diskFile = NULL;
 }
 
-void diskFileLoad (int drive, bool readOnly, char *name)
+void diskFileLoad (int drive, bool readOnly, const char *name)
 {
     FILE *fp;
     fddHandler handler =
@@ -84,10 +84,10 @@ void diskFileLoad (int drive, bool readOnly, char *name)
         .select = fileSelect,
         .deselect = fileDeselect,
         .readOnly = readOnly,
-        .name = ""
+        // .name = ""
     };
 
-    strcpy (handler.name, name);
+    handler.name = strdup (name);
 
     /*  Test the file status by opening with as read only or as read with
      *  update.  If open read with update fails, create the file.  If that fails,

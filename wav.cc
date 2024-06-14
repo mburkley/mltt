@@ -32,42 +32,23 @@
 
 #include "types.h"
 #include "trace.h"
+#include "wav.h"
 
 #define WAV_DEFAULT_CHANNELS    1
 #define WAV_DEFAULT_RATE        44100
 
-typedef struct
+WavFile::WavFile ()
 {
-    char riff[4];
-    unsigned int fileSize;
-    char wave[4];
-    char fmt[4];
-    unsigned int waveSize;
-    short waveType;
-    short numChannels;
-    unsigned int sampleRate;
-    unsigned int bytesSec;
-    short blockAlign;
-    short bitsSample;
-    char data[4];
-    unsigned int dataSize;
+    _fp = nullptr;
+    _channels = 1;
+    _bits = 16;
+    _rate = WAV_DEFAULT_RATE;
+    _sampleCount = 0;
+    _write = false;
+    _blockSize = 2;
 }
-wavHeader;
 
-typedef struct _wavState
-{
-    FILE *fp;
-    int channels;
-    int bits;
-    int rate;
-    int sampleCount;
-    bool write;
-    int blockSize;
-    uint8_t block[4]; // Maximum sample block size is 16 bits, 2 channels
-}
-wavState;
-
-static void dumpHeader (wavHeader hdr)
+void WavFile::dumpHeader (wavHeader hdr)
 {
     printf ("RIFF=%-4.4s\n", hdr.riff);
     printf ("  file size=%d\n\n", hdr.fileSize);
@@ -84,26 +65,18 @@ static void dumpHeader (wavHeader hdr)
     printf ("  data size=%d\n\n", hdr.dataSize);
 }
 
-wavState *wavFileOpenRead (const char *name, bool showParams)
+bool WavFile::openRead (const char *name, bool showParams)
 {
     wavHeader hdr;
-    wavState *state;
 
-    if ((state = calloc (1, sizeof (wavState))) == NULL)
-    {
-        halt ("Failed to allocate wav state\n");
-        return NULL;
-    }
-
-    if ((state->fp = fopen (name, "r")) == NULL)
+    if ((_fp = fopen (name, "r")) == NULL)
     {
         printf ("Failed to open file %s for read\n", name);
-        free (state);
-        return NULL;
+        return false;
     }
 
     // printf ("opened file %s for read\n", name);
-    fread (&hdr, sizeof hdr, 1, state->fp);
+    fread (&hdr, sizeof hdr, 1, _fp);
 
     if (showParams)
         dumpHeader (hdr);
@@ -113,132 +86,108 @@ wavState *wavFileOpenRead (const char *name, bool showParams)
     {
         printf ("Unsupported audio file format\n");
         printf ("channels=%d,bits=%d\n", hdr.numChannels, hdr.bitsSample);
-        fclose (state->fp);
-        state->fp = NULL;
-        free (state);
-        return NULL;
+        fclose (_fp);
+        _fp = nullptr;
+        return false;
     }
 
-    state->channels = hdr.numChannels;
-    state->rate = hdr.sampleRate;
-    state->bits = hdr.bitsSample;
-    state->rate = hdr.sampleRate;
-    state->blockSize = state->channels * (state->bits / 8);
-    state->sampleCount = hdr.dataSize / state->blockSize;
-
-    return state;
+    _channels = hdr.numChannels;
+    _rate = hdr.sampleRate;
+    _bits = hdr.bitsSample;
+    _rate = hdr.sampleRate;
+    _blockSize = _channels * (_bits / 8);
+    _sampleCount = hdr.dataSize / _blockSize;
+    return true;
 }
 
-wavState *wavFileOpenWrite (const char *name, int bits)
+bool WavFile::openWrite (const char *name, int bits)
 {
     wavHeader hdr;
-    wavState *state;
 
-    if ((state = calloc (1, sizeof (wavState))) == NULL)
-    {
-        halt ("Failed to allocate wav state\n");
-        return NULL;
-    }
-
-    if ((state->fp = fopen (name, "w")) == NULL)
+    if ((_fp = fopen (name, "w")) == NULL)
     {
         printf ("Failed to open file %s for write\n", name);
-        return NULL;
+        return false;
     }
 
     printf ("opened %s for write\n", name);
 
-    state->channels = WAV_DEFAULT_CHANNELS;
-    state->rate = WAV_DEFAULT_RATE;
-    state->bits = bits;
-    state->write = true;
-    state->blockSize = state->channels * (state->bits / 8);
+    _channels = WAV_DEFAULT_CHANNELS;
+    _rate = WAV_DEFAULT_RATE;
+    _bits = bits;
+    _write = true;
+    _blockSize = _channels * (_bits / 8);
 
     /*  Write dummy header for now, populate later */
-    fwrite (&hdr, sizeof hdr, 1, state->fp);
-    return state;
+    fwrite (&hdr, sizeof hdr, 1, _fp);
+    return true;
 }
 
-void wavFileClose (wavState *state)
+void WavFile::close ()
 {
     wavHeader hdr;
 
     // printf ("closing file\n");
 
-    if (state->write)
+    if (_write)
     {
-        fseek (state->fp, SEEK_SET, 0);
+        fseek (_fp, SEEK_SET, 0);
 
         memcpy (hdr.riff, "RIFF", 4);
-        hdr.fileSize = state->sampleCount * state->blockSize + 44 - 8;
+        hdr.fileSize = _sampleCount * _blockSize + 44 - 8;
         memcpy (hdr.wave, "WAVE", 4);
         memcpy (hdr.fmt, "fmt ", 4);
         hdr.waveSize = 16;
         hdr.waveType = 1;
-        hdr.numChannels = state->channels;
-        hdr.sampleRate = state->rate;
-        hdr.bytesSec = state->rate * state->blockSize;
-        hdr.blockAlign = state->blockSize;
-        hdr.bitsSample = state->bits;
+        hdr.numChannels = _channels;
+        hdr.sampleRate = _rate;
+        hdr.bytesSec = _rate * _blockSize;
+        hdr.blockAlign = _blockSize;
+        hdr.bitsSample = _bits;
         memcpy (hdr.data, "data", 4);
-        hdr.dataSize = state->sampleCount * state->blockSize;
+        hdr.dataSize = _sampleCount * _blockSize;
 
     // if (showParams)
         dumpHeader (hdr);
 
-        fwrite (&hdr, sizeof hdr, 1, state->fp);
+        fwrite (&hdr, sizeof hdr, 1, _fp);
     }
 
-    fclose (state->fp);
-    free (state);
+    fclose (_fp);
+    _fp = nullptr;
 }
 
-int wavSampleCount (wavState *state)
-{
-    return state->sampleCount;
-}
-
-bool wavIsOpenWrite (wavState *state)
-{
-    return state->write;
-}
-
-int wavSampleRate (wavState *state)
-{
-    return state->rate;
-}
-
-int16_t wavReadSample (wavState *state)
+int16_t WavFile::readSample ()
 {
     int16_t sample;
 
-    fread (state->block, state->blockSize, 1, state->fp);
+    fread (_block, _blockSize, 1, _fp);
 
     /*  We support reading 2 channel audio but we only look at the first channel
      */
-    if (state->bits == 8)
+    if (_bits == 8)
     {
         /*  Supporting reading files that are encoded in 8-bit by shifting
          *  the data left 8 bits.  Presumes little endian architecture.
          */
-        sample = (int8_t) state->block[0];
+        sample = (int8_t) _block[0];
         sample = (sample+128)<< 8;
     }
     else
-        sample = *(int16_t*)state->block;
+        sample = *(int16_t*)_block;
 
     return sample;
 }
 
-void wavWriteSample (wavState *state, int16_t sample)
+void WavFile::writeSample (int16_t sample)
 {
     /*  Assume writes are single channel */
-    if (state->bits == 8)
-        *(int8_t*)state->block = (sample>>8)-128;
+    if (_bits == 8)
+        *(int8_t*)_block = (sample>>8)-128;
     else
-        *(int16_t*)state->block = sample;
+        *(int16_t*)_block = sample;
 
-    fwrite (state->block, state->blockSize, 1, state->fp);
-    state->sampleCount++;
+    fwrite (_block, _blockSize, 1, _fp);
+    _sampleCount++;
 }
 

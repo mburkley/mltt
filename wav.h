@@ -25,16 +25,50 @@
 
 #include "types.h"
 
-typedef struct _wavState wavState;
+typedef struct
+{
+    char riff[4];
+    unsigned int fileSize;
+    char wave[4];
+    char fmt[4];
+    unsigned int waveSize;
+    short waveType;
+    short numChannels;
+    unsigned int sampleRate;
+    unsigned int bytesSec;
+    short blockAlign;
+    short bitsSample;
+    char data[4];
+    unsigned int dataSize;
+}
+wavHeader;
 
-wavState *wavFileOpenRead (const char *name, bool showParams);
-wavState *wavFileOpenWrite (const char *name, int bits);
-void wavFileClose (wavState *state);
-int wavSampleCount (wavState *state);
-bool wavIsOpenWrite (wavState *state);
-int wavSampleRate (wavState *state);
-int16_t wavReadSample (wavState *state);
-void wavWriteSample (wavState *state, int16_t sample);
+
+class WavFile
+{
+public:
+    WavFile ();
+    bool openRead (const char *name, bool showParams);
+    bool openWrite (const char *name, int bits);
+    void close ();
+    bool isOpen () { return _fp != nullptr; }
+    bool isOpenWrite () { return _write; }
+    int getSampleCount () { return _sampleCount; }
+    int getSampleRate () { return _rate; }
+    int16_t readSample ();
+    void writeSample (int16_t sample);
+
+private:
+    FILE *_fp;
+    int _channels;
+    int _bits;
+    int _rate;
+    int _sampleCount;
+    bool _write;
+    int _blockSize;
+    uint8_t _block[4]; // Maximum sample block size is 16 bits, 2 channels
+    void dumpHeader (wavHeader hdr);
+};
 
 #endif
 

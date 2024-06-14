@@ -32,50 +32,56 @@
 #include <ctype.h>
 #include <arpa/inet.h>
 
+#include <iostream>
+#include <string>
+
+using namespace std;
+
 #include "types.h"
 #include "parse.h"
 #include "files.h"
 #include "tibasic.h"
-#include "dskdata.h"
+#include "diskvolume.h"
 
-static void extractFile (DskInfo *info, const char *name)
+static void extractFile (DiskVolume& volume, const char *name)
 {
-    char linuxFile[100];
-    filesTI2Linux (name, linuxFile);
+    string linuxFile;
+    Files::TI2Linux (name, linuxFile);
 
-    DskFileInfo *file;
-    if ((file = dskFileAccess (info, linuxFile, 0)) == NULL)
+    DiskFile *file;
+    if ((file = volume.fileAccess (linuxFile.c_str(), 0)) == nullptr)
     {
-        fprintf (stderr, "Can't access disk file %s\n", linuxFile);
+        cerr << "Can't access disk file " << linuxFile << endl;
         exit (1);
     }
 
-    int len = dskFileLength (info, file);
+    int len = file->getLength ();
 
-    unsigned char *data = malloc (len);
-    dskReadFile (info, file, data, 0, len);
+    uint8_t *data = (uint8_t*) malloc (len);
+    file->read (data, 0, len);
 
     FILE *fp;
-    if ((fp = fopen (linuxFile, "w")) == NULL)
+    if ((fp = fopen (linuxFile.c_str(), "w")) == NULL)
     {
-        fprintf (stderr, "Can't create %s\n", linuxFile);
+        cerr << "Can't create " << linuxFile << endl;
         exit (1);
     }
     fwrite (data, 1, len, fp);
     fclose (fp);
-    printf ("Extracted %s len %d\n", linuxFile, len);
+    printf ("Extracted %s len %d\n", linuxFile.c_str(), len);
     free (data);
 }
 
 int main (int argc, char *argv[])
 {
+    DiskVolume volume;
     char c;
     bool extract = false;
     bool format = false;
     // bool add = false;
     // bool remove = false;
     const char *file;
-    char *volName = "BLANK";
+    const char *volName = "BLANK";
     int tracks = 40;
     int secPerTrk = 9;
     int sides = 1;
@@ -110,37 +116,46 @@ int main (int argc, char *argv[])
 
     if (format)
     {
-        struct
+        struct _data
         {
-            DskVolumeHeader vol;
+            DiskVolumeHeader vol;
             uint8_t blank[0];
         }
         *data;
 
         int sectors = tracks * secPerTrk * sides;
-        int size = sectors * BYTES_PER_SECTOR;
+        int size = sectors * DISK_BYTES_PER_SECTOR;
 
-        if (sectors == 0)
+        if (sectors < 2)
         {
-            fprintf (stderr, "Can't format a disk with zero sectors\n");
+            fprintf (stderr, "Can't format a disk without at least 2 sectors\n");
             exit (1);
         }
 
-        data = calloc (size, 1);
-        dskEncodeVolumeHeader (&data->vol, volName, secPerTrk, tracks, sides, 1);
+        if (sectors > 1440)
+        {
+            fprintf (stderr, "Can't format a disk with more than 1440 sectors\n");
+            exit (1);
+        }
 
-        /*  Mark sector 0 and sector 1 as allocated */
-        data->vol.bitmap[0] = 3;
+        data = (struct _data *) calloc (size, 1);
+        DiskVolume::format (&data->vol, volName, secPerTrk, tracks, sides, 1);
 
-        size = filesWriteBinary (argv[optind], (uint8_t*) data, size, NULL, false);
+        Files file (volName, false, false);
+        file.setData ((uint8_t *) &data->vol, size);
+        size = file.write (); // Binary (argv[optind], (uint8_t*) data, size, NULL, false);
         printf ("Wrote %d bytes to create volume '%s' with %d sectors\n", size, volName, sectors);
         return 0;
     }
 
-    DskInfo *info = dskOpenVolume (argv[optind]);
+    if (!volume.open (argv[optind]))
+    {
+        fprintf (stderr, "Can't open %s\n", argv[optind]);
+        exit (1);
+    }
 
     if (extract)
-        extractFile (info, file);
+        extractFile (volume, file);
     #if 0
     else if (add)
         ;
@@ -149,11 +164,11 @@ int main (int argc, char *argv[])
     #endif
     else
     {
-        dskOutputVolumeHeader (info, stdout);
-        dskOutputDirectory (info, stdout);
+        volume.outputHeader (stdout);
+        volume.outputDirectory (stdout);
     }
 
-    dskCloseVolume (info);
+    volume.close ();
 
     return 0;
 }

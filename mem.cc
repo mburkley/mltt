@@ -374,7 +374,7 @@ void memMapFile (const char *name, uint16_t addr, uint16_t size)
         halt ("open failure");
     }
 
-    mmapRegion = mmap (NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+    mmapRegion = (unsigned char*) mmap (NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
 
     if (!mmapRegion)
     {

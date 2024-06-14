@@ -19,8 +19,10 @@ cassette.o \
 parse.o \
 mem.o \
 fdd.o \
-dskfile.o \
-dskdata.o \
+fddfile.o \
+diskfile.o \
+diskvolume.o \
+disksector.o \
 sams.o \
 wav.o \
 files.o \
@@ -37,25 +39,25 @@ LIBS=\
 -lm \
 -lfuse3
 
-TOOLS=mltt-disasm mltt-tape mltt-disk mltt-file mltt-fuse mltt-basic
+TOOLS=mltt-disasm mltt-tape mltt-disk mltt-file mltt-fuse
 
 CFLAGS=-Wall -ggdb3 -DVERSION=`cat VERSION` -I/usr/include/fuse3
 # LDFLAGS=
 
-all:  mltt-emu tests $(TOOLS)
+all:  mltt-emu $(TOOLS)
 
 mltt-emu: $(OBJECTS) console.o ti994a.o
 	@echo "\t[LD] $@..."
-	@$(CC) $(LDFLAGS) -o $@ console.o ti994a.o $(OBJECTS) $(LIBS)
-
-tests: $(OBJECTS) tests.o
-	@echo "\t[LD] $@..."
-	@$(CC) $(LDFLAGS) -o $@ tests.o $(OBJECTS) $(LIBS)
+	@$(CXX) $(LDFLAGS) -o $@ console.o ti994a.o $(OBJECTS) $(LIBS)
 
 $(TOOLS): %: $(OBJECTS) %.o
 	@echo "\t[LD] $@..."
-	@$(CC) $(LDFLAGS) $^ -o $@ $(LIBS)
+	@$(CXX) $(LDFLAGS) $^ -o $@ $(LIBS)
 
-%.o: %.c
+# %.o: %.c
+# 	@echo "\t[CC] $<..."
+# 	@$(CC) -c $(CFLAGS) $< -o $@
+
+%.o: %.cc
 	@echo "\t[CC] $<..."
-	@$(CC) -c $(CFLAGS) $< -o $@
+	@$(CXX) -c $(CFLAGS) $< -o $@

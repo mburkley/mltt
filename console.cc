@@ -54,13 +54,13 @@
 #include "status.h"
 #include "parse.h"
 #include "fdd.h"
-#include "dskfile.h"
-#include "diskdir.h"
+#include "fddfile.h"
+// #include "diskdir.h"
 #include "sams.h"
 #include "mem.h"
 #include "fdd.h"
 
-static char *fileToRead;
+static const char *fileToRead;
 static bool ti994aQuitFlag;
 static int instPerInterrupt;
 static bool statusPane;
@@ -517,7 +517,7 @@ bool consoleLoadDiskFile (int argc, char *argv[])
     else if (strcmp (argv[3], "RO"))
         return false;
 
-    diskFileLoad (drive, readOnly, argv[2]);
+    diskFileLoad (drive, readOnly, (const char*) argv[2]);
 
     return true;
 }
@@ -545,11 +545,11 @@ bool consoleLoadDiskDir (int argc, char *argv[])
 
 struct _commands
 {
-    char *cmd;
+    const char *cmd;
     int paramCount;
     bool (*func)(int argc, char *argv[]);
-    char *usage;
-    char *help;
+    const char *usage;
+    const char *help;
 }
 commands[] =
 {
@@ -670,7 +670,7 @@ static void input (FILE *fp)
     if (strlen (line) < 1 || argv[0][0] == '#')
         return;
 
-    for (int i = 0; i < NCOMMAND; i++)
+    for (unsigned i = 0; i < NCOMMAND; i++)
     {
         if (!strncmp (argv[0], commands[i].cmd, strlen (argv[0])))
         {
@@ -689,7 +689,7 @@ static void input (FILE *fp)
 
     if (!strcmp (argv[0], "?") || !strncmp (argv[0], "help", strlen(argv[0])))
     {
-        int i;
+        unsigned i;
 
         for (i = 0; i < NCOMMAND; i++)
             printf ("%s\n%s\n", commands[i].usage, commands[i].help);

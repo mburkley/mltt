@@ -23,12 +23,9 @@
 #ifndef __DISK_H
 #define __DISK_H
 
-#include "types.h"
-#include "dskdata.h"
-
-#define DISK_DRIVE_COUNT        3
-#define DISK_TRACKS_PER_SIDE 40
-#define SECTORS_PER_DISK         720
+// #include "types.h"
+// #include "diskdata.h"
+#include "disk.h"
 
 typedef struct
 {
@@ -38,7 +35,8 @@ typedef struct
     void (*select) (const char *name, bool readOnly);
     void (*deselect) (void);
     bool readOnly;
-    char name[DISK_FILENAME_MAX];
+    // char name[DISK_FILENAME_MAX];
+    char *name;
 }
 fddHandler;
 

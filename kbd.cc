@@ -20,7 +20,6 @@
  * SOFTWARE.
  */
 
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,7 +44,7 @@ static char kbdDevice[256];
  *  This table is just used to create debug output.  It contains a string
  *  representation of the keys being pressed.
  */
-static char *keyMap[KBD_ROW][KBD_COL] =
+static const char *keyMap[KBD_ROW][KBD_COL] =
 {
     { "=",    ".", ",", "m", "n", "/", "J1-Fire", "J2-Fire" }, // JS fire
     { " ",    "l", "k", "j", "h", ";", "J1-Left", "J2-Left" }, // JS left
@@ -147,7 +146,7 @@ static void decodeEvent (struct input_event ev)
 
         if (!mapped)
         {
-            for (i = 0; i < sizeof keyExtended / sizeof (struct _extended); i++)
+            for (i = 0; i < (int) (sizeof keyExtended / sizeof (struct _extended)); i++)
             {
                 struct _extended *e = &keyExtended[i];
                 if (e->code == ev.code)
