@@ -141,6 +141,14 @@ void ti994aRun (int instPerInterrupt)
     ti994aRunFlag = false;
 }
 
+bool ti994aInterrupt (int index, uint8_t state)
+{
+    if (index == IRQ_TIMER)
+        cassette.timerExpired (tms9901TimerToNsec ());
+
+    return tms9901Interrupt (index, state);
+}
+
 void ti994aInit (void)
 {
     tms9901Init ();
@@ -161,7 +169,7 @@ void ti994aInit (void)
     for (i = 1; i <= 15; i++)
     {
         cruBitInput (0, i, 1);  // Initial state inactive (active low)
-        cruInputCallbackSet (i, tms9901Interrupt);
+        cruInputCallbackSet (i, ti994aInterrupt);
         cruOutputCallbackSet (i, tms9901BitSet);
         cruReadCallbackSet (i, tms9901BitGet);
     }

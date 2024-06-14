@@ -37,6 +37,7 @@
 #include "interrupt.h"
 #include "timer.h"
 #include "cassette.h"
+#include "ti994a.h"
 
 static struct
 {
@@ -132,10 +133,6 @@ static void timerCallback (void)
         mprintf (LVL_INTERRUPT, "TMS9901 timer expired, raise interrupt\n");
 
         cruBitInput (0, IRQ_TIMER, 0);
-        /*  TODO this is not a good dependency.  9901 should know nothing about
-         *  cassettes
-         */
-        cassetteTimerExpired (tms9901TimerToNsec ());
     }
 }
 

@@ -38,6 +38,8 @@
 #include "files.h"
 #include "tibasic.h"
 
+Cassette cassette;
+
 static struct
 {
     bool create;
@@ -303,8 +305,9 @@ static void inputBitWidth (int count)
  *  gain control, the peak is diminished by 1% per sample, which is about 72%
  *  per bit (32 samples).  We look for 80% of peak which is a relative
  *  ampltitude of 0.5 before changing state. */
-static void inputWav (wavState *wav)
+static void inputWav (const char *name, bool showParams)
 {
+    WavFile wav;
     int16_t sample;
     int changeCount = 0;
     int state = 0;
@@ -312,11 +315,13 @@ static void inputWav (wavState *wav)
     double localMin = 0;
     double localMax = 0;
 
-    for (int i = 0; i < wavSampleCount (wav); i++)
+    wav.openRead (name, showParams);
+
+    for (int i = 0; i < wav.getSampleCount (); i++)
     {
         localMax = 0.8 * localMax;  // 0.99 ^ 32 = 0.725
         localMin = 0.8 * localMin;
-        sample = wavReadSample (wav);
+        sample = wav.readSample ();
 
         if (sample > localMax)
             localMax = sample;
@@ -345,24 +350,24 @@ static void inputWav (wavState *wav)
 
     /*  Do a final call to process the width of the last sample */
     inputBitWidth (changeCount);
+    wav.close ();
 }
 
 #define MAX_PROGRAM_SIZE    0x4000
 #define BIT_DURATION        730000 // 730 usec = 1370 Hz
-
 
 static void outputByte (uint8_t byte)
 {
     /*  Output bits from MSB thru LSB */
     for (int i = 7; i >= 0; i--)
     {
-        cassetteModulationToggle();
-        cassetteTimerExpired (BIT_DURATION/2);
+        cassette.modulationToggle();
+        cassette.timerExpired (BIT_DURATION/2);
 
         if (byte & (1<<i))
-            cassetteModulationToggle();
+            cassette.modulationToggle();
 
-        cassetteTimerExpired (BIT_DURATION/2);
+        cassette.timerExpired (BIT_DURATION/2);
     }
 }
 
@@ -428,15 +433,13 @@ int main (int argc, char *argv[])
         }
     }
 
-    wavState *wav;
-
     if (argc - optind < 1)
     {
         printf ("\nTool to read and write wav files for cassette audio\n\n"
                 "usage: %s [-c <file>] [-e <file>] [-v] [-b] [-r] [-w] <wav-file>\n"
                 "\t where -c=create WAV from <file> (TIFILES or tokenised TI basic)\n"
                 "\t       -e=extract to <file>, -v=verbose, -b=decode basic, "
-                "-r=raw bits, -w=show wav hdr\n\n", argv[0]);
+                "\t       -r=raw bits, -w=show wav hdr\n\n", argv[0]);
         return 1;
     }
 
@@ -454,18 +457,23 @@ int main (int argc, char *argv[])
         if (programSize < 0)
             return 1;
 
-        cassetteFileOpenWrite (argv[optind]);
+        cassette.fileOpenWrite (argv[optind]);
         outputWav ();
-        cassetteFileCloseWrite ();
+        cassette.fileCloseWrite ();
     }
     else
     {
+        #if 0
         wav = wavFileOpenRead (argv[optind], options.wav);
 
         preambleSync = true;
         preambleBitsExpected = 3000;
         inputWav (wav);
         wavFileClose (wav);
+        #endif
+        preambleSync = true;
+        preambleBitsExpected = 3000;
+        inputWav (argv[optind], options.wav);
 
         char *basic = NULL;
 

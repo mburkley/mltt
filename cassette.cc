@@ -38,6 +38,12 @@
 #include "cassette.h"
 #include "trace.h"
 
+int Cassette::_sampleCount;
+struct timespec Cassette::_audioStart; // The time at which we last read audio
+int Cassette::_modulationState;
+int Cassette::_modulationNext;
+int Cassette::_modulationReadSamples;
+WavFile Cassette::_wavFile;
 
 /*
  *  Create audio cassette recording.  Modulates a sine wave based on

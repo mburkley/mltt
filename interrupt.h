@@ -32,7 +32,7 @@
 void interruptRaise (int level);
 void interruptLower (int level);
 int interruptLevel (int mask);
-int tms9901TimerNsec (void);
+int tms9901TimerToNsec (void);
 bool tms9901Interrupt (int index, uint8_t state);
 void tms9901Init(void);
 bool tms9901BitSet (int index, uint8_t state);

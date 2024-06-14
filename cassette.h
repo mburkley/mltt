@@ -32,6 +32,8 @@
 #define CASSETTE_BITS_PER_SAMPLE    8
 #define CASSETTE_FILE_NAME "cassette.wav"
 
+/*  TODO all methods and data in this class need to be completely static until
+ *  the CRU callbacks are refactored.  */
 class Cassette
 {
 public:
@@ -48,9 +50,7 @@ private:
      *  generated.  For read, it is how many samples are remaining in the file
      */
     static int _sampleCount;
-
     static struct timespec _audioStart; // The time at which we last read audio
-
     static int _modulationState;
     static int _modulationNext;
     static int _modulationReadSamples;
