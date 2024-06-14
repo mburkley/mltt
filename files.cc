@@ -36,6 +36,7 @@
 #include <sys/uio.h>
 #include <sys/stat.h>
 #include <ctype.h>
+#include <sys/xattr.h>
 
 #include <iostream>
 
@@ -100,7 +101,12 @@ char *Files::showFlags (uint8_t flags)
 void Files::setRecLen (int recLen)
 {
     _header.recLen = recLen;
-    _header.recSec = DISK_BYTES_PER_SECTOR / recLen;
+
+    if (recLen > 0)
+        _header.recSec = DISK_BYTES_PER_SECTOR / recLen;
+    else
+        _header.recSec = 0;
+
     _header.eofOffset = _dataLen % DISK_BYTES_PER_SECTOR;
 }
 
@@ -145,7 +151,7 @@ void Files::initTifiles (const char *name, int length, int sectorSize, int recLe
 
     _header.secCount = htobe16 ((length + sectorSize - 1) / sectorSize);
     _osname == name;
-    Files::Linux2TI (name, _header.name);
+    Files::Linux2TI (string(name), _header.name);
 }
 
 int Files::read ()
@@ -173,12 +179,10 @@ int Files::read ()
             fseek (fp, 0, SEEK_SET);
 
             if (_verbose)
-            {
                 fprintf (stderr, "No TIFILES header seen, using defaults\n");
 
-                initTifiles (_osname.c_str(), fileSize, DISK_BYTES_PER_SECTOR, 0, false, false);
-                _hasTifilesHeader = false;
-            }
+            initTifiles (_osname.c_str(), fileSize, DISK_BYTES_PER_SECTOR, 0, false, false);
+            _hasTifilesHeader = false;
         }
         else
         {
@@ -254,26 +258,6 @@ int Files::write ()
     return count;
 }
 
-void Files::Linux2TI (const char *lname, char tname[])
-{
-    int i;
-    int len = 10;
-
-    for (i = 0; i < len; i++)
-    {
-        if (!lname[i])
-            break;
-
-        if (lname[i] == '.')
-            tname[i] = '/';
-        else
-            tname[i] = toupper (lname[i]);
-    }
-
-    for (; i < 10; i++)
-        tname[i] = ' ';
-}
-
 void Files::Linux2TI (string lname, char tname[])
 {
     unsigned i;
@@ -288,27 +272,11 @@ void Files::Linux2TI (string lname, char tname[])
 
     for (; i < 10; i++)
         tname[i] = ' ';
+
+    // cout << "# L2TI "<<lname<<" => " << tname << endl;
 }
 
-void Files::TI2Linux (const char tname[], char *lname)
-{
-    int i;
-
-    for (i = 0; i < 10; i++)
-    {
-        if (tname[i] == ' ')
-            break;
-
-        if (tname[i] == '/')
-            lname[i] = '.';
-        else
-            lname[i] = tname[i];
-    }
-
-    lname[i] = 0;
-}
-
-void Files::TI2Linux (const char tname[], string lname)
+void Files::TI2Linux (const char tname[], string& lname)
 {
     lname = "";
     int i;
@@ -323,5 +291,42 @@ void Files::TI2Linux (const char tname[], string lname)
         else
             lname += tname[i];
     }
+
+    // cout << "# TI2L "<<tname<<" => " << lname << endl;
+}
+
+void Files::getxattr (bool show)
+{
+    char data[10];
+    int len = ::getxattr(_osname.c_str(), "user.tifiles.flags", data, 10);
+    if (len > 0)
+    {
+        data[len]=0;
+        _header.flags = atoi (data);
+        if (show)
+        {
+            printf ("\nExtended attributes were found with the following information:\n");
+            printf ("Flags:        %02x %s\n", atoi (data), Files::showFlags (atoi (data)));
+        }
+    }
+
+    len = ::getxattr(_osname.c_str(), "user.tifiles.reclen", data, 10);
+    if (len > 0)
+    {
+        data[len]=0;
+        _header.recLen = atoi (data);
+        if (show)
+            printf ("Rec-len:      %d\n", atoi (data));
+    }
+}
+
+void Files::setxattr ()
+{
+    char str[10];
+    sprintf (str, "%d", _header.flags);
+    ::setxattr (_osname.c_str(), "user.tifiles.flags", str, strlen (str), 0);
+
+    sprintf (str, "%d", _header.recLen);
+    ::setxattr (_osname.c_str(), "user.tifiles.reclen", str, strlen (str), 0);
 }
 

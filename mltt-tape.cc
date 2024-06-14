@@ -545,6 +545,9 @@ int main (int argc, char *argv[])
                 cerr << "Failed to write output file " << binFileName << endl;
                 return 1;
             }
+
+            if (!tifiles)
+                file.setxattr ();
         }
 
         if (verbose)

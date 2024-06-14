@@ -1,5 +1,9 @@
+#include <iostream>
+#include <string>
 #include <cstring>
 #include <cassert>
+
+using namespace std;
 
 #include "diskfile.h"
 
@@ -17,13 +21,13 @@ DiskFile::DiskFile (const char *path, DiskSector *sectorMap, int dirSector, int
     _pos = 0;
     _inode = inode;
     _osname = path;
-    Files::Linux2TI (_osname.c_str(), _filehdr.tiname);
+    Files::Linux2TI (_osname, _filehdr.tiname);
 }
 
 void DiskFile::setOSName (const char *path)
 {
     _osname = path;
-    Files::Linux2TI (_osname.c_str(), _filehdr.tiname);
+    Files::Linux2TI (_osname, _filehdr.tiname);
     _needsWrite = true;
 }
 
@@ -90,10 +94,16 @@ void DiskFile::setFlags (int flags)
     sync();
 }
 
+// TODO duplicate of Files::setRecLen.  Consider making this a derived class
 void DiskFile::setRecLen (int recLen)
 {
     _filehdr.recLen = recLen;
-    _filehdr.recSec = DISK_BYTES_PER_SECTOR / recLen;
+
+    if (recLen > 0)
+        _filehdr.recSec = DISK_BYTES_PER_SECTOR / recLen;
+    else
+        _filehdr.recSec = 0;
+
     _needsWrite = true;
     sync();
 }
@@ -392,6 +402,7 @@ void DiskFile::readDirEnt ()
     Files::TI2Linux (_filehdr.tiname, _osname);
     decodeChain ();
 
+    cout << "# dirsec " << _dirSector << " read for file '" << _osname << "'" << endl;
     _length = be16toh (_filehdr.secCount) * DISK_BYTES_PER_SECTOR;
 
     if (_filehdr.eofOffset != 0)

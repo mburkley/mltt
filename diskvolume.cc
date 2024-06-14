@@ -30,6 +30,10 @@
 #include <arpa/inet.h>
 #include <assert.h>
 
+#include <iostream>
+
+using namespace std;
+
 #include "files.h"
 #include "diskvolume.h"
 
@@ -92,12 +96,14 @@ void DiskVolume::removeFileFromList (DiskFile *file)
 
 void DiskVolume::readDirectory ()
 {
+    cout << "# reading dir" << endl;
     _sectors->read (DIR_HDR_SECTOR, (uint8_t*) _dirHdr, 0, DISK_BYTES_PER_SECTOR);
 
     for (int i = 0; i < DISK_BYTES_PER_SECTOR/2; i++)
     {
         int sector = _dirHdr[i][0] << 8 | _dirHdr[i][1];
 
+        cout << "# dirsec = " << sector << endl;
         if (sector == 0)
             break;
 
@@ -131,7 +137,7 @@ void DiskVolume::updateDirectory ()
     _dirNeedsWrite = true;
 }
 
-void DiskVolume::format (DiskVolumeHeader *vol, const char *name, int
+void DiskVolume::format (DiskVolumeHeader *vol, string name, int
                          secPerTrk, int tracks, int sides, int density)
 {
     Files::Linux2TI (name, vol->tiname);

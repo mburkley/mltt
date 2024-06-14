@@ -100,11 +100,13 @@ public:
     int read ();
     int write ();
     int readTIFiles(uint8_t *data, int maxLength);
+    void getxattr (bool show);
+    void setxattr ();
     static char *showFlags (uint8_t flags);
-    static void Linux2TI (const char *lname, char tname[]);
+    // static void Linux2TI (const char *lname, char tname[]);
     static void Linux2TI (std::string lname, char tname[]);
-    static void TI2Linux (const char tname[], char *lname);
-    static void TI2Linux (const char tname[], std::string lname);
+    // static void TI2Linux (const char tname[], char *lname);
+    static void TI2Linux (const char tname[], std::string& lname);
 };
 
 

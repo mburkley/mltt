@@ -165,6 +165,8 @@ static int tidsk_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
         st.st_ino = file->getInode ();
         st.st_mode = DT_REG << 12;
 
+        printf ("# call filler with inode %d name '%s'\n", file->getInode(),
+        file->getOSName().c_str());
         if (filler(buf, file->getOSName().c_str(), &st, 0, (fuse_fill_dir_flags)0))
             break;
     }

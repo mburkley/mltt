@@ -32,6 +32,11 @@
 #include <ctype.h>
 #include <arpa/inet.h>
 
+#include <iostream>
+#include <string>
+
+using namespace std;
+
 #include "types.h"
 #include "parse.h"
 #include "files.h"
@@ -40,13 +45,13 @@
 
 static void extractFile (DiskVolume& volume, const char *name)
 {
-    char linuxFile[100];
+    string linuxFile;
     Files::TI2Linux (name, linuxFile);
 
     DiskFile *file;
-    if ((file = volume.fileAccess (linuxFile, 0)) == nullptr)
+    if ((file = volume.fileAccess (linuxFile.c_str(), 0)) == nullptr)
     {
-        fprintf (stderr, "Can't access disk file %s\n", linuxFile);
+        cerr << "Can't access disk file " << linuxFile << endl;
         exit (1);
     }
 
@@ -56,14 +61,14 @@ static void extractFile (DiskVolume& volume, const char *name)
     file->read (data, 0, len);
 
     FILE *fp;
-    if ((fp = fopen (linuxFile, "w")) == NULL)
+    if ((fp = fopen (linuxFile.c_str(), "w")) == NULL)
     {
-        fprintf (stderr, "Can't create %s\n", linuxFile);
+        cerr << "Can't create " << linuxFile << endl;
         exit (1);
     }
     fwrite (data, 1, len, fp);
     fclose (fp);
-    printf ("Extracted %s len %d\n", linuxFile, len);
+    printf ("Extracted %s len %d\n", linuxFile.c_str(), len);
     free (data);
 }
 

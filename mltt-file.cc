@@ -30,8 +30,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include <arpa/inet.h>
-#include <sys/xattr.h>
+// #include <arpa/inet.h>
 
 #include <iostream>
 
@@ -59,55 +58,7 @@ static void fileInfo (Files& file, const char *name, int size)
         printf ("eof-offset:   %d\n", file.getEofOffset ());
     }
 
-    char data[10];
-    int len = getxattr(name, "user.tifiles.flags", data, 10);
-    if (len > 0)
-    {
-        data[len]=0;
-        printf ("\nExtended attributes were found with the following information:\n");
-        printf ("Flags:        %02x %s\n", atoi (data), Files::showFlags (atoi (data)));
-    }
-
-    len = getxattr(name, "user.tifiles.reclen", data, 10);
-    if (len > 0)
-    {
-        data[len]=0;
-        printf ("Rec-len:      %d\n", atoi (data));
-    }
-}
-
-static void getXattr (Files& output, const char *infile, int size)
-{
-    output.initTifiles (infile, size, DISK_BYTES_PER_SECTOR, 0, false, false);
-
-    char str[10];
-    int len = getxattr (infile, "user.tifiles.flags", str, 10);
-    if (len > 0)
-    {
-        str[len]=0;
-        printf ("Adding flags from xattr\n");
-        output.setFlags (atoi (str));
-    }
-
-    len = getxattr (infile, "user.tifiles.reclen", str, 10);
-    if (len > 0)
-    {
-        str[len]=0;
-        printf ("Adding reclen from xattr\n");
-        output.setRecLen (atoi (str));
-    }
-}
-
-static void setXattr (Files& output, const char *outfile, int size)
-{
-    char str[10];
-    sprintf (str, "%d", output.getFlags ());
-    printf ("Adding xattr flags\n");
-    setxattr (outfile, "user.tifiles.flags", str, strlen (str), 0);
-
-    sprintf (str, "%d", output.getRecLen ());
-    printf ("Adding xattr recLen\n");
-    setxattr (outfile, "user.tifiles.reclen", str, strlen (str), 0);
+    file.getxattr (true);
 }
 
 int main (int argc, char *argv[])
@@ -284,14 +235,15 @@ int main (int argc, char *argv[])
         if (doTifiles)
         {
             printf ("Creating %s with a TIFILES header\n", outfile);
-            getXattr (output, infile, size);
+            output.initTifiles (infile, size, DISK_BYTES_PER_SECTOR, 0, false, false);
+            output.getxattr (false);
             output.write ();
         }
         else
         {
             printf ("Writing %s without TIFILES header\n", outfile);
             output.write ();
-            setXattr (output, outfile, size);
+            output.setxattr ();
         }
     }
     else

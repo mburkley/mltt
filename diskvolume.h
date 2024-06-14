@@ -30,6 +30,9 @@
 // #include "files.h"
 // #include "types.h"
 #include <vector>
+#include <string>
+
+using namespace std;
 
 #include "disk.h"
 #include "diskfile.h"
@@ -81,18 +84,18 @@ public:
     bool open (const char *name);
     void close ();
     DiskFile *getFileByIndex (int ix) { return _files[ix]; }
-    static void format (DiskVolumeHeader *vol, const char *name, int
+    static void format (DiskVolumeHeader *vol, string name, int
                         secPerTrk, int tracks, int sides, int density);
 private:
     DiskVolumeHeader _volHdr;
     uint8_t _dirHdr[DISK_BYTES_PER_SECTOR/2][2];
     DiskSector *_sectors;
-    std::string _osname;
+    string _osname;
     int _fileCount;
     int _sectorCount;
     int _sectorsFree;
     FILE *_fp;
-    std::vector<DiskFile *> _files;
+    vector<DiskFile *> _files;
     int _lastInode;
     bool _volNeedsWrite;
     bool _dirNeedsWrite;

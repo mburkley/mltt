@@ -33,8 +33,8 @@
 #include <ctype.h> 
 #include <dirent.h> 
 #include <sys/stat.h>
-#include <arpa/inet.h>
-#include <sys/xattr.h>
+// #include <arpa/inet.h>
+// #include <sys/xattr.h>
 
 #include "trace.h"
 #include "diskdir.h"
@@ -61,6 +61,8 @@ static void buildDirEnt (const char *name, const char *fname, int len)
     fileExists[fileCount] = true;
     fileHeader *f = (fileHeader*) diskData[fileCount+2];
 
+    Files file (fname, false, false);
+    file.getxattr ();
     // Default flag is 0x01 - FIX-PROG.  If we see xattr of data or var we
     // change flags 0x80 and or 0x01
     f->flags = 0x01;
