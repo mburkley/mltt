@@ -56,6 +56,7 @@
 #include "ti994a.h"
 
 bool ti994aRunFlag;
+Cassette cassette;
 
 /*  Show the contents of the scratchpad memory either in abbreviated or detailed
  *  form.  If the param is false, just a hex dump is shown.  If true, each value
@@ -171,11 +172,11 @@ void ti994aInit (void)
     for (i = 18; i <= 21; i++)
         cruOutputCallbackSet (i, kbdColumnUpdate);
 
-    cruOutputCallbackSet (22, cassetteMotor);
-    cruOutputCallbackSet (23, cassetteMotor);
-    cruOutputCallbackSet (24, cassetteAudioGate);
-    cruOutputCallbackSet (25, cassetteTapeOutput);
-    cruReadCallbackSet (27, cassetteTapeInput);
+    cruOutputCallbackSet (22, cassette.motor);
+    cruOutputCallbackSet (23, cassette.motor);
+    cruOutputCallbackSet (24, cassette.audioGate);
+    cruOutputCallbackSet (25, cassette.tapeOutput);
+    cruReadCallbackSet (27, cassette.tapeInput);
 }
 
 void ti994aClose (void)

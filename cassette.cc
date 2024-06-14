@@ -38,17 +38,6 @@
 #include "cassette.h"
 #include "trace.h"
 
-/*  Maintain a file sample counter.  For write, this is how many samples we have
- *  generated.  For read, it is how many samples are remaining in the file
- */
-static int cassetteSampleCount;
-
-static struct timespec cassetteAudioStart; // The time at which we last read audio
-
-static wavState *cassetteWav;
-static int cassetteModulationState;
-static int cassetteModulationNext;
-static int cassetteModulationReadSamples;
 
 /*
  *  Create audio cassette recording.  Modulates a sine wave based on
@@ -76,50 +65,46 @@ encoding[] =
     { 0, 0 }  // 111 invalid
 };
 
-void cassetteTimerExpired (int duration)
+void Cassette::timerExpired (int duration)
 {
     static double sampleCount = 0;
-
-    if (!cassetteWav)
-        return;
 
     /*  Duration is in nanoseconds */
     sampleCount += 1.0 * CASSETTE_SAMPLE_RATE * duration / 1000000000.0;
     int samples = (int) sampleCount;
     sampleCount -= samples;
 
-    if (wavIsOpenWrite (cassetteWav))
+    if (_wavFile.isOpenWrite ())
     {
-        double angle = (M_PI / 2.0) * encoding[cassetteModulationState].start;
-        double change = (M_PI / 2.0) * encoding[cassetteModulationState].duration / samples;
+        double angle = (M_PI / 2.0) * encoding[_modulationState].start;
+        double change = (M_PI / 2.0) * encoding[_modulationState].duration / samples;
 
         for (int i = 0; i < samples; i++)
         {
             short sample = CASSETTE_AMPLITUDE * sin (angle + i * change);
             soundAuxData (sample);
-            wavWriteSample (cassetteWav, sample);
-            cassetteSampleCount ++;
+            _wavFile.writeSample (sample);
+            _sampleCount ++;
         }
 
-        cassetteModulationState <<= 1;
-        cassetteModulationState |= cassetteModulationNext;
-        cassetteModulationState &= 0x07;
+        _modulationState <<= 1;
+        _modulationState |= _modulationNext;
+        _modulationState &= 0x07;
     }
     else
     {
         /*  Record the number of samples to read that correspond to the time the
          *  timer was running */
-        cassetteModulationReadSamples = samples;
+        _modulationReadSamples = samples;
     }
 }
 
-void cassetteModulationToggle (void)
+void Cassette::modulationToggle (void)
 {
-    cassetteModulationNext = 1 - cassetteModulationNext;
+    _modulationNext = 1 - _modulationNext;
 }
 
-
-static uint16_t cassetteModulationRead (void)
+int Cassette::modulationRead (void)
 {
     static double sampleCount = 0.0;
 
@@ -127,24 +112,24 @@ static uint16_t cassetteModulationRead (void)
      *  flipping bit to get the console out of any infinite loops and realise
      *  there is a data error
      */
-    if (!cassetteWav)
+    if (!_wavFile.isOpen ())
     {
-        cassetteModulationToggle ();
-        return cassetteModulationNext;
+        modulationToggle ();
+        return _modulationNext;
     }
 
-    /*  If a timer has expired, it will have set the cassetteModulationReadSamples count
+    /*  If a timer has expired, it will have set the _modulationReadSamples count
      *  and we know exactly how many samples to read.  If not, then we are in a
      *  busy loop so lookup the elapsed time since we were last called to find
      *  out how many samples to read.  Using elapsed time is not accurate at all
      *  times since our process can be scheduled out etc but for busy loops with
      *  small time increments it should be fine.
      */
-    int samples = cassetteModulationReadSamples;
-    cassetteModulationReadSamples = 0;
+    int samples = _modulationReadSamples;
+    _modulationReadSamples = 0;
 
     if (samples)
-        clock_gettime (CLOCK_MONOTONIC, &cassetteAudioStart);
+        clock_gettime (CLOCK_MONOTONIC, &_audioStart);
     else
     {
         int nsec;
@@ -153,10 +138,10 @@ static uint16_t cassetteModulationRead (void)
         clock_gettime (CLOCK_MONOTONIC, &now);
 
         /*  How many nanoseconds have elapsed since we last read the file? */
-        nsec = (now.tv_sec - cassetteAudioStart.tv_sec) * 1000000000 + 
-                (now.tv_nsec - cassetteAudioStart.tv_nsec);
+        nsec = (now.tv_sec - _audioStart.tv_sec) * 1000000000 + 
+                (now.tv_nsec - _audioStart.tv_nsec);
 
-        double newSamples = 1.0 * nsec * wavSampleRate (cassetteWav) / 1000000000.0; //  - audioReadSamplePos;
+        double newSamples = 1.0 * nsec * _wavFile.getSampleRate () / 1000000000.0; //  - audioReadSamplePos;
 
         if (newSamples + sampleCount >= 1.0)
         {
@@ -176,7 +161,7 @@ static uint16_t cassetteModulationRead (void)
             sampleCount -= samples;
 
             /*  Reset the timestamp for the next iteration */
-            cassetteAudioStart = now;
+            _audioStart = now;
         }
     }
 
@@ -189,30 +174,29 @@ static uint16_t cassetteModulationRead (void)
         {
             short sample = 0;
 
-            sample = wavReadSample (cassetteWav);
+            sample = _wavFile.readSample ();
 
             soundAuxData (sample);
-            cassetteModulationNext = (sample > 0) ? 1 : 0;
+            _modulationNext = (sample > 0) ? 1 : 0;
         }
 
-        if (samples>1||lastBit != cassetteModulationNext)
+        if (samples>1||lastBit != _modulationNext)
             mprintf (LVL_CASSETTE, "[CS1 smp=%d id=%d]", samples, ident++);
-        lastBit = cassetteModulationNext;
+        lastBit = _modulationNext;
 
-        cassetteSampleCount -= samples;
+        _sampleCount -= samples;
 
-        if (cassetteSampleCount <= 0)
+        if (_sampleCount <= 0)
         {
             printf ("CS1 : eof reached\n");
-            wavFileClose (cassetteWav);
-            cassetteWav = NULL;
+            _wavFile.close ();
         }
     }
 
-    return cassetteModulationNext;
+    return _modulationNext;
 }
 
-void cassetteFileCloseWrite (void)
+void Cassette::fileCloseWrite (void)
 {
     /*  Write a few zero bits to the audio output to flush out any pending
      *  bits that are to be written.  This is to ensure the audio modulation
@@ -224,56 +208,56 @@ void cassetteFileCloseWrite (void)
 
     for (int i = 0; i < 8; i++)
     {
-        cassetteModulationToggle ();
-        cassetteTimerExpired (360000); // 360000 nanosec=1 cycle of 1370Hz @ 44100
-        cassetteTimerExpired (360000);
+        modulationToggle ();
+        timerExpired (360000); // 360000 nanosec=1 cycle of 1370Hz @ 44100
+        timerExpired (360000);
     }
 
-    wavFileClose (cassetteWav);
-    cassetteWav = NULL;
+    _wavFile.close ();
 }
 
-bool cassetteMotor(int index, uint8_t value)
+bool Cassette::motor(int index, uint8_t value)
 {
     printf ("cassette motor %d set to %d\n", index-21, value);
 
-    if (value == 0 && cassetteWav)
-        cassetteFileCloseWrite();
+    if (value == 0 && _wavFile.isOpen())
+        fileCloseWrite();
 
     return false;
 }
 
-bool cassetteAudioGate(int index, uint8_t value)
+bool Cassette::audioGate(int index, uint8_t value)
 {
     printf ("cassette audio gate set to %d\n", value);
     return false;
 }
 
-void cassetteFileOpenWrite (const char *name)
+void Cassette::fileOpenWrite (const char *name)
 {
-    cassetteWav = wavFileOpenWrite (name, CASSETTE_BITS_PER_SAMPLE);
+    // TODO check return
+    _wavFile.openWrite (name, CASSETTE_BITS_PER_SAMPLE);
 }
 
-bool cassetteTapeOutput(int index, uint8_t value)
+bool Cassette::tapeOutput(int index, uint8_t value)
 {
-    if (!cassetteWav)
-        cassetteFileOpenWrite (CASSETTE_FILE_NAME);
+    if (!_wavFile.isOpen ())
+        fileOpenWrite (CASSETTE_FILE_NAME);
 
-    cassetteModulationNext = value;
+    _modulationNext = value;
     return false;
 }
 
-uint8_t cassetteTapeInput(int index, uint8_t value)
+uint8_t Cassette::tapeInput(int index, uint8_t value)
 {
-    if (!cassetteWav)
+    if (!_wavFile.isOpen ())
     {
-        cassetteWav = wavFileOpenRead (CASSETTE_FILE_NAME, false);
+        _wavFile.openRead (CASSETTE_FILE_NAME, false);
 
-        cassetteSampleCount = wavSampleCount (cassetteWav);
+        _sampleCount = _wavFile.getSampleCount ();
         /*  Initialise the synchronisation time */
-        clock_gettime (CLOCK_MONOTONIC, &cassetteAudioStart);
+        clock_gettime (CLOCK_MONOTONIC, &_audioStart);
     }
 
-    return cassetteModulationRead ();
+    return modulationRead ();
 }
 
