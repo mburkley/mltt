@@ -37,11 +37,52 @@
 #include <sys/stat.h>
 #include <ctype.h>
 
+#include <iostream>
+
+using namespace std;
+
 #include "files.h"
 #include "disk.h"
 #include "types.h"
 
-char *filesShowFlags (uint8_t flags)
+Files::Files (const char *name, bool hasTIfiles, bool verbose)
+{
+    _hasTifilesHeader = hasTIfiles;
+    _osname = name;
+    _data = nullptr;
+    _allocLen = 0;
+    _dataLen = 0;
+    _verbose = verbose;
+}
+
+bool Files::setSize (int size)
+{
+    if (size > _allocLen)
+    {
+        cerr << "Can't set file length to " << size << 
+                ", is is less than allocated length " << _allocLen << endl;
+        return false;
+    }
+
+    _dataLen = size;
+    return true;
+}
+
+bool Files::realloc (int length)
+{
+    if (_allocLen >= length)
+        return true;
+
+    uint8_t *p;
+    if ((p = (uint8_t*) ::realloc (_data, length)) == NULL)
+        return false;
+
+    _data = p;
+    _allocLen = length;
+    return true;
+}
+
+char *Files::showFlags (uint8_t flags)
 {
     static char str[26];
 
@@ -56,55 +97,64 @@ char *filesShowFlags (uint8_t flags)
     return str;
 }
 
+void Files::setRecLen (int recLen)
+{
+    _header.recLen = recLen;
+    _header.recSec = DISK_BYTES_PER_SECTOR / recLen;
+    _header.eofOffset = _dataLen % DISK_BYTES_PER_SECTOR;
+}
+
+#if 0
 /*  Initialise a new file meta data structure */
-void filesInitMeta (FileMetaData *meta, const char *name, int length, int sectorSize, int recLen, bool program, bool readOnly)
+void Files::initMeta (const char *name, int length, int sectorSize, int recLen, bool program, bool readOnly)
 {
     // TODO eofOffset
     // TODO l3Alloc
 
-    filesInitTifiles (&meta->header, name, length, sectorSize, recLen, program,
-                      readOnly);
-    meta->secCount = (length + sectorSize - 1) / sectorSize;
-    strcpy (meta->osname, name);
+    initTifiles (name, length, sectorSize, recLen, program, readOnly);
+    _secCount = (length + sectorSize - 1) / sectorSize;
+    _osname == name;
     // meta->extHeader = be16toh (meta->header.extHeader);
 }
+#endif
 
-/*  Initialise a new TIFILES data structure */
-void filesInitTifiles (Tifiles *header, const char *name, int length, int sectorSize, int recLen, bool program, bool readOnly)
+/*  Initialise the TIFILES data structure */
+void Files::initTifiles (const char *name, int length, int sectorSize, int recLen, bool program, bool readOnly)
 {
-    memset (header, 0, sizeof (Tifiles));
-    memcpy (header->ident, "TIFILES", 7);
-    header->marker = 0x07;
+    memcpy (_header.ident, "TIFILES", 7);
+    _header.marker = 0x07;
     if (recLen > 0)
     {
-        header->flags |= FLAG_VAR;
-        header->recLen = recLen;
-        header->recSec = sectorSize / recLen;
+        _header.flags |= FLAG_VAR;
+        _header.recLen = recLen;
+        _header.recSec = sectorSize / recLen;
     }
     else
     {
-        header->recLen = 0;
-        header->recSec = 0;
+        _header.recLen = 0;
+        _header.recSec = 0;
     }
 
-    header->flags = 0;
+    _header.flags = 0;
 
     if (program)
-        header->flags |= FLAG_PROG;
+        _header.flags |= FLAG_PROG;
 
     if (readOnly)
-        header->flags |= FLAG_WP;
+        _header.flags |= FLAG_WP;
 
-    filesLinux2TI (name, header->name);
+    _header.secCount = htobe16 ((length + sectorSize - 1) / sectorSize);
+    _osname == name;
+    Files::Linux2TI (name, _header.name);
 }
 
-int filesReadText (const char *name, char **data, bool verbose)
+int Files::read ()
 {
     FILE *fp;
 
-    if ((fp = fopen (name, "r")) == NULL)
+    if ((fp = fopen (_osname.c_str(), "r")) == NULL)
     {
-        fprintf (stderr, "Failed to open %s\n", name);
+        cerr << "Failed to open " << _osname << endl;
         return -1;
     }
 
@@ -112,147 +162,91 @@ int filesReadText (const char *name, char **data, bool verbose)
     int fileSize = ftell (fp);
     fseek (fp, 0, SEEK_SET);
 
-    if ((*data = (char*) realloc (*data, fileSize)) == NULL)
+    if (_hasTifilesHeader)
     {
-        fprintf (stderr, "Failed to allocate %d bytes\n", fileSize);
-        fclose (fp);
-        return -1;
-    }
+        int count = fread (&_header, 1, sizeof (Tifiles), fp);
 
-    int count = fread (*data, sizeof (char), fileSize, fp);
-
-    if (verbose)
-        fprintf (stderr, "Read %d bytes\n", count);
-
-    return count;
-}
-
-int filesWriteText (const char *name, char *data, int length, bool verbose)
-{
-    FILE *fp;
-
-    if ((fp = fopen (name, "w")) == NULL)
-    {
-        fprintf (stderr, "Failed to create %s\n", name);
-        return -1;
-    }
-
-    int count = fwrite (data, sizeof (char), length, fp);
-
-    if (verbose)
-        fprintf (stderr, "Wrote %d bytes\n", count);
-
-    fclose (fp);
-
-    return count;
-}
-
-int filesReadBinary (const char *name, uint8_t **data, FileMetaData *meta, bool verbose)
-{
-    FILE *fp;
-    Tifiles header;
-
-    if ((fp = fopen (name, "r")) == NULL)
-    {
-        fprintf (stderr, "Failed to open %s\n", name);
-        return -1;
-    }
-
-    fseek (fp, 0, SEEK_END);
-    int fileSize = ftell (fp);
-    fseek (fp, 0, SEEK_SET);
-
-    int count = fread (&header, 1, sizeof (Tifiles), fp);
-
-    if (verbose)
-        fprintf (stderr, "Read %d bytes\n", count);
-
-    if (count != sizeof (Tifiles) || header.marker != 0x07 ||
-        strncmp (header.ident, "TIFILES", 7))
-    {
-        /*  TIFILES header not seen, rewind to read data again */
-        fseek (fp, 0, SEEK_SET);
-
-        if (verbose)
-            fprintf (stderr, "No TIFILES header seen, using defaults\n");
-
-        if (meta)
+        if (count != sizeof (Tifiles) || _header.marker != 0x07 ||
+            strncmp (_header.ident, "TIFILES", 7))
         {
-            filesInitMeta (meta, name, fileSize, DISK_BYTES_PER_SECTOR, 0, false, false);
-            meta->hasTifilesHeader = false;
+            /*  TIFILES header not seen, rewind to read data again */
+            fseek (fp, 0, SEEK_SET);
+
+            if (_verbose)
+            {
+                fprintf (stderr, "No TIFILES header seen, using defaults\n");
+
+                initTifiles (_osname.c_str(), fileSize, DISK_BYTES_PER_SECTOR, 0, false, false);
+                _hasTifilesHeader = false;
+            }
         }
-    }
-    else
-    {
-        /*  TIFILES header seen */
-        fileSize -= sizeof (Tifiles);
-        meta->hasTifilesHeader = true;
-
-        if (header.eofOffset != 0)
-            fileSize -= (256 - header.eofOffset);
-        
-        if (meta)
+        else
         {
-            memcpy (&meta->header, &header, sizeof (Tifiles));
-            filesTI2Linux (header.name, meta->osname);
-            /*  Convert big endian to local */
-            meta->secCount = be16toh (header.secCount);
-            meta->l3Alloc = be16toh (header.l3Alloc);
-            meta->extHeader = be16toh (header.extHeader);
-            // fileSize = meta->secCount * 256;
+            /*  TIFILES header seen */
+            fileSize -= sizeof (Tifiles);
+            _hasTifilesHeader = true;
 
-            if (verbose)
+            if (_header.eofOffset != 0)
+                fileSize -= (256 - _header.eofOffset);
+            
+            TI2Linux (_header.name, _osname);
+            /*  Convert big endian to local */
+            // _secCount = be16toh (_header.secCount);
+            // _l3Alloc = be16toh (_header.l3Alloc);
+            // _extHeader = be16toh (_header.extHeader);
+            // fileSize = _secCount * 256;
+
+            if (_verbose)
             {
                 fprintf (stderr, "TIFILES header found\n");
-                fprintf (stderr, "secCount=%d\n", meta->secCount);
-                fprintf (stderr, "eofOffset=%d\n", header.eofOffset);
-                fprintf (stderr, "flags=%s\n", filesShowFlags (header.flags));
+                fprintf (stderr, "secCount=%d\n", be16toh (_header.secCount));
+                fprintf (stderr, "eofOffset=%d\n", _header.eofOffset);
+                fprintf (stderr, "flags=%s\n", showFlags (_header.flags));
             }
         }
     }
 
-    if ((*data = (uint8_t*) realloc (*data, fileSize)) == NULL)
+    if (!realloc (fileSize))
     {
         fprintf (stderr, "Failed to allocate %d bytes\n", fileSize);
         fclose (fp);
         return -1;
     }
 
-    count = fread (*data, sizeof (uint8_t), fileSize, fp);
+    _dataLen = fread (_data, sizeof (uint8_t), fileSize, fp);
 
-    if (verbose)
-        fprintf (stderr, "read %d\n", fileSize);
+    if (_verbose)
+        fprintf (stderr, "read %d\n", _dataLen);
 
-    return fileSize;
+    return _dataLen;
 }
 
-int filesWriteBinary (const char *name, uint8_t *data, int length,
-                      FileMetaData *meta, bool verbose)
+int Files::write ()
 {
     FILE *fp;
 
-    if ((fp = fopen (name, "w")) == NULL)
+    if ((fp = fopen (_osname.c_str(), "w")) == NULL)
     {
-        fprintf (stderr, "Failed to create %s\n", name);
+        cerr << "Failed to create " << _osname << endl;
         return -1;
     }
 
-    if (meta)
+    if (_hasTifilesHeader)
     {
-        meta->header.secCount = be16toh (meta->secCount);
-        meta->header.l3Alloc = be16toh (meta->l3Alloc);
-        meta->header.extHeader = be16toh (meta->extHeader);
-        filesLinux2TI (name, meta->header.name);
+        // _header.secCount = be16toh (_secCount);
+        // _header.l3Alloc = be16toh (_l3Alloc);
+        // _header.extHeader = be16toh (_extHeader);
+        Files::Linux2TI (_osname, _header.name);
 
-        int count = fwrite (&meta->header, 1, sizeof (Tifiles), fp);
+        int count = fwrite (&_header, 1, sizeof (Tifiles), fp);
 
-        if (verbose)
+        if (_verbose)
             fprintf (stderr, "Wrote %d byte TIFILES header\n", count);
     }
 
-    int count = fwrite (data, sizeof (char), length, fp);
+    int count = fwrite (_data, sizeof (char), _dataLen, fp);
 
-    if (verbose)
+    if (_verbose)
         fprintf (stderr, "Wrote %d bytes\n", count);
 
     fclose (fp);
@@ -260,7 +254,7 @@ int filesWriteBinary (const char *name, uint8_t *data, int length,
     return count;
 }
 
-void filesLinux2TI (const char *lname, char tname[])
+void Files::Linux2TI (const char *lname, char tname[])
 {
     int i;
     int len = 10;
@@ -280,7 +274,23 @@ void filesLinux2TI (const char *lname, char tname[])
         tname[i] = ' ';
 }
 
-void filesTI2Linux (const char *tname, char *lname)
+void Files::Linux2TI (string lname, char tname[])
+{
+    unsigned i;
+
+    for (i = 0; i < lname.length(); i++)
+    {
+        if (lname[i] == '.')
+            tname[i] = '/';
+        else
+            tname[i] = toupper (lname[i]);
+    }
+
+    for (; i < 10; i++)
+        tname[i] = ' ';
+}
+
+void Files::TI2Linux (const char tname[], char *lname)
 {
     int i;
 
@@ -296,5 +306,22 @@ void filesTI2Linux (const char *tname, char *lname)
     }
 
     lname[i] = 0;
+}
+
+void Files::TI2Linux (const char tname[], string lname)
+{
+    lname = "";
+    int i;
+
+    for (i = 0; i < 10; i++)
+    {
+        if (tname[i] == ' ')
+            break;
+
+        if (tname[i] == '/')
+            lname += '.';
+        else
+            lname += tname[i];
+    }
 }
 

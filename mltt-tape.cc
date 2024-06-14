@@ -31,111 +31,127 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 
+#include <iostream>
+
+using namespace std;
+
 #include "types.h"
 #include "wav.h"
 #include "cassette.h"
 #include "parse.h"
 #include "files.h"
 #include "tibasic.h"
+#include "disk.h"
 
 Cassette cassette;
 
-static struct
+class Tape
 {
-    bool create;
-    bool extract;
-    bool verbose;
-    bool basic;
-    bool raw;
-    bool wav;
-}
-options;
+private:
+    bool _verbose;
+    bool _showRaw;
 
-static bool errorsFound = false;
-static bool errorsFixable = true;
-static bool preambleSync = false;
-static int preambleBitsExpected;
+    bool _errorsFound = false;
+    bool _errorsFixable = true;
+    bool _preambleSync = false;
+    int _preambleBitsExpected;
 
-static bool haveHeader;
+    bool _haveHeader;
 
-static int headerBytes = 0;
-static int blockBytes = 0;
-static int blockCount;
-static int blockIndex;
-static int recordCount;
-static int programSize;
+    int _headerBytes;
+    int _blockBytes;
+    int _blockCount;
+    int _blockIndex;
+    int _recordCount;
+    int _programSize;
 
-struct _header
-{
-    uint8_t mark;
-    uint8_t size1;
-    uint8_t size2;
-}
-header;
-
-struct _block
-{
-    // uint8_t sync[8];
-    uint8_t mark;
-    uint8_t data[64];
-    uint8_t checksum;
-}
-block[2];
-
-static uint8_t *program;
-
-static void decodeBlock (int byte)
-{
-    if (!haveHeader)
+    struct
     {
-        ((uint8_t *)&header)[headerBytes++] = byte;
-        if (headerBytes == 3)
+        uint8_t mark;
+        uint8_t size1;
+        uint8_t size2;
+    }
+    _header;
+
+    struct __block
+    {
+        // uint8_t sync[8];
+        uint8_t mark;
+        uint8_t data[64];
+        uint8_t checksum;
+    }
+    _block[2];
+
+    Files *_file;
+
+    void decodeBlock (int byte);
+    void decodeBit (int bit);
+    void inputBitWidth (int count);
+    void outputByte (uint8_t byte);
+    void outputBlock (uint8_t *data);
+public:
+    Tape () { memset (this, 0, sizeof (*this)); }
+    void setVerbose () { _verbose = true; }
+    void setShowRaw () { _showRaw = true; }
+    void setPreamble () { _preambleSync = true; }
+    void setPreambleBits (int bits) { _preambleBitsExpected = bits; }
+    void outputWav (uint8_t *inputData, int inputSize);
+    bool inputWav (Files *outputFile, const char *inputName, bool showParams);
+    void showResult ();
+};
+
+void Tape::decodeBlock (int byte)
+{
+    if (!_haveHeader)
+    {
+        ((uint8_t *)&_header)[_headerBytes++] = byte;
+        if (_headerBytes == 3)
         {
-            if (options.verbose) printf ("Reading %d blocks ...", header.size1);
-            haveHeader = true;
-            preambleSync = true;
-            preambleBitsExpected = 60;
+            if (_verbose) printf ("Reading %d blocks ...", _header.size1);
+            _haveHeader = true;
+            _preambleSync = true;
+            _preambleBitsExpected = 60;
         }
         return;
     }
 
-    ((uint8_t *)&block[blockIndex])[blockBytes++] = byte;
+    ((uint8_t *)&_block[_blockIndex])[_blockBytes++] = byte;
     // printf("recbytes=%d ", blockBytes);
-    if (blockBytes == sizeof (struct _block))
+    if (_blockBytes == sizeof (struct __block))
     {
         // printf("adv rec\n");
-        blockIndex++;
-        blockBytes = 0;
+        _blockIndex++;
+        _blockBytes = 0;
 
         /*  Turn back on preamble synchronisatoin to sync with the next data
          *  block
          */
-        preambleSync = true;
-        preambleBitsExpected = 60;
+        _preambleSync = true;
+        _preambleBitsExpected = 60;
     }
 
 
     /*  Do we have two complete blocks?  If so, compare them and calcualte
      *  checksums
      */
-    if (blockIndex == 2)
+    if (_blockIndex == 2)
     {
         // printf ("decoding\n");
-        if (block[0].mark != 0xFF) // || block[0].sync[0] != 0)
+        if (_block[0].mark != 0xFF) // || block[0].sync[0] != 0)
         {
-            fprintf (stderr, "*** Block %d misaligned\n", blockCount);
-            errorsFound = true;
-            errorsFixable = false;
+            fprintf (stderr, "*** Block %d misaligned\n", _blockCount);
+            _errorsFound = true;
+            _errorsFixable = false;
         }
 
-        if (memcmp (&block[0], &block[1], sizeof (struct _block)))
+        if (memcmp (&_block[0], &_block[1], sizeof (struct __block)))
         {
-            fprintf (stderr, "*** Block %d mismatch\n", blockCount);
-            errorsFound = true;
+            fprintf (stderr, "*** Block %d mismatch\n", _blockCount);
+            _errorsFound = true;
         }
 
-        if (options.verbose)
-            printf ("\nBlock %d:\n", blockCount);
+        if (_verbose)
+            printf ("\nBlock %d:\n", _blockCount);
 
         int sum1 = 0;
         int sum2 = 0;
@@ -144,10 +160,10 @@ static void decodeBlock (int byte)
         {
             for (int j = 0; j < 8; j++)
             {
-                uint8_t byte1 = block[0].data[i*8+j];
-                uint8_t byte2 = block[1].data[i*8+j];
+                uint8_t byte1 = _block[0].data[i*8+j];
+                uint8_t byte2 = _block[1].data[i*8+j];
 
-                if (options.verbose)
+                if (_verbose)
                 {
                     /*  If bytes in both copies are not identical, print both */
                     if (byte1 != byte2)
@@ -160,11 +176,11 @@ static void decodeBlock (int byte)
                 sum2 += byte2;
             }
 
-            if (options.verbose)
+            if (_verbose)
             {
                 for (int j = 0; j < 8; j++)
                 {
-                    uint8_t byte = block[0].data[i*8+j];
+                    uint8_t byte = _block[0].data[i*8+j];
 
                     printf ("%c", (byte >= 32 && byte < 128) ? byte : '.');
                 }
@@ -175,8 +191,8 @@ static void decodeBlock (int byte)
 
         sum1 &= 0xff;
         sum2 &= 0xff;
-        sum1 -= block[0].checksum;
-        sum2 -= block[1].checksum;
+        sum1 -= _block[0].checksum;
+        sum2 -= _block[1].checksum;
 
         /*  At this point both sum1 and sum2 should be zero.  If either or
          *  both is non zero, print an error.  If only one is bad, copy from
@@ -184,71 +200,71 @@ static void decodeBlock (int byte)
          */
         if (!sum1 && !sum2)
         {
-            if (options.verbose)
-                printf ("GOOD checksum=%02X\n", block[0].checksum);
+            if (_verbose)
+                printf ("GOOD checksum=%02X\n", _block[0].checksum);
         }
         else if (sum1 && sum2)
         {
-            fprintf (stderr, "*** Block %d, both copies have BAD checksum\n", blockCount);
-            errorsFound = true;
-            errorsFixable = false;
+            fprintf (stderr, "*** Block %d, both copies have BAD checksum\n", _blockCount);
+            _errorsFound = true;
+            _errorsFixable = false;
         }
         else if (sum1)
         {
-            fprintf (stderr, "*** Block %d, first copy has BAD checksum, using second copy\n", blockCount);
-            memcpy (block[0].data, block[1].data, 64);
-            errorsFound = true;
+            fprintf (stderr, "*** Block %d, first copy has BAD checksum, using second copy\n", _blockCount);
+            memcpy (_block[0].data, _block[1].data, 64);
+            _errorsFound = true;
         }
         else if (sum2)
         {
-            fprintf (stderr, "*** Block %d, second copy has BAD checksum, ignoring\n", blockCount);
-            errorsFound = true;
+            fprintf (stderr, "*** Block %d, second copy has BAD checksum, ignoring\n", _blockCount);
+            _errorsFound = true;
         }
 
-        memcpy (program + blockCount * 64, block[0].data, 64);
-        blockIndex = 0;
-        blockCount++;
+        memcpy (_file->getData () + _blockCount * 64, _block[0].data, 64);
+        _blockIndex = 0;
+        _blockCount++;
     }
 }
 
-static void decodeBit (int bit)
+void Tape::decodeBit (int bit)
 {
     static int byte;
     static int bitCount;
     static int preambleCount;
 
-    if (bit && preambleSync)
+    if (bit && _preambleSync)
     {
-        if (options.raw) printf ("preamble count=%d\n", preambleCount);
+        if (_showRaw) printf ("preamble count=%d\n", preambleCount);
         /*  We expect the preamble to be 6144 bits at the start of the file and
          *  64 bits at the start of each block.  So if longer than 3072 bits we
          *  assume new record.
          */
         if (preambleCount > 3072)
         {
-            recordCount++;
+            _recordCount++;
 
-            if (haveHeader)
+            if (_haveHeader)
             {
                 // printf ("*** New record\n");
-                haveHeader = false;
+                _haveHeader = false;
                 // blockCount =
                 // blockIndex =
                 // blockBytes =
-                headerBytes = 0;
+                _headerBytes = 0;
             }
         }
 
         /*  Reset the preamble bit count.  If we have seen at least 60 zero bits in a row we consider this to
          *  be a valid preamble and start reading data.
          */
-        if (preambleCount > preambleBitsExpected)
-            preambleSync = false;
+        if (preambleCount > _preambleBitsExpected)
+            _preambleSync = false;
 
         preambleCount = 0;
     }
 
-    if (preambleSync)
+    if (_preambleSync)
     {
         preambleCount++;
         return;
@@ -260,18 +276,18 @@ static void decodeBit (int bit)
 
     if (bitCount == 8)
     {
-        if (options.raw)
-            printf (" %02X (%d/%ld)\n", byte, blockBytes, sizeof (struct _block));
+        if (_showRaw)
+            printf (" %02X (%d/%ld)\n", byte, _blockBytes, sizeof (struct __block));
         decodeBlock (byte);
         byte = 0;
         bitCount = 0;
     }
 }
 
-static void inputBitWidth (int count)
+void Tape::inputBitWidth (int count)
 {
     static int halfBit = 0;
-    if (options.raw) printf("[%d]", count);
+    if (_showRaw) printf("[%d]", count);
     /*  A peak for a 0 occurs at around 32 samples, for a 1 it is
      *  around 16 samples.  Select 24 as the cutoff to differentiate a 0
      *  from a 1.
@@ -283,7 +299,7 @@ static void inputBitWidth (int count)
 
         if (halfBit == 2)
         {
-            if (options.raw) printf ("1");
+            if (_showRaw) printf ("1");
 
             decodeBit (1);
             halfBit = 0;
@@ -291,7 +307,7 @@ static void inputBitWidth (int count)
     }
     else
     {
-        if (options.raw) printf ("0");
+        if (_showRaw) printf ("0");
         decodeBit (0);
         halfBit = 0;
     }
@@ -305,7 +321,7 @@ static void inputBitWidth (int count)
  *  gain control, the peak is diminished by 1% per sample, which is about 72%
  *  per bit (32 samples).  We look for 80% of peak which is a relative
  *  ampltitude of 0.5 before changing state. */
-static void inputWav (const char *name, bool showParams)
+bool Tape::inputWav (Files *outputFile, const char *inputName, bool showParams)
 {
     WavFile wav;
     int16_t sample;
@@ -315,7 +331,13 @@ static void inputWav (const char *name, bool showParams)
     double localMin = 0;
     double localMax = 0;
 
-    wav.openRead (name, showParams);
+    _file = outputFile;
+
+    if (!wav.openRead (inputName, showParams))
+    {
+        cerr << "read fail" << endl;
+        return false;
+    }
 
     for (int i = 0; i < wav.getSampleCount (); i++)
     {
@@ -351,12 +373,20 @@ static void inputWav (const char *name, bool showParams)
     /*  Do a final call to process the width of the last sample */
     inputBitWidth (changeCount);
     wav.close ();
+
+    if (!_file->setSize (_blockCount * 64))
+    {
+        cerr << "resize fail" << endl;
+        return false;
+    }
+
+    return true;
 }
 
 #define MAX_PROGRAM_SIZE    0x4000
 #define BIT_DURATION        730000 // 730 usec = 1370 Hz
 
-static void outputByte (uint8_t byte)
+void Tape::outputByte (uint8_t byte)
 {
     /*  Output bits from MSB thru LSB */
     for (int i = 7; i >= 0; i--)
@@ -371,7 +401,7 @@ static void outputByte (uint8_t byte)
     }
 }
 
-static void outputBlock (uint8_t *data)
+void Tape::outputBlock (uint8_t *data)
 {
     int i;
 
@@ -391,7 +421,7 @@ static void outputBlock (uint8_t *data)
     outputByte (sum);
 }
 
-static void outputWav(void)
+void Tape::outputWav (uint8_t *inputData, int inputSize)
 {
     int i;
 
@@ -399,36 +429,54 @@ static void outputWav(void)
     for (i = 0; i < 768; i++)
         outputByte (0);
 
-    recordCount = 1;
-    blockCount = (programSize + 1) / 64;
+    _recordCount = 1;
+    _blockCount = (inputSize + 1) / 64;
 
     /*  Output header */
     outputByte (0xFF);
-    outputByte (blockCount);
-    outputByte (blockCount);
+    outputByte (_blockCount);
+    outputByte (_blockCount);
 
-    for (i = 0; i < blockCount; i++)
+    for (i = 0; i < _blockCount; i++)
     {
-        outputBlock (program+i*64);
-        outputBlock (program+i*64);
+        outputBlock (inputData + i * 64);
+        outputBlock (inputData + i * 64);
     }
+}
+
+void Tape::showResult ()
+{
+    printf ("Found %d blocks in %d record%s%s", _blockCount, _recordCount,
+            _recordCount > 1 ? "s":"",
+            _errorsFound ? "\n" : ", no errors were found\n");
+
+    if (_errorsFound)
+        fprintf (stderr, "*** Errors were found which %s\n", 
+                 _errorsFixable ? "are fixable" : "can't be fixed");
 }
 
 int main (int argc, char *argv[])
 {
+    Tape tape;
     char c;
-    char *binFile = NULL;
+    const char *binFileName = "";
+    bool create = false;
+    bool extract = false;
+    bool showWav = false;
+    bool verbose = false;
+    bool showRaw = false;
+    bool tifiles = false;
 
-    while ((c = getopt(argc, argv, "c:e:vbrw")) != -1)
+    while ((c = getopt(argc, argv, "c:e:vrwt")) != -1)
     {
         switch (c)
         {
-            case 'c' : options.create = true; binFile = optarg; break;
-            case 'e' : options.extract = true; binFile = optarg; break;
-            case 'v' : options.verbose = true; break;
-            case 'b' : options.basic = true; break;
-            case 'r' : options.raw = true; break;
-            case 'w' : options.wav = true; break;
+            case 'c' : create = true; binFileName = optarg; break;
+            case 'e' : extract = true; binFileName = optarg; break;
+            case 'v' : verbose = true; break;
+            case 'r' : showRaw = true; break;
+            case 'w' : showWav = true; break;
+            case 't' : tifiles = true; break;
             default: printf ("Unknown option '%c'\n", c);
         }
     }
@@ -436,29 +484,36 @@ int main (int argc, char *argv[])
     if (argc - optind < 1)
     {
         printf ("\nTool to read and write wav files for cassette audio\n\n"
-                "usage: %s [-c <file>] [-e <file>] [-v] [-b] [-r] [-w] <wav-file>\n"
+                "usage: %s [-c <file>] [-e <file>] [-vrwt] <wav-file>\n"
                 "\t where -c=create WAV from <file> (TIFILES or tokenised TI basic)\n"
-                "\t       -e=extract to <file>, -v=verbose, -b=decode basic, "
+                "\t       -e=extract to <file>, -v=verbose, -t=add tifiles header,\n"
                 "\t       -r=raw bits, -w=show wav hdr\n\n", argv[0]);
         return 1;
     }
 
-    if (options.create)
+    if (verbose)
+        tape.setVerbose ();
+
+    if (showRaw)
+        tape.setShowRaw ();
+
+    if (create)
     {
         struct stat statbuf;
         if (stat (argv[optind], &statbuf) != -1)
         {
-            fprintf (stderr, "File %s exists, won't over-write\n", argv[optind]);
+            cerr << "File " << argv[optind] << " exists, won't over-write" << endl;
             return 1;
         }
 
-        programSize = filesReadBinary (binFile, &program, NULL, options.verbose);
+        Files file (binFileName, true, verbose);
+        file.read (); // sReadBinary (binFileName, &program, NULL, options.verbose);
 
-        if (programSize < 0)
+        if (file.getSize () < 0)
             return 1;
 
         cassette.fileOpenWrite (argv[optind]);
-        outputWav ();
+        tape.outputWav (file.getData (), file.getSize ());
         cassette.fileCloseWrite ();
     }
     else
@@ -471,29 +526,31 @@ int main (int argc, char *argv[])
         inputWav (wav);
         wavFileClose (wav);
         #endif
-        preambleSync = true;
-        preambleBitsExpected = 3000;
-        inputWav (argv[optind], options.wav);
+        Files file (binFileName, tifiles, verbose);
+        file.realloc (0x4000); // Max program size 16k
+        tape.setPreamble ();
+        tape.setPreambleBits (3000);
 
-        char *basic = NULL;
+        if (!tape.inputWav (&file, argv[optind], showWav))
+        {
+            cerr << "Can't read input file " << argv[optind] << endl;
+            return 1;
+        }
 
-        if (options.basic)
-            decodeBasicProgram (program, blockCount * 64, &basic, false);
+        file.initTifiles (binFileName, file.getSize(), DISK_BYTES_PER_SECTOR, 0, true, false);
+        if (extract)
+        {
+            if (file.write () < 0)
+            {
+                cerr << "Failed to write output file " << binFileName << endl;
+                return 1;
+            }
+        }
 
-        if (options.extract)
-            filesWriteBinary (binFile, program, blockCount * 64, NULL, false);
-
-        if (options.verbose)
+        if (verbose)
             printf ("\n");
 
-        // If basic output selected then don't output status msgs
-        if (!options.basic)
-            printf ("Found %d blocks in %d record%s%s", blockCount, recordCount,
-                    recordCount>1?"s":"",
-                    errorsFound?"\n":", no errors were found\n");
-
-        if (errorsFound)
-            fprintf (stderr, "*** Errors were found which %s\n", errorsFixable ? "are fixable" : "can't be fixed");
+        tape.showResult ();
     }
 
     return 0;

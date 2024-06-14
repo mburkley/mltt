@@ -41,7 +41,7 @@
 static void extractFile (DiskVolume& volume, const char *name)
 {
     char linuxFile[100];
-    filesTI2Linux (name, linuxFile);
+    Files::TI2Linux (name, linuxFile);
 
     DiskFile *file;
     if ((file = volume.fileAccess (linuxFile, 0)) == nullptr)
@@ -136,7 +136,9 @@ int main (int argc, char *argv[])
         data = (struct _data *) calloc (size, 1);
         DiskVolume::format (&data->vol, volName, secPerTrk, tracks, sides, 1);
 
-        size = filesWriteBinary (argv[optind], (uint8_t*) data, size, NULL, false);
+        Files file (volName, false, false);
+        file.setData ((uint8_t *) &data->vol, size);
+        size = file.write (); // Binary (argv[optind], (uint8_t*) data, size, NULL, false);
         printf ("Wrote %d bytes to create volume '%s' with %d sectors\n", size, volName, sectors);
         return 0;
     }

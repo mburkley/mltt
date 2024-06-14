@@ -25,8 +25,8 @@
 
 #include "types.h"
 
-int encodeDisVar (char *input, int len, uint8_t **output);
-int decodeDisVar (uint8_t *input, int len, char **output);
+int encodeDisVar (char *input, int len, uint8_t *output);
+int decodeDisVar (uint8_t *input, int len, char *output);
 
 #endif
 

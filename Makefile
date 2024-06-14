@@ -39,7 +39,7 @@ LIBS=\
 -lm \
 -lfuse3
 
-TOOLS=mltt-disasm mltt-tape mltt-disk mltt-file mltt-fuse mltt-basic
+TOOLS=mltt-disasm mltt-tape mltt-disk mltt-file mltt-fuse
 
 CFLAGS=-Wall -ggdb3 -DVERSION=`cat VERSION` -I/usr/include/fuse3
 # LDFLAGS=

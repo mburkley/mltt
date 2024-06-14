@@ -30,18 +30,10 @@
 #include "files.h"
 #include "file_disvar.h"
 
-int encodeDisVar (char *input, int len, uint8_t **output)
+int encodeDisVar (char *input, int len, uint8_t *output)
 {
-    /*  Allocate a buffer to receive the output which is 50% bigger
-     *  than the source code input */
-    if ((*output = (uint8_t*) realloc (*output, len * 1.5)) == NULL)
-    {
-        fprintf (stderr, "Can't allocate buffer for dis/var \n");
-        exit (1);
-    }
-
     char *end = input;
-    uint8_t *outp = *output;
+    uint8_t *outp = output;
     int spaceInSector = DISK_BYTES_PER_SECTOR;
 
     while (len--)
@@ -80,20 +72,12 @@ int encodeDisVar (char *input, int len, uint8_t **output)
         }
     }
 
-    return outp - *output;
+    return outp - output;
 }
 
-int decodeDisVar (uint8_t *input, int len, char **output)
+int decodeDisVar (uint8_t *input, int len, char *output)
 {
-    /*  Allocate a buffer to receive the output which is 50% bigger
-     *  than the source code input */
-    if ((*output = (char*) realloc (*output, len * 1.5)) == NULL)
-    {
-        fprintf (stderr, "Can't allocate buffer for dis/var \n");
-        exit (1);
-    }
-
-    char *outp = *output;
+    char *outp = output;
 
     int pos = 0;
     int sectorsRemain = (len + 1) / DISK_BYTES_PER_SECTOR;
@@ -119,7 +103,7 @@ int decodeDisVar (uint8_t *input, int len, char **output)
         pos += reclen + 1;
     }
 
-    return outp - *output;
+    return outp - output;
 }
 
 

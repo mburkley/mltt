@@ -33,6 +33,10 @@
 #include <arpa/inet.h>
 #include <sys/xattr.h>
 
+#include <iostream>
+
+using namespace std;
+
 #include "types.h"
 #include "disk.h"
 #include "parse.h"
@@ -40,19 +44,19 @@
 #include "tibasic.h"
 #include "file_disvar.h"
 
-static void fileInfo (const char *name, FileMetaData *meta, int size)
+static void fileInfo (Files& file, const char *name, int size)
 {
     printf ("File '%s' is %d bytes long\n", name, size);
 
-    if (meta->hasTifilesHeader)
+    if (file.hasTIfiles ())
     {
         printf ("\nTIFILES header found with the following information:\n");
-        printf ("TI file name: '%-10.10s'\n", meta->header.name);
-        printf ("Flags:        %02x %s\n", meta->header.flags, filesShowFlags (meta->header.flags));
-        printf ("Sectors:      %d\n", meta->secCount);
-        printf ("Rec-len:      %d\n", meta->header.recLen);
-        printf ("Rec/sec:      %d\n", meta->header.recSec);
-        printf ("eof-offset:   %d\n", meta->header.eofOffset);
+        printf ("TI file name: '%-10.10s'\n", file.getTiname ());
+        printf ("Flags:        %02x %s\n", file.getFlags (), Files::showFlags (file.getFlags ()));
+        printf ("Sectors:      %d\n", be16toh (file.getSecCount ()));
+        printf ("Rec-len:      %d\n", file.getRecLen ());
+        printf ("Rec/sec:      %d\n", file.getRecSec ());
+        printf ("eof-offset:   %d\n", file.getEofOffset ());
     }
 
     char data[10];
@@ -61,7 +65,7 @@ static void fileInfo (const char *name, FileMetaData *meta, int size)
     {
         data[len]=0;
         printf ("\nExtended attributes were found with the following information:\n");
-        printf ("Flags:        %02x %s\n", atoi (data), filesShowFlags (atoi (data)));
+        printf ("Flags:        %02x %s\n", atoi (data), Files::showFlags (atoi (data)));
     }
 
     len = getxattr(name, "user.tifiles.reclen", data, 10);
@@ -72,20 +76,17 @@ static void fileInfo (const char *name, FileMetaData *meta, int size)
     }
 }
 
-static void addTifilesHeader (const char *infile, const char *outfile,
-                              uint8_t *data, int size)
+static void getXattr (Files& output, const char *infile, int size)
 {
-    FileMetaData meta;
-    filesInitMeta (&meta, outfile, size, DISK_BYTES_PER_SECTOR, 0, true, false);
+    output.initTifiles (infile, size, DISK_BYTES_PER_SECTOR, 0, false, false);
 
-    printf ("Creating %s with a TIFILES header\n", outfile);
     char str[10];
     int len = getxattr (infile, "user.tifiles.flags", str, 10);
     if (len > 0)
     {
         str[len]=0;
         printf ("Adding flags from xattr\n");
-        meta.header.flags = (atoi (str));
+        output.setFlags (atoi (str));
     }
 
     len = getxattr (infile, "user.tifiles.reclen", str, 10);
@@ -93,36 +94,18 @@ static void addTifilesHeader (const char *infile, const char *outfile,
     {
         str[len]=0;
         printf ("Adding reclen from xattr\n");
-        meta.header.recLen = atoi (str);
+        output.setRecLen (atoi (str));
     }
-
-    len = getxattr (infile, "user.tifiles.reclen", str, 10);
-    if (len > 0)
-    {
-        str[len]=0;
-        printf ("Adding reclen from xattr\n");
-        meta.header.recLen = atoi (str);
-    }
-
-    if (meta.header.recLen != 0)
-        meta.header.recSec = DISK_BYTES_PER_SECTOR / meta.header.recLen;
-
-    meta.header.eofOffset = len % DISK_BYTES_PER_SECTOR;
-    filesWriteBinary (outfile, data, size, &meta, false);
 }
 
-static void removeTifilesHeader (const char *outfile,
-                                 FileMetaData meta, uint8_t *data, int len)
+static void setXattr (Files& output, const char *outfile, int size)
 {
-    printf ("Writing %s without TIFILES header\n", outfile);
-    filesWriteBinary (outfile, data, len, NULL, false);
-
     char str[10];
-    sprintf (str, "%d", meta.header.flags);
+    sprintf (str, "%d", output.getFlags ());
     printf ("Adding xattr flags\n");
     setxattr (outfile, "user.tifiles.flags", str, strlen (str), 0);
 
-    sprintf (str, "%d", meta.header.recLen);
+    sprintf (str, "%d", output.getRecLen ());
     printf ("Adding xattr recLen\n");
     setxattr (outfile, "user.tifiles.reclen", str, strlen (str), 0);
 }
@@ -173,19 +156,19 @@ int main (int argc, char *argv[])
 
     if (doTifiles && argc - optind < 2)
     {
-        fprintf (stderr, "The TIFILES option is not available to stdout - please specify an output file\n");
+        cerr << "The TIFILES option is not available to stdout - please specify an output file" << endl;
         exit (1);
     }
 
     if (doEncode && argc - optind < 2)
     {
-        fprintf (stderr, "Can't encode to stdout - please specify an output file\n");
+        cerr << "Can't encode to stdout - please specify an output file" << endl;
         exit (1);
     }
 
     if (doTifiles && doDecode)
     {
-        fprintf (stderr, "Can't add a TIFILES header when decoding to text.\n");
+        cerr << "Can't add a TIFILES header when decoding to text." << endl;
         exit (1);
     }
 
@@ -195,113 +178,127 @@ int main (int argc, char *argv[])
     if (argc - optind >= 2)
         outfile = argv[optind + 1];
 
-    printf ("input is '%s' and out is '%s'\n", infile, outfile);
+    // cout << "input is '" << infile << "' and out is '" << outfile << "'" << endl;
 
     if (doEncode)
     {
-        char *input = NULL;
-        uint8_t *output = NULL;
-        FileMetaData meta;
-        FileMetaData *metap = NULL;
+        Files input (infile, false, debug);
+        Files output (outfile, doTifiles, debug);
 
         if (!convertBasic && !convertVar && !convertEa3)
         {
-            fprintf (stderr, "Please specify a conversion, -b, -v or -3\n");
+            cerr << "Please specify a conversion, -b, -v or -3" << endl;
             exit (1);
         }
 
-        if (doTifiles)
-            metap = &meta;
+        int size = input.read ();
 
-        int size = filesReadText (infile, &input, debug);
+        /*  Allocate a buffer to receive the tokenised output which is 50% bigger
+         *  than the source code input */
+        output.realloc (size * 1.5);
 
         if (convertBasic)
         {
-            size = encodeBasicProgram  (input, size, &output, debug);
+            size = encodeBasicProgram ((char*) input.getData(), input.getSize(),
+                                       output.getData(), debug);
 
-            if (metap)
-                filesInitMeta (metap, outfile, size, DISK_BYTES_PER_SECTOR, 0, true, false);
+            output.setSize (size);
 
-            filesWriteBinary (outfile, output, size, metap, debug);
+            if (doTifiles)
+                output.initTifiles (outfile, size, DISK_BYTES_PER_SECTOR, 0, true, false);
+
+            output.write ();
             return 0;
         }
         else if (convertVar)
         {
-            size = encodeDisVar (input, size, &output);
+            size = encodeDisVar ((char*) input.getData(), input.getSize(), output.getData());
 
-            if (metap)
-                filesInitMeta (metap, outfile, size, DISK_BYTES_PER_SECTOR, 80, false, false);
+            if (doTifiles)
+                output.initTifiles (outfile, size, DISK_BYTES_PER_SECTOR, 80, false, false);
 
-            printf ("size=%d\n", size);
-            filesWriteBinary (outfile, output, size, metap, debug);
+            cout << "size=" << size << endl;
+            output.write ();
         }
     }
     else if (doDecode)
     {
-        FileMetaData meta;
-        uint8_t *input = NULL;
-        char *output = NULL;
+        Files input (infile, true, debug);
+        Files output (outfile, doTifiles, debug);
 
-        int size = filesReadBinary (infile, &input, &meta, debug);
+        int size = input.read ();
+
+        /*  Allocate a buffer to receive the tokenised output which is 50% bigger
+         *  than the source code input */
+        output.realloc (size * 1.5);
 
         if (convertBasic)
         {
-            size = decodeBasicProgram  (input, size, &output, debug);
-            fprintf (stderr, "size=%d\n", size);
+            size = decodeBasicProgram  (input.getData(), input.getSize(),
+                                        (char*) output.getData(), debug);
+            cerr << "size=" << size << endl;
 
             if (outfile[0])
-                filesWriteText (outfile, output, size, false);
+                output.write ();
             else
-                printf ("%-*.*s", size, size, output);
+                printf ("%-*.*s", size, size, output.getData ());
             return 0;
         }
         else if (convertVar)
         {
-            size = decodeDisVar (input, size, &output);
-            fprintf (stderr, "size=%d\n", size);
+            size = decodeDisVar (input.getData(), input.getSize(), (char*) output.getData());
+            cerr << "size=" << size << endl;
 
             if (outfile[0])
-                filesWriteText (outfile, output, size, false);
+                output.write ();
             else
-                printf ("%-*.*s", size, size, output);
+                printf ("%-*.*s", size, size, output.getData ());
         }
         else
         {
-            fprintf (stderr, "Please specify a conversion to decode\n");
+            cerr << "Please specify a conversion to decode" << endl;
             exit (1);
         }
     }
     else if (outfile[0] != 0)
     {
-        FileMetaData meta;
-        uint8_t *input = NULL;
+        Files input (infile, true, debug); // input might have Tifiles header
+        Files output (outfile, doTifiles, debug);
 
-        int size = filesReadBinary (infile, &input, &meta, debug);
+        int size = input.read ();
 
         // Add or remove tifiles hdr only
-        if (meta.hasTifilesHeader && doTifiles)
+        if (input.hasTIfiles () && doTifiles)
         {
-            fprintf (stderr, "Input file already has a TIFILES hdr - nothing to do?\n");
+            cerr << "Input file already has a TIFILES hdr - nothing to do?" << endl;
             exit (1);
         }
-        if (!meta.hasTifilesHeader && !doTifiles)
+        if (!input.hasTIfiles () && !doTifiles)
         {
-            fprintf (stderr, "Input file doesn't have a TIFILES hdr and none requested- nothing to do?\n");
+            cerr << "Input file doesn't have a TIFILES hdr and none requested- nothing to do?" << endl;
             exit (1);
         }
 
+        output.setData (input.getData(), size);
+
         if (doTifiles)
-            addTifilesHeader (infile, outfile, input, size);
+        {
+            printf ("Creating %s with a TIFILES header\n", outfile);
+            getXattr (output, infile, size);
+            output.write ();
+        }
         else
-            removeTifilesHeader (outfile, meta, input, size);
+        {
+            printf ("Writing %s without TIFILES header\n", outfile);
+            output.write ();
+            setXattr (output, outfile, size);
+        }
     }
     else
     {
-        FileMetaData meta;
-        uint8_t *input = NULL;
-
-        int size = filesReadBinary (infile, &input, &meta, debug);
-        fileInfo (infile, &meta, size);
+        Files input (infile, true, debug); // input might have Tifiles header
+        int size = input.read ();
+        fileInfo (input, infile, size);
     }
 
     return 0;

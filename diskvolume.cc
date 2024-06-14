@@ -134,7 +134,7 @@ void DiskVolume::updateDirectory ()
 void DiskVolume::format (DiskVolumeHeader *vol, const char *name, int
                          secPerTrk, int tracks, int sides, int density)
 {
-    filesLinux2TI (name, vol->tiname);
+    Files::Linux2TI (name, vol->tiname);
     int sectors = tracks * secPerTrk * sides;
     vol->sectors = htobe16 (sectors);
     vol->secPerTrk = secPerTrk;
@@ -322,10 +322,7 @@ bool DiskVolume::open (const char *name)
 
     _sectors = new DiskSector (_volHdr.bitmap, (uint8_t*) &_volHdr, VOL_HDR_SECTOR, _fp);
     _sectors->read (0, (uint8_t*) &_volHdr, 0, sizeof (DiskVolumeHeader));
-    // TODO tmp
-    char osname[100];
-    filesTI2Linux (_volHdr.tiname, osname);
-    _osname = osname;
+    Files::TI2Linux (_volHdr.tiname, _osname);
 
     _sectorCount = be16toh (_volHdr.sectors);
     _sectors->setSectorCount (_sectorCount);

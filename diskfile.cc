@@ -17,13 +17,13 @@ DiskFile::DiskFile (const char *path, DiskSector *sectorMap, int dirSector, int
     _pos = 0;
     _inode = inode;
     _osname = path;
-    filesLinux2TI (_osname.c_str(), _filehdr.tiname);
+    Files::Linux2TI (_osname.c_str(), _filehdr.tiname);
 }
 
 void DiskFile::setOSName (const char *path)
 {
     _osname = path;
-    filesLinux2TI (_osname.c_str(), _filehdr.tiname);
+    Files::Linux2TI (_osname.c_str(), _filehdr.tiname);
     _needsWrite = true;
 }
 
@@ -215,7 +215,7 @@ void DiskFile::printInfo (FILE *out)
 
     fprintf (out, " %6d", _length);
 
-    fprintf (out, " %02X%-17.17s", _filehdr.flags,filesShowFlags (_filehdr.flags));
+    fprintf (out, " %02X%-17.17s", _filehdr.flags, Files::showFlags (_filehdr.flags));
     fprintf (out, " %8d", be16toh(_filehdr.secCount));
     fprintf (out, " %8d", _filehdr.recSec * be16toh (_filehdr.secCount));
     fprintf (out, " %10d", _filehdr.eofOffset);
@@ -389,10 +389,7 @@ int DiskFile::write (uint8_t *buff, int offset, int len)
 void DiskFile::readDirEnt ()
 {
     _sectorMap->read (_dirSector, (uint8_t*) &_filehdr, 0, DISK_BYTES_PER_SECTOR);
-    // TODO tmp until files is cpp
-    char osname[100];
-    filesTI2Linux (_filehdr.tiname, osname);
-    _osname = osname;
+    Files::TI2Linux (_filehdr.tiname, _osname);
     decodeChain ();
 
     _length = be16toh (_filehdr.secCount) * DISK_BYTES_PER_SECTOR;
