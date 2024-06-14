@@ -47,7 +47,7 @@ void DiskSector::alloc (int start, int count)
 
 void DiskSector::free (int start, int count)
 {
-    printf ("# free %d sectors starting at %d\n", count, start);
+    // cout << "# free " << count << " sectors starting at " << start << endl;
     for (int i = start; i < start+count; i++)
     {
         int byte = i / 8;
@@ -61,14 +61,15 @@ void DiskSector::free (int start, int count)
 int DiskSector::read (int sector, uint8_t data[], int offset, int len)
 {
     fseek (_fp, DISK_BYTES_PER_SECTOR * sector + offset, SEEK_SET);
-    printf ("# read %d bytes from sector %d\n", len, sector);
+    // cout << "# read " << len << " bytes from sector " << sector << endl;
     return fread (data, 1, len, _fp);
 }
 
 int DiskSector::write (int sector, uint8_t data[], int offset, int len)
 {
     fseek (_fp, DISK_BYTES_PER_SECTOR * sector + offset, SEEK_SET);
-    printf ("# writing %d bytes to sector %d offset %d\n", len, sector, offset);
+    // cout << "# writing " << len << " bytes to sector " << sector <<
+    //     "offset " << offset << endl;
     len = fwrite (data, 1, len, _fp);
     fflush (_fp);
     return len;
@@ -78,7 +79,7 @@ void DiskSector::sync ()
 {
     if (_bitmapChanged)
     {
-        printf ("# Write FAT\n");
+        // cout << "# Write FAT" << endl;
         write (_bitmapSector, _bitmapSectorData, 0, DISK_BYTES_PER_SECTOR);
         _bitmapChanged = false;
     }

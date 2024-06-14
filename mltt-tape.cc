@@ -518,14 +518,6 @@ int main (int argc, char *argv[])
     }
     else
     {
-        #if 0
-        wav = wavFileOpenRead (argv[optind], options.wav);
-
-        preambleSync = true;
-        preambleBitsExpected = 3000;
-        inputWav (wav);
-        wavFileClose (wav);
-        #endif
         Files file (binFileName, tifiles, verbose);
         file.realloc (0x4000); // Max program size 16k
         tape.setPreamble ();

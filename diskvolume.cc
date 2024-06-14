@@ -62,7 +62,7 @@ void DiskVolume::addFileToList (DiskFile *file)
     {
         if (strcmp (file->getTIName (), (*it)->getTIName ()) < 0)
         {
-            printf ("# %s comes before %s\n", file->getTIName (), (*it)->getTIName ());
+            // printf ("# %s comes before %s\n", file->getTIName (), (*it)->getTIName ());
             _files.insert (it, file);
             insert = true;
             break;
@@ -71,12 +71,12 @@ void DiskVolume::addFileToList (DiskFile *file)
 
     if (!insert)
     {
-        printf ("# appending %s\n", file->getTIName ());
+        // printf ("# appending %s\n", file->getTIName ());
         _files.insert (end (_files), file);
     }
 
     _fileCount++;
-    printf ("# file count now %d\n", _fileCount);
+    // printf ("# file count now %d\n", _fileCount);
 }
 
 void DiskVolume::removeFileFromList (DiskFile *file)
@@ -96,14 +96,14 @@ void DiskVolume::removeFileFromList (DiskFile *file)
 
 void DiskVolume::readDirectory ()
 {
-    cout << "# reading dir" << endl;
+    // cout << "# reading dir" << endl;
     _sectors->read (DIR_HDR_SECTOR, (uint8_t*) _dirHdr, 0, DISK_BYTES_PER_SECTOR);
 
     for (int i = 0; i < DISK_BYTES_PER_SECTOR/2; i++)
     {
         int sector = _dirHdr[i][0] << 8 | _dirHdr[i][1];
 
-        cout << "# dirsec = " << sector << endl;
+        // cout << "# dirsec = " << sector << endl;
         if (sector == 0)
             break;
 
@@ -126,7 +126,7 @@ void DiskVolume::updateDirectory ()
         if ((*it)->isUnlinked ())
             continue;
 
-        printf ("# dir entry %d is sector %d\n", entry, (*it)->getDirSector());
+        // printf ("# dir entry %d is sector %d\n", entry, (*it)->getDirSector());
         _dirHdr[entry][0] = (*it)->getDirSector () >> 8;
         _dirHdr[entry][1] = (*it)->getDirSector () & 0xff;
 
@@ -167,10 +167,10 @@ DiskFile *DiskVolume::fileAccess (const char *path, int mode)
 
     for (auto it = begin (_files); it != end (_files); it++)
     {
-        printf ("compare %s %s\n", path, (*it)->getOSName ().c_str());
+        // printf ("compare %s %s\n", path, (*it)->getOSName ().c_str());
         if ((*it)->getOSName () == path)
         {
-            printf ("# %s %s inode=%d\n", __func__, path, (*it)->getInode ());
+            // printf ("# %s %s inode=%d\n", __func__, path, (*it)->getInode ());
             return *it;
         }
     }
@@ -214,11 +214,11 @@ bool DiskVolume::fileUnlink (const char *path)
     for (auto it : _files)
     // for (auto it = begin (_files); it != end (_files); it++)
     {
-        printf ("# compare %s to inode %d=%s\n", path, it->getInode (),
-        it->getOSName ().c_str());
+        // printf ("# compare %s to inode %d=%s\n", path, it->getInode (),
+        // it->getOSName ().c_str());
         if (it->getOSName () == path)
         {
-            printf ("# %s found %s\n", __func__, path);
+            // printf ("# %s found %s\n", __func__, path);
 
             if (it->unlink ())
             {
@@ -232,7 +232,7 @@ bool DiskVolume::fileUnlink (const char *path)
         }
     }
 
-    printf ("# Can't find %s to unlink\n", path);
+    // printf ("# Can't find %s to unlink\n", path);
     return false;
 }
 
@@ -307,7 +307,7 @@ void DiskVolume::sync ()
 {
     if (_dirNeedsWrite)
     {
-        printf ("# Write dir\n");
+        // printf ("# Write dir\n");
         _sectors->write (DIR_HDR_SECTOR, (uint8_t*) _dirHdr, 0, DISK_BYTES_PER_SECTOR);
         _dirNeedsWrite = false;
     }
@@ -322,7 +322,7 @@ bool DiskVolume::open (const char *name)
 
     if ((_fp = fopen (name, "r+")) == NULL)
     {
-        printf ("Can't open %s\n", name);
+        cerr << "Can't open " << name << endl;
         return false;
     }
 
@@ -340,8 +340,8 @@ bool DiskVolume::open (const char *name)
             _sectorsFree++;
     }
 
-    printf ("# Volume %s has %d sectors (%d free)\n", _osname.c_str(),
-            _sectorCount, _sectorsFree);
+    cout << "# Volume " << _osname.c_str() << " has " <<
+        _sectorCount << " sectors (" << _sectorsFree << " free)" << endl;
     readDirectory ();
 
     return true;

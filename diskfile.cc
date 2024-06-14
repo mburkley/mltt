@@ -88,7 +88,7 @@ void DiskFile::encodeChain ()
 
 void DiskFile::setFlags (int flags)
 {
-    printf ("# flags changed to %d\n", flags);
+    cout << "# flags changed to " << flags << endl;
     _filehdr.flags = flags;
     _needsWrite = true;
     sync();
@@ -114,11 +114,11 @@ void DiskFile::freeResources ()
     if (_refCount != 0)
         return;
 
-    printf ("# file remove dir sector %d\n", _dirSector);
+    cout << "# file remove dir sector " << _dirSector << endl;
     /*  Walk the sector allocation chain for this file and free all sectors */
     for (int chain = 0; chain < _chainCount; chain++)
     {
-        printf ("# start=%d end=%d\n", _chains[chain].start, _chains[chain].end);
+        cout << "# start=" << _chains[chain].start << " end=" << _chains[chain].end << endl;
         _sectorMap->free (_chains[chain].start,
                           _chains[chain].end - _chains[chain].start + 1);
     }
@@ -128,7 +128,7 @@ void DiskFile::freeResources ()
     // volume->fileRemove (file);
 
     /*  Write the updated volume header, dir entry and directory entry allocation sector */
-    printf ("# FAT write needed\n");
+    cout << "# FAT write needed" << endl;
     // volume->volNeedsWrite = true;
     // _sectorMap->setBitmapChanged ();
     // volume->writeDirectory ();
@@ -185,7 +185,7 @@ bool DiskFile::create ()
     /* Find free sector for directory entry */
     if ((_dirSector = _sectorMap->findFree (0)) == -1)
     {
-        printf ("# disk full, can't create file\n");
+        cerr <<  "# disk full, can't create file" << endl;
         return false;
     }
 
@@ -242,17 +242,17 @@ int DiskFile::read (uint8_t *buff, int offset, int len)
 {
     int total = 0;
 
-    printf ("# req read %d bytes from inode %d, chains=%d\n", len, _inode, _chainCount);
+    // printf ("# req read %d bytes from inode %d, chains=%d\n", len, _inode, _chainCount);
 
     for (int i = 0; i < _chainCount; i++)
     {
-        printf ("# start=%d end=%d\n", _chains[i].start, _chains[i].end);
+        // printf ("# start=%d end=%d\n", _chains[i].start, _chains[i].end);
         for (int j = _chains[i].start; j <= _chains[i].end; j++)
         {
             if (offset > DISK_BYTES_PER_SECTOR)
             {
                 offset -= DISK_BYTES_PER_SECTOR;
-                printf ("# advance, offset now %d\n", offset);
+                // printf ("# advance, offset now %d\n", offset);
                 continue;
             }
 
@@ -288,20 +288,20 @@ int DiskFile::write (uint8_t *buff, int offset, int len)
     int secCount = be16toh (_filehdr.secCount);
     int total = 0;
 
-    printf ("# write file inode %d, chains=%d\n", _inode, _chainCount);
-    printf ("# writing %d bytes at offset %d\n", len, offset);
+    // printf ("# write file inode %d, chains=%d\n", _inode, _chainCount);
+    // printf ("# writing %d bytes at offset %d\n", len, offset);
 
     bool extendFile = true;
     for (chain = 0; chain < _chainCount; chain++)
     {
-        printf ("# chain=%d start=%d end=%d\n", chain, _chains[chain].start, _chains[chain].end);
+        // printf ("# chain=%d start=%d end=%d\n", chain, _chains[chain].start, _chains[chain].end);
 
         for (sector = _chains[chain].start; sector <= _chains[chain].end; sector++)
         {
             if (offset < DISK_BYTES_PER_SECTOR)
             {
-                printf ("# offset %d begins in chain %d sector %d\n",
-                        offset, chain, sector);
+                // printf ("# offset %d begins in chain %d sector %d\n",
+                //         offset, chain, sector);
                 extendFile = false;
                 break;
             }
@@ -328,11 +328,11 @@ int DiskFile::write (uint8_t *buff, int offset, int len)
             /*  We have reached EOF.  Allocate a new sector */
             if ((sector = _sectorMap->findFree (_firstDataSector)) == -1)
             {
-                printf ("# disk full, can't write to file\n");
+                cerr << "# disk full, can't write to file" << endl;
                 break;
             }
 
-            printf ("# Allocate new sector %d\n", sector);
+            // printf ("# Allocate new sector %d\n", sector);
             _sectorMap->alloc (sector, 1);
             secCount++;
             _filehdr.secCount = htobe16 (be16toh (_filehdr.secCount) + 1);
@@ -342,13 +342,13 @@ int DiskFile::write (uint8_t *buff, int offset, int len)
              *  new chain */
             if (chain > 0 && _chains[chain-1].end + 1 == sector)
             {
-                printf ("# Append to existing chain %d\n", chain-1);
+                // printf ("# Append to existing chain %d\n", chain-1);
                 _chains[chain-1].end = sector;
             }
             else
             {
                 /*  TODO check if we run out of chains */
-                printf ("# Allocate new chain %d\n", chain);
+                // printf ("# Allocate new chain %d\n", chain);
                 _chains[chain].start =
                 _chains[chain].end = sector;
                 _chainCount++;
@@ -374,11 +374,11 @@ int DiskFile::write (uint8_t *buff, int offset, int len)
 
         if (len && secCount && sector > _chains[chain].end)
         {
-            printf ("# not at eof, but end of chain, sector=%d end=%d\n",
-                    sector, _chains[chain].end);
+            // printf ("# not at eof, but end of chain, sector=%d end=%d\n",
+            //         sector, _chains[chain].end);
             chain++;
             sector = _chains[chain].start;
-            printf ("# start of chaini %d sector=%d\n", chain, sector);
+            // printf ("# start of chaini %d sector=%d\n", chain, sector);
         }
     }
 
@@ -402,7 +402,7 @@ void DiskFile::readDirEnt ()
     Files::TI2Linux (_filehdr.tiname, _osname);
     decodeChain ();
 
-    cout << "# dirsec " << _dirSector << " read for file '" << _osname << "'" << endl;
+    // cout << "# dirsec " << _dirSector << " read for file '" << _osname << "'" << endl;
     _length = be16toh (_filehdr.secCount) * DISK_BYTES_PER_SECTOR;
 
     if (_filehdr.eofOffset != 0)
@@ -415,7 +415,7 @@ void DiskFile::sync()
 {
     if (_needsWrite)
     {
-        printf ("# write dirent sector %d\n", _dirSector);
+        // cout << "# write dirent sector " << _dirSector << endl;
         _sectorMap->write (_dirSector, (uint8_t*) &_filehdr, 0, DISK_BYTES_PER_SECTOR);
         _needsWrite = false;
     }

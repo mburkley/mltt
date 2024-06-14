@@ -110,20 +110,6 @@ void Files::setRecLen (int recLen)
     _header.eofOffset = _dataLen % DISK_BYTES_PER_SECTOR;
 }
 
-#if 0
-/*  Initialise a new file meta data structure */
-void Files::initMeta (const char *name, int length, int sectorSize, int recLen, bool program, bool readOnly)
-{
-    // TODO eofOffset
-    // TODO l3Alloc
-
-    initTifiles (name, length, sectorSize, recLen, program, readOnly);
-    _secCount = (length + sectorSize - 1) / sectorSize;
-    _osname == name;
-    // meta->extHeader = be16toh (meta->header.extHeader);
-}
-#endif
-
 /*  Initialise the TIFILES data structure */
 void Files::initTifiles (const char *name, int length, int sectorSize, int recLen, bool program, bool readOnly)
 {
