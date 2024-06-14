@@ -371,7 +371,7 @@ uint16_t unasmPreExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcod
 static char unasmTextBuffer[100];
 static char *unasmTextPtr = unasmTextBuffer;
 
-void unasmPostText (char *fmt, ...)
+void unasmPostText (const char *fmt, ...)
 {
     va_list ap;
 
