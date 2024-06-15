@@ -285,35 +285,6 @@ void Tape::decodeBit (int bit)
     }
 }
 
-void Tape::inputBitWidth (int count)
-{
-    static int halfBit = 0;
-    if (_showRaw) printf("[%d]", count);
-    /*  A peak for a 0 occurs at around 32 samples, for a 1 it is
-     *  around 16 samples.  Select 24 as the cutoff to differentiate a 0
-     *  from a 1.
-     */
-    int bit = (count < 24);
-    if (bit)
-    {
-        halfBit++;
-
-        if (halfBit == 2)
-        {
-            if (_showRaw) printf ("1");
-
-            decodeBit (1);
-            halfBit = 0;
-        }
-    }
-    else
-    {
-        if (_showRaw) printf ("0");
-        decodeBit (0);
-        halfBit = 0;
-    }
-}
-
 #define GRAPH_WIDTH     100
 #define GRAPH_HEIGHT    16
 static char graph[GRAPH_WIDTH][GRAPH_HEIGHT];
@@ -321,7 +292,7 @@ static int graphCol;
 
 static int graphRange (int x)
 {
-    x = (x + 32768) /3000;
+    x = (x + 24000) /3000;
     if (x<0) x = 0;
     if (x>15) x = 15;
     return x;
@@ -342,6 +313,25 @@ static void addGraph (int sample, int min, int max, int zero, int state)
     graph[graphCol][sample] = '+';
     // graph[graphCol][state?0:15] = '+';
     graphCol++;
+}
+
+static void removeGraph (int count)
+{
+    count++; // remove vert
+    if (count > graphCol)
+        graphCol = 0;
+    else
+        graphCol -= count;
+
+    // memset (graph, ' ', GRAPH_HEIGHT*GRAPH_WIDTH);
+    for (int y = 0; y < GRAPH_HEIGHT; y++)
+        for (int x = 0; x < GRAPH_WIDTH; x++)
+        {
+            if (x < graphCol)
+                graph[x][y] = graph[x+count][y];
+            else
+                graph[x][y] = ' ';
+        }
 }
 
 static void addVert (void)
@@ -366,8 +356,141 @@ static void drawGraph (void)
         printf ("\n");
     }
 
-    graphCol = 0;
-    memset (graph, ' ', GRAPH_HEIGHT*GRAPH_WIDTH);
+    // graphCol = 0;
+    // memset (graph, ' ', GRAPH_HEIGHT*GRAPH_WIDTH);
+}
+
+static int fifoSample[64];
+static int fifoHead;
+
+static void fifoAdd (int sample)
+{
+    fifoSample[fifoHead++] = sample;
+    fifoHead %= 64;
+}
+
+static int fifoMin (void)
+{
+    int min = 32767;
+    for (int i = 0; i < 64; i++)
+        if (fifoSample[i] < min)
+            min = fifoSample[i];
+
+    return min;
+}
+
+static int fifoMax (void)
+{
+    int max = -32768;
+    for (int i = 0; i < 64; i++)
+        if (fifoSample[i] > max)
+            max = fifoSample[i];
+
+    return max;
+}
+
+static int fifoTail (void)
+{
+    return fifoSample[fifoHead];
+}
+
+#define SYMBOL_FIFO 3
+static int fifoWidth[SYMBOL_FIFO];
+static int fifoError[SYMBOL_FIFO];
+static int symbolCount = 0;
+
+static void fifoWidthRemove (int n)
+{
+    for (int i = n; i < SYMBOL_FIFO; i++)
+    {
+        fifoWidth[i-n] = fifoWidth[i];
+        fifoError[i-n] = fifoError[i];
+    }
+    symbolCount -= n;
+}
+
+
+/*  Analyse the width of a half-sine between two zero crossings */
+void Tape::inputBitWidth (int width)
+{
+    // static int bitCount = 0;
+    bool haveBit = false;
+    int bit = 0;
+
+    fifoError[symbolCount] = 30 - width;
+    fifoWidth[symbolCount++] = width;
+
+    #if 0
+    int errsum = 0;
+    for (int i = 0; i < 4; i++)
+    {
+        errsum += lastError[i];
+        lastError[i] = lastError[i+1];
+    }
+    lastError[3] = 30 - width;
+    #endif
+
+     if (_showRaw) 
+    // printf ("[%d e:%d]\n", width, errsum);
+    printf ("[%d]\n", width);
+    addVert();
+
+    if (symbolCount < SYMBOL_FIFO)
+    {
+        if (_showRaw) printf ("\n");
+        return;
+    }
+
+    if (_showRaw) drawGraph ();
+    // addVert();
+
+    int sum = fifoWidth[0] + fifoWidth[1];
+    if (sum < 40)
+    {
+        if (_showRaw)
+            printf ("[%d+%d=%d ONE]\n", fifoWidth[0], fifoWidth[1], sum);
+
+        bit = 1;
+        haveBit = true;
+        removeGraph (fifoWidth[0]);
+        removeGraph (fifoWidth[1]);
+        fifoWidthRemove (2);
+    }
+    else if (sum > 56)
+    {
+        if (_showRaw)
+            printf ("[%d+%d=%d ZERO]\n", fifoWidth[0], fifoWidth[1], sum);
+
+        bit = 0;
+        haveBit = true;
+        removeGraph (fifoWidth[0]);
+        fifoWidthRemove (1);
+    }
+    else if (fifoWidth[0] > 24)
+    {
+        if (_showRaw)
+            printf ("[%d ZERO]\n", fifoWidth[0]);
+
+        bit = 0;
+        haveBit = true;
+        removeGraph (fifoWidth[0]);
+        fifoWidthRemove (1);
+    }
+    else
+    {
+        if (_showRaw) 
+            printf (" : [%d=???]\n", fifoWidth[0]);
+
+        removeGraph (fifoWidth[0]);
+        fifoWidthRemove (1);
+    }
+
+    if (!haveBit)
+        return;
+
+    if (_showRaw) printf ("BIT %d = %d\n", _blockBytes*8+_bitCount, bit);
+    decodeBit (bit);
+    if (_showRaw) printf ("=======================\n");
 }
 
 /*  Take data from a WAV file and carve it up into bits.  Due to some recorded
@@ -385,10 +508,9 @@ bool Tape::inputWav (Files *outputFile, const char *inputName, bool showParams)
     int changeCount = 0;
     int state = 0;
     // int slope = 0; // 0 = upward, 1 = downward
-    int half = 0;
     int lastState = 0;
-    double localMin = 0;
-    double localMax = 0;
+    // double localMin = 0;
+    // double localMax = 0;
 
     _file = outputFile;
 
@@ -398,18 +520,23 @@ bool Tape::inputWav (Files *outputFile, const char *inputName, bool showParams)
         return false;
     }
 
+    for (int i = 0; i < 63; i++)
+    {
+        sample = wav.readSample ();
+        fifoAdd (sample);
+    }
+
     memset (graph, ' ', GRAPH_HEIGHT*GRAPH_WIDTH);
     for (int i = 0; i < wav.getSampleCount (); i++)
     {
-        localMax = 0.99 * localMax;  // 0.99 ^ 32 = 0.725
-        localMin = 0.99 * localMin;
+        // localMax = 0.99 * localMax;  // 0.99 ^ 32 = 0.725
+        // localMin = 0.99 * localMin;
         sample = wav.readSample ();
+        fifoAdd (sample);
+        sample = fifoTail ();
 
-        if (sample > localMax)
-            localMax = sample;
-
-        if (sample < localMin)
-            localMin = sample;
+        double localMin = fifoMin();
+        double localMax = fifoMax();
 
         double amp = localMax - localMin;
         double zerocross = (localMin+localMax) / 2;
@@ -428,45 +555,10 @@ bool Tape::inputWav (Files *outputFile, const char *inputName, bool showParams)
             continue;
         }
 
-
         // if (_showRaw) printf ("(%d,%d,%d)\n", (int) localMin, (int) zerocross, (int) localMax);
+
         // Found a potential bit, analyse it
-        // inputBitWidth (changeCount);
-        if (half == 0 && changeCount < 24)
-        {
-            half = changeCount;
-            addVert();
-        }
-        else
-        {
-            addVert();
-            drawGraph ();
-            addVert();
-            if (_showRaw && half != 0) printf ("[%d]+", half);
-            if (_showRaw) printf ("[%d]=%d\n", changeCount, changeCount+half);
-
-            printf ("BIT %d ", _blockBytes*8+_bitCount);
-
-            if (changeCount + half > 48)
-            {
-                if (_showRaw) printf ("2 x ZERO\n");
-                decodeBit (0);
-                decodeBit (0);
-            }
-            else if (half > 0)
-            {
-                if (_showRaw) printf ("ONE\n");
-                decodeBit (1);
-            }
-            else
-            {
-                if (_showRaw) printf ("ZERO\n");
-                decodeBit (0);
-            }
-
-            half=0;
-            printf ("=======================\n");
-        }
+        inputBitWidth (changeCount);
         lastState = state;
         changeCount = 0;
     }
