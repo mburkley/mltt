@@ -60,6 +60,7 @@ private:
 
     int _headerBytes;
     int _blockBytes;
+    int _bitCount;
     int _blockCount;
     int _blockIndex;
     int _recordCount;
@@ -110,7 +111,7 @@ void Tape::decodeBlock (int byte)
             if (_verbose) printf ("Reading %d blocks ...", _header.size1);
             _haveHeader = true;
             _preambleSync = true;
-            _preambleBitsExpected = 60;
+            _preambleBitsExpected = 40;
         }
         return;
     }
@@ -127,7 +128,7 @@ void Tape::decodeBlock (int byte)
          *  block
          */
         _preambleSync = true;
-        _preambleBitsExpected = 60;
+        _preambleBitsExpected = 40;
     }
 
 
@@ -230,12 +231,12 @@ void Tape::decodeBlock (int byte)
 void Tape::decodeBit (int bit)
 {
     static int byte;
-    static int bitCount;
     static int preambleCount;
 
     if (bit && _preambleSync)
     {
-        if (_showRaw) printf ("preamble count=%d\n", preambleCount);
+        if (_showRaw) printf ("preamble count=%d of %d\n", preambleCount,
+        _preambleBitsExpected);
         /*  We expect the preamble to be 6144 bits at the start of the file and
          *  64 bits at the start of each block.  So if longer than 3072 bits we
          *  assume new record.
@@ -272,15 +273,15 @@ void Tape::decodeBit (int bit)
 
     byte <<= 1;
     byte |= bit;
-    bitCount++;
+    _bitCount++;
 
-    if (bitCount == 8)
+    if (_bitCount == 8)
     {
         if (_showRaw)
-            printf (" %02X (%d/%ld)\n", byte, _blockBytes, sizeof (struct __block));
+            printf ("BYTE %02X (%d/%ld)\n", byte, _blockBytes, sizeof (struct __block));
         decodeBlock (byte);
         byte = 0;
-        bitCount = 0;
+        _bitCount = 0;
     }
 }
 
@@ -313,6 +314,62 @@ void Tape::inputBitWidth (int count)
     }
 }
 
+#define GRAPH_WIDTH     100
+#define GRAPH_HEIGHT    16
+static char graph[GRAPH_WIDTH][GRAPH_HEIGHT];
+static int graphCol;
+
+static int graphRange (int x)
+{
+    x = (x + 32768) /3000;
+    if (x<0) x = 0;
+    if (x>15) x = 15;
+    return x;
+}
+static void addGraph (int sample, int min, int max, int zero, int state)
+{
+    if (graphCol == GRAPH_WIDTH)
+        return;
+
+    sample = graphRange(sample);
+    min = graphRange(min);
+    max = graphRange(max);
+    zero = graphRange(zero);
+
+    graph[graphCol][min] = 'L';
+    graph[graphCol][max] = 'H';
+    graph[graphCol][zero] = 'Z';
+    graph[graphCol][sample] = '+';
+    // graph[graphCol][state?0:15] = '+';
+    graphCol++;
+}
+
+static void addVert (void)
+{
+    if (graphCol == GRAPH_WIDTH)
+        return;
+    for (int y = 0; y < GRAPH_HEIGHT; y++)
+        graph[graphCol][y] = '|';
+
+    graphCol++;
+}
+
+static void drawGraph (void)
+{
+    for (int y = 0; y < GRAPH_HEIGHT; y++)
+    {
+        printf ("                        ");
+
+        for (int x = 0; x < graphCol; x++)
+            printf ("%c", graph[x][y]);
+
+        printf ("\n");
+    }
+
+    graphCol = 0;
+    memset (graph, ' ', GRAPH_HEIGHT*GRAPH_WIDTH);
+}
+
 /*  Take data from a WAV file and carve it up into bits.  Due to some recorded
  *  files having DC offsets or mains hum elements, detecting zero crossings only
  *  was found to be unreliable.  Instead, maintain local min and max vars to
@@ -327,6 +384,8 @@ bool Tape::inputWav (Files *outputFile, const char *inputName, bool showParams)
     int16_t sample;
     int changeCount = 0;
     int state = 0;
+    // int slope = 0; // 0 = upward, 1 = downward
+    int half = 0;
     int lastState = 0;
     double localMin = 0;
     double localMax = 0;
@@ -339,10 +398,11 @@ bool Tape::inputWav (Files *outputFile, const char *inputName, bool showParams)
         return false;
     }
 
+    memset (graph, ' ', GRAPH_HEIGHT*GRAPH_WIDTH);
     for (int i = 0; i < wav.getSampleCount (); i++)
     {
-        localMax = 0.8 * localMax;  // 0.99 ^ 32 = 0.725
-        localMin = 0.8 * localMin;
+        localMax = 0.99 * localMax;  // 0.99 ^ 32 = 0.725
+        localMin = 0.99 * localMin;
         sample = wav.readSample ();
 
         if (sample > localMax)
@@ -351,12 +411,16 @@ bool Tape::inputWav (Files *outputFile, const char *inputName, bool showParams)
         if (sample < localMin)
             localMin = sample;
 
+        double amp = localMax - localMin;
+        double zerocross = (localMin+localMax) / 2;
         // Apply hysteresis
-        if (state && sample > 0.8 * localMax)
+        if (state && sample < zerocross - amp * .05)
             state = 0;
 
-        if (!state && sample < 0.8 * localMin)
+        if (!state && sample > zerocross + amp * .05)
             state = 1;
+
+        addGraph (sample, localMin, localMax, zerocross, state);
 
         if (state == lastState)
         {
@@ -364,8 +428,45 @@ bool Tape::inputWav (Files *outputFile, const char *inputName, bool showParams)
             continue;
         }
 
+
+        // if (_showRaw) printf ("(%d,%d,%d)\n", (int) localMin, (int) zerocross, (int) localMax);
         // Found a potential bit, analyse it
-        inputBitWidth (changeCount);
+        // inputBitWidth (changeCount);
+        if (half == 0 && changeCount < 24)
+        {
+            half = changeCount;
+            addVert();
+        }
+        else
+        {
+            addVert();
+            drawGraph ();
+            addVert();
+            if (_showRaw && half != 0) printf ("[%d]+", half);
+            if (_showRaw) printf ("[%d]=%d\n", changeCount, changeCount+half);
+
+            printf ("BIT %d ", _blockBytes*8+_bitCount);
+
+            if (changeCount + half > 48)
+            {
+                if (_showRaw) printf ("2 x ZERO\n");
+                decodeBit (0);
+                decodeBit (0);
+            }
+            else if (half > 0)
+            {
+                if (_showRaw) printf ("ONE\n");
+                decodeBit (1);
+            }
+            else
+            {
+                if (_showRaw) printf ("ZERO\n");
+                decodeBit (0);
+            }
+
+            half=0;
+            printf ("=======================\n");
+        }
         lastState = state;
         changeCount = 0;
     }
