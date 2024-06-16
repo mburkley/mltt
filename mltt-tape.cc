@@ -228,7 +228,7 @@ void TapeDecode::decodeBlock (int byte)
         {
             cerr << "*** Block " << _blockCount << ", both copies have BAD checksum" << endl;
             _errorsFound = true;
-            _errorsUnfixable = false;
+            _errorsUnfixable = true;
         }
         else if (sum1)
         {
@@ -444,54 +444,23 @@ static FrameFifo frames;
  *  to try and make it more clear. */
 void TapeDecode::inputBitWidth (int width, int position)
 {
-    // static int bitCount = 0;
     bool haveBit = false;
     int bit = 0;
 
     frames.add (width, '?');
-    #if 0
-    struct _frame f;
-    f.width = width;
-    f.error = 30 - width;
-    f.done = false;
-    f.sym = '?';
-    frameFifo.push_back (f);
-    #endif
-
-    #if 0
-    int errsum = 0;
-    for (int i = 0; i < 4; i++)
-    {
-        errsum += lastError[i];
-        lastError[i] = lastError[i+1];
-    }
-    lastError[3] = 30 - width;
-    #endif
-
-    // if (_showRaw) 
-    // printf ("[%d e:%d]\n", width, errsum);
-    // printf ("[%d,q:%ld]\n", width, frameFifo.size());
-    // _graph.vertical();
 
     /*  Maintain a fifo of frames so we can look at frames before and after the
      *  one we are analysing */
     if (frames.size () < 7) // SYMBOL_FIFO)
-    {
-        // if (_showRaw)
-        // printf ("queued\n");
         return;
-    }
 
     if (_showRaw)
     {
         _graph.draw ();
-        // _graph.vertical ();
-
         frames.show ();
     }
 
     int next = frames.findNext (_graph);
-    // printf ("examine frames %d and %d of %ld\n", next, next+1, frameFifo.size());
     int sum = frames.sumForward (next, 2);
     int sumNext = frames.sumForward (next+1, 2);
 
@@ -506,14 +475,6 @@ void TapeDecode::inputBitWidth (int width, int position)
         haveBit = true;
         frames.identify (next, 'A');
         frames.identify (next+1, 'B');
-        // frameFifo[next].done = true;
-        // frameFifo[next].sym = 'A';
-        // frameFifo[next].error -= 15;
-        // frameFifo[next+1].done = true;
-        // frameFifo[next+1].sym = 'B';
-        // frameFifo[next+1].error -= 15;
-        // _graph.remove (frameFifo[1].width);
-        // frameFifoRemove (2);
     }
     else if (sum > 56)
     {
@@ -525,10 +486,6 @@ void TapeDecode::inputBitWidth (int width, int position)
         bit = 0;
         haveBit = true;
         frames.identify (next, '0');
-        // frameFifo[next].done = true;
-        // frameFifo[next].sym = '0';
-        // _graph.remove (frameFifo[1].width);
-        // framFifoRemove (1);
     }
     else if (frames.width (next) > 23)
     {
@@ -539,10 +496,6 @@ void TapeDecode::inputBitWidth (int width, int position)
         bit = 0;
         haveBit = true;
         frames.identify (next, '0');
-        // frameFifo[next].done = true;
-        // frameFifo[next].sym = '0';
-        // _graph.remove (frameFifo[1].width);
-        // fifoWidthRemove (1);
     }
     else
     {
@@ -556,8 +509,6 @@ void TapeDecode::inputBitWidth (int width, int position)
              * shortened ZERO */
             bit = 0;
             haveBit = true;
-            // frameFifo[next].done = true;
-            // frameFifo[next].sym = '0';
             frames.identify (next, '0');
         }
         else
@@ -584,14 +535,6 @@ void TapeDecode::inputBitWidth (int width, int position)
                     haveBit = true;
                     frames.identify (next, 'A');
                     frames.identify (next+1, 'B');
-                    // frameFifo[next].done = true;
-                    // frameFifo[next].sym = '0';
-                    // frameFifo[next].done = true;
-                    // frameFifo[next].sym = 'A';
-                    // frameFifo[next].error -= 15;
-                    // frameFifo[next+1].done = true;
-                    // frameFifo[next+1].sym = 'B';
-                    // frameFifo[next+1].error -= 15;
                 }
                 else if (frames.width (next) - err > 27)
                 {
@@ -602,8 +545,6 @@ void TapeDecode::inputBitWidth (int width, int position)
                     bit = 0;
                     haveBit = true;
                     frames.identify (next, '0');
-                    // frameFifo[next].done = true;
-                    // frameFifo[next].sym = '0';
                 }
             }
         }
@@ -611,17 +552,13 @@ void TapeDecode::inputBitWidth (int width, int position)
 
     if (!haveBit)
     {
-        /*  We still don't know what this frame is.  Identify it as X and bale out */
+        /*  We still don't know what this frame is.  Just have to drop it  */
         if (_showRaw) 
             printf (" : [%d=???] pos=%d prev-err=%d nextw=%d new-w=%d\n",
                     frames.width (next), position, frames.error (next-1), frames.width
                     (next+1), sumNext);
 
         frames.identify (next, 'X');
-        // frameFifo[next].done = true;
-        // frameFifo[next].sym = 'X';
-        // _graph.remove (frameFifo[1].width);
-        // fifoWidthRemove (1);
         return;
     }
 
@@ -644,10 +581,7 @@ bool TapeDecode::inputWav (Files *outputFile, const char *inputName, bool showPa
     int16_t sample;
     int changeCount = 0;
     int state = 0;
-    // int slope = 0; // 0 = upward, 1 = downward
     int lastState = 0;
-    // double localMin = 0;
-    // double localMax = 0;
 
     _file = outputFile;
 
@@ -665,9 +599,6 @@ bool TapeDecode::inputWav (Files *outputFile, const char *inputName, bool showPa
 
     for (int i = 0; i < wav.getSampleCount (); i++)
     {
-        // localMax = 0.99 * localMax;  // 0.99 ^ 32 = 0.725
-        // localMin = 0.99 * localMin;
-
         samples.add (wav.readSample ());
         sample = samples.get ();
 
@@ -676,7 +607,8 @@ bool TapeDecode::inputWav (Files *outputFile, const char *inputName, bool showPa
 
         double amp = localMax - localMin;
         double zerocross = (localMin+localMax) / 2;
-        // Apply hysteresis
+
+        /* Apply a bit of hysteresis */
         if (state && sample < zerocross - amp * .05)
             state = 0;
 
@@ -691,9 +623,7 @@ bool TapeDecode::inputWav (Files *outputFile, const char *inputName, bool showPa
             continue;
         }
 
-        // if (_showRaw) printf ("(%d,%d,%d)\n", (int) localMin, (int) zerocross, (int) localMax);
-
-        // Found a potential bit, analyse it
+        /*  Found a frame, analyse it */
         _graph.vertical();
         inputBitWidth (changeCount, i);
         lastState = state;
@@ -782,8 +712,13 @@ void TapeDecode::showResult ()
             (_errorsFound ? "" : ", no errors were found") << endl;
 
     if (_errorsFound)
-        cerr << "*** Errors were found which " <<
-                 (_errorsUnfixable ? "can't be fixed" : "are fixable") << endl;
+    {
+        if (_errorsUnfixable)
+            cerr << "*** Errors were found which can't be fixed automatically but it\n" <<
+                    "*** may be possibly to manually correct a hex dump created using -v" << endl;
+        else
+            cerr << "*** Errors were found which were fixed" << endl;
+    }
 }
 
 int main (int argc, char *argv[])
@@ -837,7 +772,7 @@ int main (int argc, char *argv[])
         }
 
         Files file (binFileName, true, verbose);
-        file.read (); // sReadBinary (binFileName, &program, NULL, options.verbose);
+        file.read ();
 
         if (file.getSize () < 0)
             return 1;
@@ -849,7 +784,7 @@ int main (int argc, char *argv[])
     else
     {
         Files file (binFileName, tifiles, verbose);
-        file.realloc (0x4000); // Max program size 16k
+        file.realloc (MAX_PROGRAM_SIZE);
         tape.setPreamble ();
         tape.setPreambleBits (3000);
 
