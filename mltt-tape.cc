@@ -32,6 +32,7 @@
 #include <sys/stat.h>
 
 #include <iostream>
+#include <vector>
 
 using namespace std;
 
@@ -91,7 +92,11 @@ private:
     void outputByte (uint8_t byte);
     void outputBlock (uint8_t *data);
 public:
-    Tape () { memset (this, 0, sizeof (*this)); }
+    Tape ()
+    {
+        memset (this, 0, sizeof (*this));
+        _errorsFixable = true;
+    }
     void setVerbose () { _verbose = true; }
     void setShowRaw () { _showRaw = true; }
     void setPreamble () { _preambleSync = true; }
@@ -360,21 +365,27 @@ static void drawGraph (void)
     // memset (graph, ' ', GRAPH_HEIGHT*GRAPH_WIDTH);
 }
 
-static int fifoSample[64];
-static int fifoHead;
+vector<int> samplesFifo;
+
+// static int fifoSample[64];
+// static int fifoHead;
 
 static void fifoAdd (int sample)
 {
-    fifoSample[fifoHead++] = sample;
-    fifoHead %= 64;
+    if (samplesFifo.size() == 64)
+        samplesFifo.erase (samplesFifo.begin());
+
+    // fifoSample[fifoHead++] = sample;
+    // fifoHead %= 64;
+    samplesFifo.push_back (sample);
 }
 
 static int fifoMin (void)
 {
     int min = 32767;
-    for (int i = 0; i < 64; i++)
-        if (fifoSample[i] < min)
-            min = fifoSample[i];
+    for (auto x : samplesFifo)
+        if (x < min)
+            min = x;
 
     return min;
 }
@@ -382,33 +393,35 @@ static int fifoMin (void)
 static int fifoMax (void)
 {
     int max = -32768;
-    for (int i = 0; i < 64; i++)
-        if (fifoSample[i] > max)
-            max = fifoSample[i];
+    for (auto x : samplesFifo)
+        if (x > max)
+            max = x;
 
     return max;
 }
 
-static int fifoTail (void)
+static int fifoGet (void)
 {
-    return fifoSample[fifoHead];
+    return samplesFifo[32];
 }
 
-#define SYMBOL_FIFO 3
-static int fifoWidth[SYMBOL_FIFO];
-static int fifoError[SYMBOL_FIFO];
-static int symbolCount = 0;
-
-static void fifoWidthRemove (int n)
+#define SYMBOL_FIFO 5
+struct _frame
 {
-    for (int i = n; i < SYMBOL_FIFO; i++)
-    {
-        fifoWidth[i-n] = fifoWidth[i];
-        fifoError[i-n] = fifoError[i];
-    }
-    symbolCount -= n;
-}
+    int width;
+    int error;
+    bool done;
+    char sym;
+} ;
 
+vector<struct _frame> frameFifo;
+
+static void frameFifoRemove (int n)
+{
+    for (int i = 0; i < n; i++)
+        if (frameFifo.size() > 0)
+            frameFifo.erase(frameFifo.begin());
+}
 
 /*  Analyse the width of a half-sine between two zero crossings */
 void Tape::inputBitWidth (int width)
@@ -417,8 +430,12 @@ void Tape::inputBitWidth (int width)
     bool haveBit = false;
     int bit = 0;
 
-    fifoError[symbolCount] = 30 - width;
-    fifoWidth[symbolCount++] = width;
+    struct _frame f;
+    f.width = width;
+    f.error = 30 - width;
+    f.done = false;
+    f.sym = '?';
+    frameFifo.push_back (f);
 
     #if 0
     int errsum = 0;
@@ -430,59 +447,136 @@ void Tape::inputBitWidth (int width)
     lastError[3] = 30 - width;
     #endif
 
-     if (_showRaw) 
+    if (_showRaw) 
     // printf ("[%d e:%d]\n", width, errsum);
-    printf ("[%d]\n", width);
+    printf ("[%d,q:%ld]\n", width, frameFifo.size());
     addVert();
 
-    if (symbolCount < SYMBOL_FIFO)
+    if (frameFifo.size () < 7) // SYMBOL_FIFO)
     {
-        if (_showRaw) printf ("\n");
+        if (_showRaw)
+        printf ("queued\n");
         return;
     }
 
-    if (_showRaw) drawGraph ();
-    // addVert();
+    if (_showRaw)
+    {
+        drawGraph ();
+        // addVert();
 
-    int sum = fifoWidth[0] + fifoWidth[1];
+        printf ("\"");
+        for (auto it : frameFifo)
+            printf ("%d=%c ", it.width, it.sym);
+        printf ("\"");
+    }
+
+    int next = 0;
+    while (frameFifo[next].done)
+        next++;
+    
+    while (next > 2)
+    {
+        removeGraph (frameFifo[0].width);
+        frameFifoRemove (1);
+        next--;
+    }
+    // printf ("examine frames %d and %d of %ld\n", next, next+1, frameFifo.size());
+    int sum = frameFifo[next].width + frameFifo[next+1].width;
     if (sum < 40)
     {
         if (_showRaw)
-            printf ("[%d+%d=%d ONE]\n", fifoWidth[0], fifoWidth[1], sum);
+            printf ("[%d+%d=%d ONE]\n", frameFifo[next].width, frameFifo[next+1].width, sum);
 
         bit = 1;
         haveBit = true;
-        removeGraph (fifoWidth[0]);
-        removeGraph (fifoWidth[1]);
-        fifoWidthRemove (2);
+        frameFifo[next].done = true;
+        frameFifo[next].sym = 'A';
+        frameFifo[next].error -= 15;
+        frameFifo[next+1].done = true;
+        frameFifo[next+1].sym = 'B';
+        frameFifo[next+1].error -= 15;
+        // removeGraph (frameFifo[1].width);
+        // frameFifoRemove (2);
     }
     else if (sum > 56)
     {
         if (_showRaw)
-            printf ("[%d+%d=%d ZERO]\n", fifoWidth[0], fifoWidth[1], sum);
+            printf ("[%d+%d=%d ZERO]\n", frameFifo[next].width, frameFifo[next+1].width, sum);
 
         bit = 0;
         haveBit = true;
-        removeGraph (fifoWidth[0]);
-        fifoWidthRemove (1);
+        frameFifo[next].done = true;
+        frameFifo[next].sym = '0';
+        // removeGraph (fifoWidth[0]);
+        // framFifoRemove (1);
     }
-    else if (fifoWidth[0] > 24)
+    else if (frameFifo[next].width > 23)
     {
         if (_showRaw)
-            printf ("[%d ZERO]\n", fifoWidth[0]);
+            printf ("[%d ZERO]\n", frameFifo[next].width);
 
         bit = 0;
         haveBit = true;
-        removeGraph (fifoWidth[0]);
-        fifoWidthRemove (1);
+        frameFifo[next].done = true;
+        frameFifo[next].sym = '0';
+        // removeGraph (fifoWidth[0]);
+        // fifoWidthRemove (1);
     }
     else
     {
-        if (_showRaw) 
-            printf (" : [%d=???]\n", fifoWidth[0]);
+        int err = frameFifo[next-1].error;
 
-        removeGraph (fifoWidth[0]);
-        fifoWidthRemove (1);
+        int nextFrame = frameFifo[next+1].width + frameFifo[next+2].width;
+
+        if (frameFifo[next+1].width > 30)
+        {
+            // Next frame is longer than a zero, so we can't be a one, we must be a
+            // shortened zero
+            bit = 0;
+            haveBit = true;
+            frameFifo[next].done = true;
+            frameFifo[next].sym = '0';
+        }
+        else if (nextFrame < 45)  // We are undersize, check if next is oversize
+        {
+            err += 15 - nextFrame;
+
+            if (frameFifo[next].width - err < 22)
+            {
+                bit = 1;
+                haveBit = true;
+                frameFifo[next].done = true;
+                frameFifo[next].sym = '0';
+                frameFifo[next].done = true;
+                frameFifo[next].sym = 'A';
+                frameFifo[next].error -= 15;
+                frameFifo[next+1].done = true;
+                frameFifo[next+1].sym = 'B';
+                frameFifo[next+1].error -= 15;
+            }
+            else if (frameFifo[next].width - err > 27)
+            {
+                // Next frame is a one, are we an undersize zero?
+                bit = 0;
+                haveBit = true;
+                frameFifo[next].done = true;
+                frameFifo[next].sym = '0';
+            }
+        }
+
+        if (!haveBit)
+        {
+            // no still no luck
+            if (_showRaw) 
+                printf (" : [%d=???] prev-err=%d nextw=%d new-w=%d\n", frameFifo[next].width,
+                        frameFifo[next-1].error, frameFifo[next+1].width,
+                        nextFrame);
+
+            frameFifo[next].done = true;
+            frameFifo[next].sym = 'X';
+            // removeGraph (fifoWidth[0]);
+            // fifoWidthRemove (1);
+        }
     }
 
     if (!haveBit)
@@ -531,9 +625,13 @@ bool Tape::inputWav (Files *outputFile, const char *inputName, bool showParams)
     {
         // localMax = 0.99 * localMax;  // 0.99 ^ 32 = 0.725
         // localMin = 0.99 * localMin;
-        sample = wav.readSample ();
-        fifoAdd (sample);
-        sample = fifoTail ();
+
+        if (i < wav.getSampleCount () - 64)
+        {
+            sample = wav.readSample ();
+            fifoAdd (sample);
+        }
+        sample = fifoGet ();
 
         double localMin = fifoMin();
         double localMax = fifoMax();
