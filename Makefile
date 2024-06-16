@@ -28,7 +28,8 @@ wav.o \
 files.o \
 tibasic_encode.o \
 tibasic_decode.o \
-file_disvar.o
+file_disvar.o \
+textgraph.o
 
 LIBS=\
 -l glut\
