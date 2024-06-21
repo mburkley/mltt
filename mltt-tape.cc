@@ -66,9 +66,15 @@ private:
     bool _errorsFound;
     bool _errorsUnfixable;
     bool _preambleSync;
+    int _preambleCount;
+    int _preambleStart;
+    int _preambleDuration;
     int _preambleBitsExpected;
+    double _frameLength;
+    int _currentByte;
 
     bool _haveHeader;
+    bool _haveBitTiming;
 
     int _headerBytes;
     int _blockBytes;
@@ -99,14 +105,11 @@ private:
     TextGraph _graph;
 
     void decodeBlock (int byte);
-    void decodeBit (int bit);
+    void decodeBit (int bit, int position);
     void inputBitWidth (int count, int position);
     void outputByte (uint8_t byte);
     void outputBlock (uint8_t *data);
 public:
-    TapeDecode ()
-    {
-    }
     void setVerbose () { _verbose = true; }
     void setShowRaw () { _showRaw = true; }
     void setPreamble () { _preambleSync = true; }
@@ -129,6 +132,7 @@ void TapeDecode::decodeBlock (int byte)
             if (_verbose) cout << "Reading " << (int) _header.size1 << " blocks ..." << endl;
             _haveHeader = true;
             _preambleSync = true;
+            _preambleCount = 0;
             _preambleBitsExpected = 40;
         }
         return;
@@ -143,9 +147,9 @@ void TapeDecode::decodeBlock (int byte)
         /*  Turn back on preamble synchronisatoin to sync with the next data
          *  block */
         _preambleSync = true;
+        _preambleCount = 0;
         _preambleBitsExpected = 40;
     }
-
 
     /*  Do we have two complete blocks?  If so, compare them and calcualte
      *  checksums */
@@ -203,7 +207,6 @@ void TapeDecode::decodeBlock (int byte)
             _errorsFound = true;
         }
 
-
         sum1 &= 0xff;
         sum2 &= 0xff;
 
@@ -248,18 +251,15 @@ void TapeDecode::decodeBlock (int byte)
     }
 }
 
-void TapeDecode::decodeBit (int bit)
+void TapeDecode::decodeBit (int bit, int position)
 {
-    static int byte;
-    static int preambleCount;
-
     if (bit && _preambleSync)
     {
-        if (_showRaw) cout << "preamble count=" << preambleCount << " of " << _preambleBitsExpected << endl;
+        if (_showRaw) cout << "preamble count=" << _preambleCount << " of " << _preambleBitsExpected << endl;
         /*  We expect the preamble to be 6144 bits at the start of the file and
          *  64 bits at the start of each block.  So if longer than 3072 bits we
          *  assume new record.  */
-        if (preambleCount > 3072)
+        if (_preambleCount > 3072)
         {
             _recordCount++;
 
@@ -272,28 +272,33 @@ void TapeDecode::decodeBit (int bit)
 
         /*  Reset the preamble bit count.  If we have seen at least 60 zero bits in a row we consider this to
          *  be a valid preamble and start reading data.  */
-        if (preambleCount > _preambleBitsExpected)
+        if (_preambleCount > _preambleBitsExpected)
+        {
             _preambleSync = false;
-
-        preambleCount = 0;
+            _preambleDuration = position - _preambleStart;
+        }
+        else
+        {
+            _preambleStart = position;
+        }
     }
 
     if (_preambleSync)
     {
-        preambleCount++;
+        _preambleCount++;
         return;
     }
 
-    byte <<= 1;
-    byte |= bit;
+    _currentByte <<= 1;
+    _currentByte |= bit;
     _bitCount++;
 
     if (_bitCount == 8)
     {
         if (_showRaw)
-            printf ("BYTE %02X (%d/%ld)\n", byte, _blockBytes, sizeof (struct __block));
-        decodeBlock (byte);
-        byte = 0;
+            printf ("BYTE %02X (%d/%ld)\n", _currentByte, _blockBytes, sizeof (struct __block));
+        decodeBlock (_currentByte);
+        _currentByte = 0;
         _bitCount = 0;
     }
 }
@@ -563,8 +568,16 @@ void TapeDecode::inputBitWidth (int width, int position)
     }
 
     if (_showRaw) printf ("BIT %d = %d\n", _blockBytes*8+_bitCount, bit);
-    decodeBit (bit);
+    decodeBit (bit, position);
     if (_showRaw) printf ("=======================\n");
+
+    if (!_haveBitTiming && !_preambleSync)
+    {
+        _frameLength = (1.0 * _preambleDuration) / _preambleCount;
+        _haveBitTiming = true;
+        cout << "Post preamble, count="<<_preambleCount<<
+            " len="<< _preambleDuration << " avg="<<_frameLength << endl;
+    }
 }
 
 /*  Take data from a WAV file and carve it up into bits.  Due to some recorded
