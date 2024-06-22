@@ -126,7 +126,7 @@ void TapeDecode::decodeBlock (int byte)
         ((uint8_t *)&_header)[_headerBytes++] = byte;
         if (_headerBytes == 3)
         {
-            if (_verbose) cout << "Reading " << _header.size1 << " blocks ..." << endl;
+            if (_verbose) cout << "Reading " << (int) _header.size1 << " blocks ..." << endl;
             _haveHeader = true;
             _preambleSync = true;
             _preambleBitsExpected = 40;

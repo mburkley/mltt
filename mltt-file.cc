@@ -168,7 +168,7 @@ int main (int argc, char *argv[])
             if (doTifiles)
                 output.initTifiles (outfile, size, DISK_BYTES_PER_SECTOR, 80, false, false);
 
-            cout << "size=" << size << endl;
+            // cout << "size=" << size << endl;
             output.write ();
         }
     }
@@ -187,7 +187,7 @@ int main (int argc, char *argv[])
         {
             size = decodeBasicProgram  (input.getData(), input.getSize(),
                                         (char*) output.getData(), debug);
-            cerr << "size=" << size << endl;
+            // cerr << "size=" << size << endl;
 
             if (outfile[0])
                 output.write ();
@@ -198,7 +198,7 @@ int main (int argc, char *argv[])
         else if (convertVar)
         {
             size = decodeDisVar (input.getData(), input.getSize(), (char*) output.getData());
-            cerr << "size=" << size << endl;
+            // cerr << "size=" << size << endl;
 
             if (outfile[0])
                 output.write ();
