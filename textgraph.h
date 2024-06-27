@@ -10,7 +10,8 @@ public:
     TextGraph();
     void add (int sample, int min, int max, int zero, int state);
     void remove (int count);
-    void vertical (void);
+    void clear () { remove (_column); }
+    void vertical (char c = '|');
     void draw (void);
 private:
     int _column;

@@ -52,22 +52,23 @@ void TextGraph::remove (int count)
         }
 }
 
-void TextGraph::vertical (void)
+void TextGraph::vertical (char c)
 {
     if (_column == GRAPH_WIDTH)
         return;
 
     for (int y = 0; y < GRAPH_HEIGHT; y++)
-        _data[_column][y] = '|';
+        _data[_column][y] = c;
 
     _column++;
 }
 
 void TextGraph::draw (void)
 {
-    for (int y = 0; y < GRAPH_HEIGHT; y++)
+    // for (int y = 0; y < GRAPH_HEIGHT; y++)
+    for (int y = GRAPH_HEIGHT-1; y >= 0; y--)
     {
-        printf ("                        ");
+        // printf ("                        ");
 
         for (int x = 0; x < _column; x++)
             printf ("%c", _data[x][y]);
