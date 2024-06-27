@@ -65,11 +65,29 @@ public:
 
 void SampleFifo::findLocalMinMax ()
 {
-    int lastSlope = _fifo[1] - _fifo[0];
+    int min = 32767;
+    int max = -32767;
+    // int lastSlope = _fifo[1] - _fifo[0];
     _localMinMax.clear ();
+    bool detected = false;
+    // bool isMin = false;
+    enum { MIN, MAX, NONE } typ = NONE;
 
     for (unsigned i = 1; i < _fifo.size(); i++)
     {
+        if (_fifo[i] < min)
+            min = _fifo[i];
+        else if (_fifo[i] > max)
+            max = _fifo[i];
+    }
+
+    int mid = (max - min) / 2;
+
+    // min += range / 4;
+    // max -= range / 4;
+    for (unsigned i = 1; i < _fifo.size(); i++)
+    {
+        #if 0
         int slope = _fifo[i] - _fifo[i-1];
         if ((slope < 0 && lastSlope > 0) || 
             (slope > 0 && lastSlope < 0))
@@ -83,11 +101,47 @@ void SampleFifo::findLocalMinMax ()
 
             lastSlope = slope;
         }
+        #endif
+        if (_fifo[i] < mid)
+        {
+            // if (!isMin)
+            if (typ != MIN)
+                detected = false;
+
+            if (!detected)
+            {
+                _localMinMax.push_back (i);
+                detected = true;
+            }
+            else if (_fifo[i] < _fifo[_localMinMax.back()])
+                _localMinMax.back() = i;
+
+            // isMin = true;
+            typ = MIN;
+        }
+        if (_fifo[i] > mid)
+        {
+            // if (isMin)
+            if (typ != MAX)
+                detected = false;
+
+            if (!detected)
+            {
+                _localMinMax.push_back (i);
+                detected = true;
+            }
+            else if (_fifo[i] > _fifo[_localMinMax.back()])
+                _localMinMax.back() = i;
+
+            // isMin = false;
+            typ = MAX;
+        }
+
     }
-    cout << "Min/Max ";
+    cout << "Min/Max ["<<min<<","<<max<<"] ";
 
     for (auto it : _localMinMax)
-        cout << it << " ";
+        cout << it << " ("<<_fifo[it]<<") ";
 
     cout << endl;
 }
@@ -103,7 +157,7 @@ void SampleFifo::findZeroCross (TextGraph& graph)
      *  and return */
     if (_localMinMax.size() < 2)
     {
-        cout << "DISCARD"<<endl;
+        cout << "DISCARD - no min/max"<<endl;
         _fifo.clear ();
         return;
     }
@@ -126,7 +180,10 @@ void SampleFifo::findZeroCross (TextGraph& graph)
         /*  If a sample lies outside known local min or max then we can't
          *  process it so continue */
         if (i <= _localMinMax.front() || i >= _localMinMax.back())
+        {
+            graph.add (_fifo[i], 0, 0, 0, 0);
             continue;
+        }
 
         /*  If the sample lies beyond the current local min/max then advance the
          *  index.  It can't be beyond the last one so it is safe to increment
@@ -145,11 +202,12 @@ void SampleFifo::findZeroCross (TextGraph& graph)
 
         graph.add (_fifo[i], localMin, localMax, zerocross, state);
 
+        if (i < 17 || i > 73)
+            continue;
         if (state == -1) state = _fifo[i] > zerocross;
-        // if (i < 23 || i > 73)
-        //     continue;
 
-        cout << "i="<<i<<", smp="<<_fifo[i]<<", zc="<<zerocross<<", st="<<state<<endl;
+        // cout << "i="<<i<<", smp="<<_fifo[i]<<", zc="<<zerocross<<
+        //     ", amp="<<(int)amp<<", st="<<state<<endl;
         /* Apply hysteresis */
         if (state && _fifo[i] < zerocross - amp * .05)
             state = 0;
@@ -163,11 +221,14 @@ void SampleFifo::findZeroCross (TextGraph& graph)
     }
 
     /*  We should see at least 2 zero crossings in the fifo */
+    #if 0
     if (zc.size () < 2) //  || zc[0] > 48)
     {
+        cout << "DISCARD - no zc"<<endl;
         _fifo.clear ();
         return;
     }
+    #endif
     cout << "ZC : ";
     int delCount = 32;
     int offset = 0;
