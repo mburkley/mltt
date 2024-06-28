@@ -61,35 +61,6 @@ void FMDecoder::findLocalMinMax (TextGraph& graph)
     }
 }
 
-struct
-{
-    string str;
-    Bit bit;
-}
-patterns[] = 
-{
-    { "1111111000000001", BIT_ZERO },
-    { "1111111100000001", BIT_ZERO },
-    { "11111111100000001", BIT_ZERO },
-    { "111111110000000001", BIT_ZERO },
-    { "11111111000000001", BIT_ZERO }
-};
-
-Bit recognise (string& test)
-{
-    for (auto it : patterns)
-    {
-        if (test == it.str)
-        {
-            cout << test << "=" << it.bit << endl;
-            return it.bit;
-        }
-    }
-
-    cout << "\nunknown " << test << endl;
-    return BIT_UNKNOWN;
-}
-
 Bit FMDecoder::analyseFrame (vector<int>& zc, TextGraph& graph)
 {
     Bit bit = BIT_UNKNOWN;
@@ -107,9 +78,10 @@ Bit FMDecoder::analyseFrame (vector<int>& zc, TextGraph& graph)
     cout << "ZC : ";
 
     /*  If the last bit was ambiguous */
+    cout<<"prev="<<_prevBit<<" sz="<<zc.size()<<" z2-z1="<<zc[2]-zc[1]<<" ";
     if (_prevBit == BIT_UNKNOWN && 
        ((zc.size () == 2 && proximity (zc[1], 64, 8)) ||
-        (zc.size () == 3 && proximity (zc[2] - zc[1], 16, 8))))
+        (zc.size () > 2 && proximity (zc[2] - zc[1], 16, 8))))
     {
         _prevBit = BIT_ZERO;
         cout << "PREV ZERO ";
@@ -118,7 +90,7 @@ Bit FMDecoder::analyseFrame (vector<int>& zc, TextGraph& graph)
 
     /*  If the first ZC is due to previous frame being a ONE then drop the first
      *  ZC.  Also if the 2nd ZC is exactly at the start of a frame */
-    #if 0
+    #if 1
     if (zc.size() >= 2 &&
        ((_prevBit == BIT_ONE && zc[0] < 24) ||
         proximity (zc[1], 32, 8)))
@@ -129,7 +101,7 @@ Bit FMDecoder::analyseFrame (vector<int>& zc, TextGraph& graph)
     #endif
 
     /*  Drop any ZCs after the 3rd one */
-    #if 0
+    #if 1
     // int last = zc.size() - 1;
     while (zc.size() > 3) //  && zc[last-1] >= 56 && zc[last-1] > 72)
     {
@@ -139,7 +111,7 @@ Bit FMDecoder::analyseFrame (vector<int>& zc, TextGraph& graph)
     #endif
 
     /*  Drop the 3rd ZC if we are happy the 2nd aligns with an end of frame */
-    #if 0
+    #if 1
     if (zc.size() == 3 && proximity (zc[1], 64, 8))
     {
         cout << "drop superf end zc ";
@@ -151,22 +123,11 @@ Bit FMDecoder::analyseFrame (vector<int>& zc, TextGraph& graph)
     int offset = 0;
     bool isOne = false;
     int start = 0, end = 0;
-    // for (auto it : zc)
-    int chcount = 0;
-    int ch = 0;
-    string pattern;
     for (auto it = zc.begin(); it != zc.end(); ++it)
     {
         printf ("[%d (+%d)] ", *it, *it-offset);
         offset = *it;
 
-        while (chcount < *it)
-        {
-            // cout << (ch ? '0' : '1');
-            pattern += (ch ? "0" : "1");
-            chcount += 8;
-        }
-        ch = 1-ch;
         /*  Timing recovery.  If a ZC is close to where we expect it to be for
          *  two frames, then use it as a timing ref.  Two frames = 64 samples so use it
          *  if between 60 and 68 */
@@ -186,17 +147,10 @@ Bit FMDecoder::analyseFrame (vector<int>& zc, TextGraph& graph)
         if (proximity (*it, 64, 8))
             end = it - zc.begin();
     }
-            pattern += (ch ? "0" : "1");
 
     while (delCount--)
         _fifo.erase (_fifo.begin());
 
-    bit = recognise (pattern);
-    if (bit != BIT_UNKNOWN)
-    {
-        _prevBit = bit;
-        return bit;
-    }
     // bool success = false;
     if (zc.size() == 2 && end != 1 && proximity (zc[1], 64, 16))
     {
@@ -225,9 +179,6 @@ Bit FMDecoder::analyseFrame (vector<int>& zc, TextGraph& graph)
         return BIT_ONE;
     }
 
-    // if (delCount == 0)
-    //     delCount = 32;
-    // delCount = zc[0];
     if (zc.size() == 2)
         cout<< "ZERO";
     else if (zc.size() == 3)
