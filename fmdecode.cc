@@ -99,18 +99,20 @@ void FMDecoder::findLocalMinMax (TextGraph& graph)
         if ((isMin && _fifo[i] > peak + range / 10) ||
             (!isMin && _fifo[i] < peak - range / 10))
         {
-            cout << "change at "<<i<<" to "<<(isMin?"MAX":"MIN")<<endl;
+            // cout << "change at "<<i<<" to "<<(isMin?"MAX":"MIN")<<endl;
             _localMinMax.push_back (i);
             peak = _fifo[i];
             isMin = !isMin;
         }
     }
+    #if 0
     cout << "Min/Max/Rng ["<<min<<","<<max<<","<<range<<"] ";
 
     for (auto it : _localMinMax)
         cout << it << " ("<<_fifo[it]<<") ";
 
     cout << endl;
+    #endif
 }
 
 void FMDecoder::findZeroCross (TextGraph& graph)
@@ -164,13 +166,14 @@ void FMDecoder::findZeroCross (TextGraph& graph)
         int localMin = _fifo[_localMinMax[index]];
         int localMax = _fifo[_localMinMax[index+1]];
 
-        double amp = abs (localMax - localMin);
+        // double amp = abs (localMax - localMin);
         double zerocross = (localMin+localMax) / 2;
 
         graph.add (_fifo[i], localMin, localMax, zerocross);
 
-        if (i < 17 || i > 73)
+        if (i < 17 || i > 79)
             continue;
+
         if (state == -1) state = _fifo[i] > zerocross;
 
         // cout << "i="<<i<<", smp="<<_fifo[i]<<", zc="<<zerocross<<
@@ -188,7 +191,7 @@ void FMDecoder::findZeroCross (TextGraph& graph)
     }
 
     /*  We should see at least 2 zero crossings in the fifo */
-    #if 0
+    #if 1
     if (zc.size () < 2) //  || zc[0] > 48)
     {
         cout << "DISCARD - no zc"<<endl;
@@ -196,6 +199,24 @@ void FMDecoder::findZeroCross (TextGraph& graph)
         return;
     }
     #endif
+    /*  If the first ZC is due to previous frame being a ONE then drop this
+     *  ZC */
+    if (zc.size() >= 2 && zc[0] < 24 && zc[1] >= 24 && zc[1] < 40)
+    {
+        cout << "drop zc0"<<endl;
+        zc.erase (zc.begin());
+    }
+
+    /*  Drop any ZCs after the 3rd one */
+    #if 1
+    // int last = zc.size() - 1;
+    while (zc.size() > 3) //  && zc[last-1] >= 56 && zc[last-1] > 72)
+    {
+        cout << "drop end zc "<<endl;
+        zc.erase (zc.begin()+3);
+    }
+    #endif
+
     cout << "ZC : ";
     int delCount = 32;
     int offset = 0;
@@ -217,8 +238,8 @@ void FMDecoder::findZeroCross (TextGraph& graph)
         }
 
         /*  Is there a ZC in the middle of the bit?  If so, this is a ONE */
-        if (*it >= 40 && *it < 56)
-            isOne = true;
+        // if (*it >= 40 && *it < 56)
+        //     isOne = true;
 
         if (*it >= 24 && *it < 40)
             start = it - zc.begin();
@@ -228,26 +249,32 @@ void FMDecoder::findZeroCross (TextGraph& graph)
     }
 
     bool success = false;
-    int bit;
-    if (zc.size() == 2 && (end - start) == 1 && !isOne)
+    if (zc.size() == 2 && end != 1 && zc[1] >= 48 && zc[1] < 80)
     {
-        bit = 0;
+        /*  If the last ZC is early or late, then we may not think it is an end of
+         *  frame.  But if it is the last ZC in our list then the following
+         *  frame has been stretched or compressed, so assume this is a valid end of
+         *  frame */
+        end = 1;
+        cout << "force end"<<endl;
+        graph.draw ();
+    }
+
+    if (zc.size() == 2 && (end - start) == 1) // && !isOne)
+    {
         success = true;
+        cout << "VALID ZERO" << endl;
+        decodeBit (0);
     }
 
-    if (zc.size() == 3 && (end - start) == 2 && isOne)
+    else if (zc.size() == 3 && (end - start) == 2) // && isOne)
     {
-        bit = 1;
         success = true;
+        cout << "VALID ONE" << endl;
+        decodeBit (1);
     }
 
-    if (success)
-    {
-        cout<<endl;
-
-        decodeBit (bit);
-    }
-    else
+    if (!success)
     {
         // if (delCount == 0)
         //     delCount = 32;
