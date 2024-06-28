@@ -383,7 +383,7 @@ void TapeDecode::showResult ()
     }
 }
 
-class Decoder : public FMDecode
+class Decoder : public FMDecoder
 {
 public:
     void decodeBit (int bit) { tape.decodeBit (bit, 0); }

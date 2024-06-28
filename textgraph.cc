@@ -11,13 +11,14 @@ TextGraph::TextGraph()
 
 int TextGraph::_range (int x)
 {
-    x = (x + 32000) /4000;
+    x = GRAPH_HEIGHT * (x - _min)/ (_max - _min);
+    // x = (x + 32000) /4000;
     if (x<0) x = 0;
     if (x>15) x = 15;
     return x;
 }
 
-void TextGraph::add (int sample, int min, int max, int zero, int state)
+void TextGraph::add (int sample, int min, int max, int zero)
 {
     if (_column == GRAPH_WIDTH)
         return;
@@ -31,7 +32,6 @@ void TextGraph::add (int sample, int min, int max, int zero, int state)
     _data[_column][max] = 'H';
     _data[_column][zero] = 'Z';
     _data[_column][sample] = '+';
-    // graph[_column][state?0:15] = '+';
     _column++;
 }
 
