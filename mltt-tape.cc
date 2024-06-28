@@ -22,18 +22,7 @@
 
 /*
  *  Tool to read or create cassette audio files.  Samples are read from a WAV
- *  file and broken up into frames.  Each frame is a half a sine wave.  A frame
- *  can be half a ONE bit or a full ZERO bit.  A frame is typically 16 or 32
- *  samples long.
- *
- *  Samples are read into a FIFO with 64 enties.  This FIFO is used to find the
- *  highest and lowest values in a frame.  The zero-crossing point is the
- *  midpoint of the high and the low.  Once a zero crossing is found, the frame
- *  is added to another FIFO for processing.
- *
- *  The frame FIFO keeps a number of processed and unprocessed frames.  This is
- *  so that the first unprocessed frame can be analysed within the context of
- *  previous and next frames.
+ *  file and fed to the FM decoder class to be interpreted.
  */
 
 #include <stdio.h>
@@ -103,7 +92,6 @@ private:
     _block[2];
 
     Files *_file;
-    TextGraph _graph;
 
     void decodeBlock (int byte);
     void inputBitWidth (int count, int position);
@@ -394,10 +382,6 @@ static Decoder decoder;
 bool TapeDecode::inputWav (Files *outputFile, const char *inputName, bool showParams)
 {
     WavFile wav;
-    // int16_t sample;
-    // int changeCount = 0;
-    // int state = 0;
-    // int lastState = 0;
 
     _file = outputFile;
 
@@ -407,13 +391,14 @@ bool TapeDecode::inputWav (Files *outputFile, const char *inputName, bool showPa
         return false;
     }
 
+    if (_showRaw)
+        decoder.showRaw ();
+
     for (int i = 0; i < wav.getSampleCount (); i++)
     {
-        decoder.input (wav.readSample (), _graph);
+        decoder.input (wav.readSample ());
     }
 
-    /*  Do a final call to process the width of the last sample */
-    // inputBitWidth (changeCount, 0);
     wav.close ();
 
     if (!_file->setSize (_blockCount * 64))
