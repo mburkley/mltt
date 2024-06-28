@@ -5,58 +5,20 @@ using namespace std;
 #include "fmdecode.h"
 #include "textgraph.h"
 
-/*  Maintain a FIFO of samples.  A frame is nominally 32 samples long and this
- *  FIFO contains 3 frames.  Previous, current and next.  */
-#if 0
-class SampleFifo
+bool FMDecoder::proximity (int offset, int centre, int width)
 {
-public:
+    if (offset >= centre - width && offset < centre + width)
+        return true;
 
-
-    int min (void)
-    {
-        int min = 32767;
-        // for (auto x : _fifo)
-        for (int i = 0; i < 64; i++)
-            if (_fifo[i] < min)
-                min = _fifo[i];
-
-        return min;
-    }
-
-    int max (void)
-    {
-        int max = -32768;
-        // for (auto x : _fifo)
-        for (int i = 0; i < 64; i++)
-            if (_fifo[i] > max)
-                max = _fifo[i];
-
-        return max;
-    }
-
-
-    #if 0
-    /*  Take the sample from the mid-point of the fifo.  This means we lost the
-     *  first 32 samples but they are in the preamble at best so that's ok */
-    int get (void)
-    {
-        return _fifo[size/2];
-    }
-    #endif
-
-};
-#endif
+    return false;
+}
 
 void FMDecoder::findLocalMinMax (TextGraph& graph)
 {
     int min = 32767;
     int max = -32767;
-    // int lastSlope = _fifo[1] - _fifo[0];
     _localMinMax.clear ();
-    // bool detected = false;
     bool isMin = false;
-    // enum { MIN, MAX, NONE } typ = NONE;
 
     for (unsigned i = 0; i < _fifo.size(); i++)
     {
@@ -69,9 +31,6 @@ void FMDecoder::findLocalMinMax (TextGraph& graph)
     graph.limits (min, max);
     int range = (max - min);
 
-    // min += range / 4;
-    // max -= range / 4;
-
     /*  To start, create a local using the first sample.  Guess whether it is a
      *  min or a max by whether it is above or below the mid range */
     _localMinMax.push_back (0);
@@ -80,16 +39,12 @@ void FMDecoder::findLocalMinMax (TextGraph& graph)
 
     for (unsigned i = 1; i < _fifo.size(); i++)
     {
-        // int peak = _fifo[_localMinMax.back()];
-
         /*  If this sample has a higher value then the peak then store it
          *  as a new local min / max.  */
         if ((isMin && _fifo[i] < peak) ||
             (!isMin && _fifo[i] > peak))
         {
-            // if (!_localMinMax.empty())
-                _localMinMax.back() = i;
-
+            _localMinMax.back() = i;
             peak = _fifo[i];
         }
 
@@ -99,20 +54,156 @@ void FMDecoder::findLocalMinMax (TextGraph& graph)
         if ((isMin && _fifo[i] > peak + range / 10) ||
             (!isMin && _fifo[i] < peak - range / 10))
         {
-            // cout << "change at "<<i<<" to "<<(isMin?"MAX":"MIN")<<endl;
             _localMinMax.push_back (i);
             peak = _fifo[i];
             isMin = !isMin;
         }
     }
-    #if 0
-    cout << "Min/Max/Rng ["<<min<<","<<max<<","<<range<<"] ";
+}
 
-    for (auto it : _localMinMax)
-        cout << it << " ("<<_fifo[it]<<") ";
+Bit FMDecoder::analyseFrame (vector<int>& zc, TextGraph& graph)
+{
+    Bit bit = BIT_UNKNOWN;
 
-    cout << endl;
+    /*  We should see at least 2 zero crossings in the fifo */
+    #if 1
+    if (zc.size () < 2) //  || zc[0] > 48)
+    {
+        cout << "DISCARD - no zc"<<endl;
+        _fifo.clear ();
+        return BIT_UNKNOWN;
+    }
     #endif
+
+    cout << "ZC : ";
+
+    /*  If the last bit was ambiguous */
+    if (_prevBit == BIT_UNKNOWN)
+    {
+        if (zc.size () == 2 && proximity (zc[1], 64, 8))
+        {
+            _prevBit = BIT_ZERO;
+            cout << "PREV ZERO ";
+            decodeBit (0);
+        }
+        else if (zc.size () == 3 && proximity (zc[2] - zc[1], 16, 8))
+        {
+            _prevBit = BIT_ZERO;
+            cout << "PREV ZERO ";
+            decodeBit (0);
+        }
+    }
+
+    /*  If the first ZC is due to previous frame being a ONE then drop the first
+     *  ZC */
+    if (_prevBit == BIT_ONE && zc.size() >= 2 && zc[0] < 24)
+    {
+        cout << "drop zc0 ";
+        zc.erase (zc.begin());
+    }
+
+    /*  Drop any ZCs after the 3rd one */
+    #if 1
+    // int last = zc.size() - 1;
+    while (zc.size() > 3) //  && zc[last-1] >= 56 && zc[last-1] > 72)
+    {
+        cout << "drop end zc ";
+        zc.erase (zc.begin()+3);
+    }
+    #endif
+
+    /*  Drop the 3rd ZC if we are happy the 2nd aligns with an end of frame */
+    if (zc.size() == 3 && proximity (zc[1], 64, 8))
+    {
+        cout << "drop superf end zc ";
+        zc.erase (zc.begin()+2);
+    }
+
+    int delCount = 32;
+    int offset = 0;
+    bool isOne = false;
+    int start = 0, end = 0;
+    // for (auto it : zc)
+    for (auto it = zc.begin(); it != zc.end(); ++it)
+    {
+        printf ("[%d (+%d)] ", *it, *it-offset);
+        offset = *it;
+
+        /*  Timing recovery.  If a ZC is close to where we expect it to be for
+         *  two frames, then use it as a timing ref.  Two frames = 64 samples so use it
+         *  if between 60 and 68 */
+        if (proximity (*it, 64, 4))
+        {
+            delCount = *it - 32;
+            cout << "(T:" << delCount << ") ";
+        }
+
+        /*  Is there a ZC in the middle of the bit?  If so, this is a ONE */
+        // if (*it >= 40 && *it < 56)
+        //     isOne = true;
+
+        if (proximity (*it, 32, 8))
+            start = it - zc.begin();
+
+        if (proximity (*it, 64, 8))
+            end = it - zc.begin();
+    }
+
+    while (delCount--)
+        _fifo.erase (_fifo.begin());
+
+    // bool success = false;
+    if (zc.size() == 2 && end != 1 && proximity (zc[1], 64, 16))
+    {
+        /*  If the last ZC is early or late, then we may not think it is an end of
+         *  frame.  But if it is the last ZC in our list then the following
+         *  frame has been stretched or compressed, so assume this is a valid end of
+         *  frame */
+        end = 1;
+        cout << "force end"<<endl;
+        graph.draw ();
+    }
+
+    if (zc.size() == 2 && (end - start) == 1) // && !isOne)
+    {
+        // success = true;
+        cout << "VALID ZERO" << endl;
+        _prevBit = BIT_ZERO;
+        return BIT_ZERO;
+    }
+
+    else if (zc.size() == 3 && (end - start) == 2) // && isOne)
+    {
+        // success = true;
+        cout << "VALID ONE" << endl;
+        _prevBit = BIT_ONE;
+        return BIT_ONE;
+    }
+
+    // if (delCount == 0)
+    //     delCount = 32;
+    // delCount = zc[0];
+    if (zc.size() == 2)
+        cout<< "ZERO";
+    else if (zc.size() == 3)
+        cout<< "ONE";
+    else
+        cout << "UNKNOWN";
+
+    cout << (isOne ? " ZC:ONE" : " ZC:ZERO");
+
+    cout << " D:"<<end-start;
+    if (end - start == 1)
+        cout << " ST:ZERO";
+    else if (end - start == 2)
+        cout << " ST:ONE";
+    else
+        cout << " ST:UNKNOWN";
+    cout<<endl;
+    graph.draw ();
+
+    _prevBit = bit;
+    return bit;
 }
 
 void FMDecoder::findZeroCross (TextGraph& graph)
@@ -132,11 +223,6 @@ void FMDecoder::findZeroCross (TextGraph& graph)
     }
 
     int index = 0;
-    // double localMin = min();
-    // double localMax = max();
-
-    // double amp = localMax - localMin;
-    // double zerocross = (localMin+localMax) / 2;
 
     graph.clear();
     // graph.vertical ();
@@ -190,120 +276,12 @@ void FMDecoder::findZeroCross (TextGraph& graph)
         zc.push_back (i);
     }
 
-    /*  We should see at least 2 zero crossings in the fifo */
-    #if 1
-    if (zc.size () < 2) //  || zc[0] > 48)
-    {
-        cout << "DISCARD - no zc"<<endl;
-        _fifo.clear ();
-        return;
-    }
-    #endif
-    /*  If the first ZC is due to previous frame being a ONE then drop this
-     *  ZC */
-    if (zc.size() >= 2 && zc[0] < 24 && zc[1] >= 24 && zc[1] < 40)
-    {
-        cout << "drop zc0"<<endl;
-        zc.erase (zc.begin());
-    }
+    Bit bit = analyseFrame (zc, graph);
 
-    /*  Drop any ZCs after the 3rd one */
-    #if 1
-    // int last = zc.size() - 1;
-    while (zc.size() > 3) //  && zc[last-1] >= 56 && zc[last-1] > 72)
-    {
-        cout << "drop end zc "<<endl;
-        zc.erase (zc.begin()+3);
-    }
-    #endif
+    if (bit != BIT_UNKNOWN)
+        decodeBit (bit);
 
-    cout << "ZC : ";
-    int delCount = 32;
-    int offset = 0;
-    bool isOne = false;
-    int start = 0, end = 0;
-    // for (auto it : zc)
-    for (auto it = zc.begin(); it != zc.end(); ++it)
-    {
-        printf ("[%d (+%d)] ", *it, *it-offset);
-        offset = *it;
-
-        /*  Timing recovery.  If a ZC is close to where we expect it to be for
-         *  two frames, then use it as a timing ref.  Two frames = 64 samples so use it
-         *  if between 60 and 68 */
-        if (*it >= 60 && *it < 68)
-        {
-            delCount = *it - 32;
-            cout << "(T:" << delCount << ") ";
-        }
-
-        /*  Is there a ZC in the middle of the bit?  If so, this is a ONE */
-        // if (*it >= 40 && *it < 56)
-        //     isOne = true;
-
-        if (*it >= 24 && *it < 40)
-            start = it - zc.begin();
-
-        if (*it >= 56 && *it < 72)
-            end = it - zc.begin();
-    }
-
-    bool success = false;
-    if (zc.size() == 2 && end != 1 && zc[1] >= 48 && zc[1] < 80)
-    {
-        /*  If the last ZC is early or late, then we may not think it is an end of
-         *  frame.  But if it is the last ZC in our list then the following
-         *  frame has been stretched or compressed, so assume this is a valid end of
-         *  frame */
-        end = 1;
-        cout << "force end"<<endl;
-        graph.draw ();
-    }
-
-    if (zc.size() == 2 && (end - start) == 1) // && !isOne)
-    {
-        success = true;
-        cout << "VALID ZERO" << endl;
-        decodeBit (0);
-    }
-
-    else if (zc.size() == 3 && (end - start) == 2) // && isOne)
-    {
-        success = true;
-        cout << "VALID ONE" << endl;
-        decodeBit (1);
-    }
-
-    if (!success)
-    {
-        // if (delCount == 0)
-        //     delCount = 32;
-        // delCount = zc[0];
-        if (zc.size() == 2)
-            cout<< "ZERO";
-        else if (zc.size() == 3)
-            cout<< "ONE";
-        else
-            cout << "UNKNOWN";
-
-        cout << (isOne ? " ZC:ONE" : " ZC:ZERO");
-
-        cout << " D:"<<end-start;
-        if (end - start == 1)
-            cout << " ST:ZERO";
-        else if (end - start == 2)
-            cout << " ST:ONE";
-        else
-            cout << " ST:UNKNOWN";
-        cout<<endl;
-        graph.draw ();
-    }
-
-    while (delCount--)
-        _fifo.erase (_fifo.begin());
 }
-
-// static SampleFifo samples;
 
 /*  Take data from a WAV file and carve it up into bits.  Due to some recorded
  *  files having DC offsets or mains hum elements, detecting zero crossings only
@@ -314,30 +292,9 @@ void FMDecoder::input (int sample, TextGraph& graph)
     add (sample);
 
     /*  Don't proceed until the fifo is full */
-    // if (samples.depth() < samples.size)
     if (depth() < fifoSize)
         return;
 
-    // sample = samples.get ();
-
     findZeroCross (graph);
-
-        #if 0
-        _graph.add (sample, localMin, localMax, zerocross, state);
-
-        if (state == lastState)
-        {
-            changeCount++;
-            continue;
-        }
-
-        /*  Found a frame, analyse it */
-        _graph.vertical();
-        inputBitWidth (changeCount, i);
-        lastState = state;
-        changeCount = 0;
-    }
-    #endif
-
 }
 
