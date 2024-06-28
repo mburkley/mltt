@@ -78,27 +78,22 @@ Bit FMDecoder::analyseFrame (vector<int>& zc, TextGraph& graph)
     cout << "ZC : ";
 
     /*  If the last bit was ambiguous */
-    if (_prevBit == BIT_UNKNOWN)
+    if (_prevBit == BIT_UNKNOWN && 
+       ((zc.size () == 2 && proximity (zc[1], 64, 8)) ||
+        (zc.size () == 3 && proximity (zc[2] - zc[1], 16, 8))))
     {
-        if (zc.size () == 2 && proximity (zc[1], 64, 8))
-        {
-            _prevBit = BIT_ZERO;
-            cout << "PREV ZERO ";
-            decodeBit (0);
-        }
-        else if (zc.size () == 3 && proximity (zc[2] - zc[1], 16, 8))
-        {
-            _prevBit = BIT_ZERO;
-            cout << "PREV ZERO ";
-            decodeBit (0);
-        }
+        _prevBit = BIT_ZERO;
+        cout << "PREV ZERO ";
+        decodeBit (0);
     }
 
     /*  If the first ZC is due to previous frame being a ONE then drop the first
-     *  ZC */
-    if (_prevBit == BIT_ONE && zc.size() >= 2 && zc[0] < 24)
+     *  ZC.  Also if the 2nd ZC is exactly at the start of a frame */
+    if (zc.size() >= 2 &&
+       ((_prevBit == BIT_ONE && zc[0] < 24) ||
+        proximity (zc[1], 32, 8)))
     {
-        cout << "drop zc0 ";
+        cout << "drop zc0 "<<zc[0] << " ";
         zc.erase (zc.begin());
     }
 
@@ -257,7 +252,7 @@ void FMDecoder::findZeroCross (TextGraph& graph)
 
         graph.add (_fifo[i], localMin, localMax, zerocross);
 
-        if (i < 17 || i > 79)
+        if (i < 8 || i > 88)
             continue;
 
         if (state == -1) state = _fifo[i] > zerocross;
