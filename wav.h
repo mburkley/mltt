@@ -55,6 +55,7 @@ public:
     bool isOpenWrite () { return _write; }
     int getSampleCount () { return _sampleCount; }
     int getSampleRate () { return _rate; }
+    int getSamplePosition () { return _samplePosition; }
     int16_t readSample ();
     void writeSample (int16_t sample);
 
@@ -64,6 +65,7 @@ private:
     int _bits;
     int _rate;
     int _sampleCount;
+    int _samplePosition;
     bool _write;
     int _blockSize;
     uint8_t _block[4]; // Maximum sample block size is 16 bits, 2 channels

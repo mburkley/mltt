@@ -29,7 +29,8 @@ files.o \
 tibasic_encode.o \
 tibasic_decode.o \
 file_disvar.o \
-textgraph.o
+textgraph.o \
+fmdecode.o
 
 LIBS=\
 -l glut\

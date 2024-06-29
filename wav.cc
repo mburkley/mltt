@@ -44,6 +44,7 @@ WavFile::WavFile ()
     _bits = 16;
     _rate = WAV_DEFAULT_RATE;
     _sampleCount = 0;
+    _samplePosition = 0;
     _write = false;
     _blockSize = 2;
 }
@@ -175,6 +176,8 @@ int16_t WavFile::readSample ()
     }
     else
         sample = *(int16_t*)_block;
+
+    _samplePosition++;
 
     return sample;
 }

@@ -22,18 +22,7 @@
 
 /*
  *  Tool to read or create cassette audio files.  Samples are read from a WAV
- *  file and broken up into frames.  Each frame is a half a sine wave.  A frame
- *  can be half a ONE bit or a full ZERO bit.  A frame is typically 16 or 32
- *  samples long.
- *
- *  Samples are read into a FIFO with 64 enties.  This FIFO is used to find the
- *  highest and lowest values in a frame.  The zero-crossing point is the
- *  midpoint of the high and the low.  Once a zero crossing is found, the frame
- *  is added to another FIFO for processing.
- *
- *  The frame FIFO keeps a number of processed and unprocessed frames.  This is
- *  so that the first unprocessed frame can be analysed within the context of
- *  previous and next frames.
+ *  file and fed to the FM decoder class to be interpreted.
  */
 
 #include <stdio.h>
@@ -56,6 +45,7 @@ using namespace std;
 #include "tibasic.h"
 #include "disk.h"
 #include "textgraph.h"
+#include "fmdecode.h"
 
 class TapeDecode
 {
@@ -66,9 +56,15 @@ private:
     bool _errorsFound;
     bool _errorsUnfixable;
     bool _preambleSync;
+    int _preambleCount;
+    int _preambleStart;
+    int _preambleDuration;
     int _preambleBitsExpected;
+    double _frameLength;
+    int _currentByte;
 
     bool _haveHeader;
+    bool _haveBitTiming;
 
     int _headerBytes;
     int _blockBytes;
@@ -96,17 +92,13 @@ private:
     _block[2];
 
     Files *_file;
-    TextGraph _graph;
 
     void decodeBlock (int byte);
-    void decodeBit (int bit);
     void inputBitWidth (int count, int position);
     void outputByte (uint8_t byte);
     void outputBlock (uint8_t *data);
 public:
-    TapeDecode ()
-    {
-    }
+    void decodeBit (int bit, int position);
     void setVerbose () { _verbose = true; }
     void setShowRaw () { _showRaw = true; }
     void setPreamble () { _preambleSync = true; }
@@ -129,6 +121,7 @@ void TapeDecode::decodeBlock (int byte)
             if (_verbose) cout << "Reading " << (int) _header.size1 << " blocks ..." << endl;
             _haveHeader = true;
             _preambleSync = true;
+            _preambleCount = 0;
             _preambleBitsExpected = 40;
         }
         return;
@@ -143,9 +136,9 @@ void TapeDecode::decodeBlock (int byte)
         /*  Turn back on preamble synchronisatoin to sync with the next data
          *  block */
         _preambleSync = true;
+        _preambleCount = 0;
         _preambleBitsExpected = 40;
     }
-
 
     /*  Do we have two complete blocks?  If so, compare them and calcualte
      *  checksums */
@@ -203,7 +196,6 @@ void TapeDecode::decodeBlock (int byte)
             _errorsFound = true;
         }
 
-
         sum1 &= 0xff;
         sum2 &= 0xff;
 
@@ -248,18 +240,15 @@ void TapeDecode::decodeBlock (int byte)
     }
 }
 
-void TapeDecode::decodeBit (int bit)
+void TapeDecode::decodeBit (int bit, int position)
 {
-    static int byte;
-    static int preambleCount;
-
     if (bit && _preambleSync)
     {
-        if (_showRaw) cout << "preamble count=" << preambleCount << " of " << _preambleBitsExpected << endl;
+        if (_showRaw) cout << "preamble count=" << _preambleCount << " of " << _preambleBitsExpected << endl;
         /*  We expect the preamble to be 6144 bits at the start of the file and
          *  64 bits at the start of each block.  So if longer than 3072 bits we
          *  assume new record.  */
-        if (preambleCount > 3072)
+        if (_preambleCount > 3072)
         {
             _recordCount++;
 
@@ -272,376 +261,37 @@ void TapeDecode::decodeBit (int bit)
 
         /*  Reset the preamble bit count.  If we have seen at least 60 zero bits in a row we consider this to
          *  be a valid preamble and start reading data.  */
-        if (preambleCount > _preambleBitsExpected)
+        if (_preambleCount > _preambleBitsExpected)
+        {
             _preambleSync = false;
-
-        preambleCount = 0;
+            _preambleDuration = position - _preambleStart;
+        }
+        else
+        {
+            _preambleStart = position;
+        }
     }
 
     if (_preambleSync)
     {
-        preambleCount++;
+        _preambleCount++;
         return;
     }
 
-    byte <<= 1;
-    byte |= bit;
+    _currentByte <<= 1;
+    _currentByte |= bit;
     _bitCount++;
 
     if (_bitCount == 8)
     {
         if (_showRaw)
-            printf ("BYTE %02X (%d/%ld)\n", byte, _blockBytes, sizeof (struct __block));
-        decodeBlock (byte);
-        byte = 0;
+            printf ("BYTE %02X (%d/%ld)\n", _currentByte, _blockBytes, sizeof (struct __block));
+        decodeBlock (_currentByte);
+        _currentByte = 0;
         _bitCount = 0;
     }
 }
 
-class SampleFifo
-{
-private:
-    vector<int> _fifo;
-
-public:
-    static const int size = 64;
-    void add (int sample)
-    {
-        if (_fifo.size() == size)
-            _fifo.erase (_fifo.begin());
-
-        _fifo.push_back (sample);
-    }
-
-    int min (void)
-    {
-        int min = 32767;
-        for (auto x : _fifo)
-            if (x < min)
-                min = x;
-
-        return min;
-    }
-
-    int max (void)
-    {
-        int max = -32768;
-        for (auto x : _fifo)
-            if (x > max)
-                max = x;
-
-        return max;
-    }
-
-    /*  Take the sample from the mid-point of the fifo.  This means we lost the
-     *  first 32 samples but they are in the preamble at best so that's ok */
-    int get (void)
-    {
-        return _fifo[size/2];
-    }
-};
-
-static SampleFifo samples;
-
-class FrameFifo
-{
-private:
-    struct _frame
-    {
-        int width;
-        int error;
-        bool done;
-        char sym;
-    } ;
-    vector<struct _frame> _fifo;
-public:
-    const int maxSize = 5;
-
-    void remove (int n)
-    {
-        for (int i = 0; i < n; i++)
-            if (_fifo.size() > 0)
-                _fifo.erase(_fifo.begin());
-    }
-
-    void add (int width, char sym)
-    {
-        struct _frame f;
-        f.width = width;
-        f.error = 30 - width;
-        f.done = false;
-        f.sym = sym;
-        _fifo.push_back (f);
-    }
-
-    int size ()
-    {
-        return (int) _fifo.size();
-    }
-
-    void show ()
-    {
-        printf ("\"");
-        for (auto it : _fifo)
-            printf ("%d=%c ", it.width, it.sym);
-        printf ("\"");
-    }
-
-    int findNext (TextGraph& graph)
-    {
-       /*  Find first unprocessed frame */
-        int next = 0;
-        while (_fifo[next].done)
-            next++;
-        
-        /*  Keep no more than 2 finished frames */
-        while (next > 2)
-        {
-            graph.remove (_fifo[0].width + 1);
-            remove (1);
-            next--;
-        }
-
-        return next;
-    }
-
-    void identify (int index, char sym)
-    {
-        _fifo[index].done = true;
-        _fifo[index].sym = sym;
-
-        /*  If symbol is first or second half of a ONE frame then we have
-         *  overestimated the error so reduce by half a frame */
-        if (sym == 'A' || sym == 'B')
-            _fifo[index].error -= 15;
-    }
-
-    int sumForward (int from, int count)
-    {
-        int sum = 0;
-
-        for (int i = 0; i < count; i++)
-            sum += _fifo[from+i].width;
-
-        return sum;
-    }
-
-    int width (int index)
-    {
-        return _fifo[index].width;
-    }
-    int error (int index)
-    {
-        return _fifo[index].error;
-    }
-};
-
-static FrameFifo frames;
-
-/*  Analyse the width of a frame to determine if it is a ZERO or a ONE.  ONEs
- *  must occur in pairs.  If it is unclear whether the frame being analysed is
- *  clearly a ONE or a ZERO then look at the errors in previous and next frames
- *  to try and make it more clear. */
-void TapeDecode::inputBitWidth (int width, int position)
-{
-    bool haveBit = false;
-    int bit = 0;
-
-    frames.add (width, '?');
-
-    /*  Maintain a fifo of frames so we can look at frames before and after the
-     *  one we are analysing */
-    if (frames.size () < 7) // SYMBOL_FIFO)
-        return;
-
-    if (_showRaw)
-    {
-        _graph.draw ();
-        frames.show ();
-    }
-
-    int next = frames.findNext (_graph);
-    int sum = frames.sumForward (next, 2);
-    int sumNext = frames.sumForward (next+1, 2);
-
-    if (sum < 40)
-    {
-        /*  The sum of this frame and the next frame is short enough that both
-         *  are ONE so identify both */
-        if (_showRaw)
-            printf ("[%d+%d=%d ONE]\n", frames.width (next), frames.width (next+1), sum);
-
-        bit = 1;
-        haveBit = true;
-        frames.identify (next, 'A');
-        frames.identify (next+1, 'B');
-    }
-    else if (sum > 56)
-    {
-        /*  The sum of this frame and the next frame is long enough that both
-         *  must be ZERO so identify this frame as ZERO */
-        if (_showRaw)
-            printf ("[%d+%d=%d ZERO]\n", frames.width (next), frames.width (next+1), sum);
-
-        bit = 0;
-        haveBit = true;
-        frames.identify (next, '0');
-    }
-    else if (frames.width (next) > 23)
-    {
-        /*  This frame is long enough that it must be a ZERO so identify it */
-        if (_showRaw)
-            printf ("[%d ZERO]\n", frames.width (next));
-
-        bit = 0;
-        haveBit = true;
-        frames.identify (next, '0');
-    }
-    else
-    {
-        /*  This frame seems to be too short to be a ONE, look at frames before
-         *  and after this one */
-        if (frames.width (next+1) > 30)
-        {
-            if (_showRaw)
-                printf ("[%d short ZERO]\n", frames.width (next));
-            /* Next frame is longer than a ZERO, so we can't be a ONE, we must be a
-             * shortened ZERO */
-            bit = 0;
-            haveBit = true;
-            frames.identify (next, '0');
-        }
-        else
-        {
-            /*  This frame is too short to be ZERO but the next frame may not be a
-             *  ONE.  Take the error from the previous frame into account and see
-             *  does that make this frame more likely to be to a ZERO */
-            int err = frames.error (next-1);
-            if (sumNext < 45)
-            {
-                /*  The next two frames seem to be ONEs.  Add their error and see
-                 *  does that clarify things */
-                err += 15 - sumNext;
-
-                if (frames.width (next) - err < 22)
-                {
-                    /*  Taking the error from previous and next frames into
-                     *  account indicates we are short enough to be a ONE which
-                     *  means the next frame must also be a ONE */
-                    if (_showRaw)
-                        printf ("[%d,%d context ONE]\n", frames.width (next),
-                        frames.width(next+1));
-                    bit = 1;
-                    haveBit = true;
-                    frames.identify (next, 'A');
-                    frames.identify (next+1, 'B');
-                }
-                else if (frames.width (next) - err > 27)
-                {
-                    /*  Taking the error from previous and next makes it look
-                     *  like we are a ZERO so identify it */
-                    if (_showRaw)
-                        printf ("[%d context ZERO]\n", frames.width (next));
-                    bit = 0;
-                    haveBit = true;
-                    frames.identify (next, '0');
-                }
-            }
-        }
-    }
-
-    if (!haveBit)
-    {
-        /*  We still don't know what this frame is.  Just have to drop it  */
-        if (_showRaw) 
-            printf (" : [%d=???] pos=%d prev-err=%d nextw=%d new-w=%d\n",
-                    frames.width (next), position, frames.error (next-1), frames.width
-                    (next+1), sumNext);
-
-        frames.identify (next, 'X');
-        return;
-    }
-
-    if (_showRaw) printf ("BIT %d = %d\n", _blockBytes*8+_bitCount, bit);
-    decodeBit (bit);
-    if (_showRaw) printf ("=======================\n");
-}
-
-/*  Take data from a WAV file and carve it up into bits.  Due to some recorded
- *  files having DC offsets or mains hum elements, detecting zero crossings only
- *  was found to be unreliable.  Instead, maintain local min and max vars to
- *  track sine wave peaks.  Apply hysteresis to the detection so switch the bit
- *  from a zero to a one or vice versa once 50% of the peak is seen.  To apply
- *  gain control, the peak is diminished by 1% per sample, which is about 72%
- *  per bit (32 samples).  We look for 80% of peak which is a relative
- *  ampltitude of 0.5 before changing state. */
-bool TapeDecode::inputWav (Files *outputFile, const char *inputName, bool showParams)
-{
-    WavFile wav;
-    int16_t sample;
-    int changeCount = 0;
-    int state = 0;
-    int lastState = 0;
-
-    _file = outputFile;
-
-    if (!wav.openRead (inputName, showParams))
-    {
-        cerr << "read fail" << endl;
-        return false;
-    }
-
-    for (int i = 0; i < samples.size; i++)
-    {
-        sample = wav.readSample ();
-        samples.add (sample);
-    }
-
-    for (int i = 0; i < wav.getSampleCount (); i++)
-    {
-        samples.add (wav.readSample ());
-        sample = samples.get ();
-
-        double localMin = samples.min();
-        double localMax = samples.max();
-
-        double amp = localMax - localMin;
-        double zerocross = (localMin+localMax) / 2;
-
-        /* Apply a bit of hysteresis */
-        if (state && sample < zerocross - amp * .05)
-            state = 0;
-
-        if (!state && sample > zerocross + amp * .05)
-            state = 1;
-
-        _graph.add (sample, localMin, localMax, zerocross, state);
-
-        if (state == lastState)
-        {
-            changeCount++;
-            continue;
-        }
-
-        /*  Found a frame, analyse it */
-        _graph.vertical();
-        inputBitWidth (changeCount, i);
-        lastState = state;
-        changeCount = 0;
-    }
-
-    /*  Do a final call to process the width of the last sample */
-    inputBitWidth (changeCount, 0);
-    wav.close ();
-
-    if (!_file->setSize (_blockCount * 64))
-    {
-        cerr << "resize fail" << endl;
-        return false;
-    }
-
-    return true;
-}
 
 #define MAX_PROGRAM_SIZE    0x4000
 #define BIT_DURATION        730000 // 730 usec = 1370 Hz
@@ -721,6 +371,44 @@ void TapeDecode::showResult ()
     }
 }
 
+class Decoder : public FMDecoder
+{
+public:
+    void decodeBit (int bit) { tape.decodeBit (bit, 0); }
+};
+
+bool TapeDecode::inputWav (Files *outputFile, const char *inputName, bool showParams)
+{
+    WavFile wav;
+    Decoder decoder;
+
+    _file = outputFile;
+
+    if (!wav.openRead (inputName, showParams))
+    {
+        cerr << "read fail" << endl;
+        return false;
+    }
+
+    if (_showRaw)
+        decoder.showRaw ();
+
+    for (int i = 0; i < wav.getSampleCount (); i++)
+    {
+        decoder.input (wav.readSample ());
+    }
+
+    wav.close ();
+
+    if (!_file->setSize (_blockCount * 64))
+    {
+        cerr << "resize fail" << endl;
+        return false;
+    }
+
+    return true;
+}
+
 int main (int argc, char *argv[])
 {
     char c;
@@ -748,7 +436,8 @@ int main (int argc, char *argv[])
 
     if (argc - optind < 1)
     {
-        cout << "\nTool to read and write wav files for cassette audio\n\n" 
+        cout << "\nTool to read and write wav files for cassette audio "
+                "version " VERSION "\n\n" 
                 "usage: " << argv[0] << " [-c <file>] [-e <file>] [-vrwt] <wav-file>\n" 
                 "\t where -c=create WAV from <file> (TIFILES or tokenised TI basic)\n"
                 "\t       -e=extract to <file>, -v=verbose, -t=add tifiles header,\n"

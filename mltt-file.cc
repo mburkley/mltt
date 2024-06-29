@@ -89,7 +89,7 @@ int main (int argc, char *argv[])
 
     if (argc - optind < 1)
     {
-        printf ("\nTIFILES reader / writer\n\n");
+        printf ("\nTIFILES reader / writer version " VERSION "\n\n");
         printf ("usage: %s [-tbv3de] <in-file> [<out-file>]\n", argv[0]);
         printf ("\twhere <in-file> is a binary file with or without a TIFILES header\n");
         printf ("\tand <out-file> is the output file.  If <out-file> is not supplied\n");
