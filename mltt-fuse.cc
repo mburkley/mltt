@@ -598,7 +598,7 @@ int main(int argc, char *argv[])
 {
     if (argc < 2)
     {
-        printf ("\nFUSE driver for TI99 sector dump files\n\n"
+        printf ("\nFUSE driver for TI99 sector dump files version " VERSION "\n\n"
                 "usage: %s <dsk-file> [fuse-options] <mount-point>\n", argv[0]);
         printf ("\twhere <dsk-file> is a sector dump disk file.\n\n");
         return 1;

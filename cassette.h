@@ -27,7 +27,9 @@
 
 #include "wav.h"
 
-#define CASSETTE_AMPLITUDE 16383 // 2^14-1, 3dB attenuation
+/*  Cassette audio needs to be LOUD.  Removing attenuation */
+// #define CASSETTE_AMPLITUDE 16383 // 2^14-1, 3dB attenuation
+#define CASSETTE_AMPLITUDE 32767 // 0dB attenuation
 #define CASSETTE_SAMPLE_RATE 44100
 #define CASSETTE_BITS_PER_SAMPLE    8
 #define CASSETTE_FILE_NAME "cassette.wav"

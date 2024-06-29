@@ -377,11 +377,10 @@ public:
     void decodeBit (int bit) { tape.decodeBit (bit, 0); }
 };
 
-static Decoder decoder;
-
 bool TapeDecode::inputWav (Files *outputFile, const char *inputName, bool showParams)
 {
     WavFile wav;
+    Decoder decoder;
 
     _file = outputFile;
 
@@ -437,7 +436,8 @@ int main (int argc, char *argv[])
 
     if (argc - optind < 1)
     {
-        cout << "\nTool to read and write wav files for cassette audio\n\n" 
+        cout << "\nTool to read and write wav files for cassette audio "
+                "version " VERSION "\n\n" 
                 "usage: " << argv[0] << " [-c <file>] [-e <file>] [-vrwt] <wav-file>\n" 
                 "\t where -c=create WAV from <file> (TIFILES or tokenised TI basic)\n"
                 "\t       -e=extract to <file>, -v=verbose, -t=add tifiles header,\n"

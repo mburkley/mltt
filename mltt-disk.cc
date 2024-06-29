@@ -106,7 +106,7 @@ int main (int argc, char *argv[])
 
     if (argc - optind < 1)
     {
-        printf ("\nSector dump disk file read tool\n\n");
+        printf ("\nSector dump disk file read tool version " VERSION "\n\n");
                 // "usage: %s [-x <extract-file>] [-r <remove-file>] [-a <add-file>] <dsk-file>\n\n", argv[0]);
         printf ("usage: %s [-x <extract-file>] "
                 "[-f -n <name> -t <tracks> -p <sectors-per-track> -s <sides>]] <dsk-file>\n", argv[0]);

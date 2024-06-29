@@ -37,19 +37,16 @@ bool FMDecoder::proximity (int offset, int centre, int width)
     return false;
 }
 
-void FMDecoder::findLocalMinMax ()
+vector<int> FMDecoder::findLocalMinMax ()
 {
     int min = 32767;
     int max = -32767;
-    _localMinMax.clear ();
     bool isMin = false;
 
-    for (unsigned i = 0; i < _fifo.size(); i++)
+    for (auto it : _fifo)
     {
-        if (_fifo[i] < min)
-            min = _fifo[i];
-        if (_fifo[i] > max)
-            max = _fifo[i];
+        if (it < min) min = it;
+        if (it > max) max = it;
     }
 
     _graph.limits (min, max);
@@ -57,7 +54,9 @@ void FMDecoder::findLocalMinMax ()
 
     /*  To start, create a local using the first sample.  Guess whether it is a
      *  min or a max by whether it is above or below the mid range */
-    _localMinMax.push_back (0);
+
+    vector<int> localMinMax;
+    localMinMax.push_back (0);
     int peak = _fifo[0];
     isMin = (peak < min + range / 2);
 
@@ -65,42 +64,37 @@ void FMDecoder::findLocalMinMax ()
     {
         /*  If this sample has a higher value then the peak then store it
          *  as a new local min / max.  */
+
         if ((isMin && _fifo[i] < peak) ||
             (!isMin && _fifo[i] > peak))
         {
-            _localMinMax.back() = i;
+            localMinMax.back() = i;
             peak = _fifo[i];
         }
 
         /*  If this value is more than 10% less than the peak value, then
          *  create a new local min/max and change from tracking min to max or
          *  vice versa */
+
         if ((isMin && _fifo[i] > peak + range / 10) ||
             (!isMin && _fifo[i] < peak - range / 10))
         {
-            _localMinMax.push_back (i);
+            localMinMax.push_back (i);
             peak = _fifo[i];
             isMin = !isMin;
         }
     }
+
+    return localMinMax;
 }
 
 Bit FMDecoder::analyseFrame (vector<int>& zc)
 {
-    /*  We should see at least 2 zero crossings in the fifo */
-    if (zc.size () < 2) //  || zc[0] > 48)
-    {
-        if (_showRaw)
-            cout << "DISCARD - no zc"<<endl;
-
-        _fifo.clear ();
-        return BIT_UNKNOWN;
-    }
-
     if (_showRaw) cout << "ZC : ";
 
     /*  If the first ZC is due to previous frame being a ONE then drop the first
      *  ZC.  Also if the 2nd ZC is exactly at the start of a frame */
+
     if (zc.size() >= 2 &&
        ((_prevBit == BIT_ONE && zc[0] < frameSize - 8) ||
         proximity (zc[1], frameSize, 8)))
@@ -109,9 +103,8 @@ Bit FMDecoder::analyseFrame (vector<int>& zc)
         zc.erase (zc.begin());
     }
 
-    /*  Drop any ZCs after the 3rd one */
-    // int last = zc.size() - 1;
-    while (zc.size() > 3) //  && zc[last-1] >= 56 && zc[last-1] > 72)
+    /*  Drop any ZCs after the 3rd one.  We are only interested in the first 3 */
+    while (zc.size() > 3)
     {
         if (_showRaw) cout << "drop end zc ";
         zc.erase (zc.begin()+3);
@@ -124,7 +117,11 @@ Bit FMDecoder::analyseFrame (vector<int>& zc)
         zc.erase (zc.begin()+2);
     }
 
-    /*  If the last bit was ambiguous */
+    /*  If the last bit was ambiguous, check if it is more clear now.  If the
+     *  second ZC is in the vicinity of the end of two frames or if the distance
+     *  between the 2nd and 3rd ZC is about half a frame then the ambiguous bit
+     *  was a ZERO */
+
     if (_showRaw) cout<<"prev="<<_prevBit<<" sz="<<zc.size()<<" z2-z1="<<zc[2]-zc[1]<<" ";
     if (_prevBit == BIT_UNKNOWN && 
        ((zc.size () == 2 && proximity (zc[1], frameSize * 2, frameSize / 4)) ||
@@ -144,13 +141,20 @@ Bit FMDecoder::analyseFrame (vector<int>& zc)
         offset = *it;
 
         /*  Timing recovery.  If a ZC is close to where we expect it to be for
-         *  two frames, then use it as a timing ref.  Two frames = frameSize * 2 samples so use it
-         *  if between 60 and 68 */
+         *  two frames, then use it as a timing ref.  Two frames ~= 64 samples
+         *  so use it if between 60 and 68 (proximity 4) */
+
         if (proximity (*it, frameSize * 2, 4))
         {
             delCount = *it - frameSize;
             if (_showRaw) cout << "(T:" << delCount << ") ";
         }
+
+        /*  Mark which ZCs are the begin and end of the frame.  If within the
+         *  proximity of one frame then it is the start, 2 frames then it is the
+         *  end.  We can use the difference between start and end to determine
+         *  if this is a ONE (distance 2, has a mid-frame ZC) or a ZERO
+         *  (distance 1, no mid-frame ZC) */
 
         if (proximity (*it, frameSize, 8))
             start = it - zc.begin();
@@ -159,15 +163,19 @@ Bit FMDecoder::analyseFrame (vector<int>& zc)
             end = it - zc.begin();
     }
 
+    /*  Remove one frame from the FIFO.  Default is 32 samples but may be
+     *  adjusted by timing recovery above */
+
     while (delCount--)
         _fifo.erase (_fifo.begin());
 
     if (zc.size() == 2 && end != 1 && proximity (zc[1], frameSize * 2, 16))
     {
-        /*  If the last ZC is early or late, then we may not think it is an end of
-         *  frame.  But if it is the last ZC in our list then the following
-         *  frame has been stretched or compressed, so assume this is a valid end of
-         *  frame */
+        /*  If the last ZC is early or late, then we may not think it is an end
+         *  of frame.  But if it is the last ZC in our list then the following
+         *  frame has been stretched or compressed, so assume this is a valid
+         *  end of frame */
+
         end = 1;
         if (_showRaw)
         {
@@ -176,22 +184,23 @@ Bit FMDecoder::analyseFrame (vector<int>& zc)
         }
     }
 
-    if (zc.size() == 2 && (end - start) == 1) // && !isOne)
+    if (zc.size() == 2 && (end - start) == 1)
     {
         if (_showRaw) cout << "VALID ZERO" << endl;
         _prevBit = BIT_ZERO;
         return BIT_ZERO;
     }
 
-    else if (zc.size() == 3 && (end - start) == 2) // && isOne)
+    else if (zc.size() == 3 && (end - start) == 2)
     {
         if (_showRaw) cout << "VALID ONE" << endl;
         _prevBit = BIT_ONE;
         return BIT_ONE;
     }
 
-    /*  When debugging, show a number of different ways of looking at unknown
-     *  bits */
+    /*  Not clearly a ONE or ZERO so dig deeper.  When debugging, show a number
+     *  of different ways of looking at unknown bits */
+
     if (_showRaw)
     {
         if (zc.size() == 2)
@@ -221,22 +230,10 @@ Bit FMDecoder::analyseFrame (vector<int>& zc)
     // return BIT_UNKNOWN;
 }
 
-void FMDecoder::findZeroCross ()
+vector<int> FMDecoder::findZeroCross (vector<int>& localMinMax)
 {
     int state = -1;
     vector<int> zc;
-
-    findLocalMinMax();
-
-    /*  If we do not have a local min and max in the fifo, then dump the fifo
-     *  and return */
-    if (_localMinMax.size() < 2)
-    {
-        if (_showRaw) cout << "DISCARD - no min/max"<<endl;
-        _fifo.clear ();
-        return;
-    }
-
     int index = 0;
 
     _graph.clear();
@@ -245,23 +242,28 @@ void FMDecoder::findZeroCross ()
     {
         /*  If a sample lies outside known local min or max then we can't
          *  process it so continue */
-        if (i <= _localMinMax.front() || i >= _localMinMax.back())
+
+        if (i <= localMinMax.front() || i >= localMinMax.back())
         {
             _graph.add (_fifo[i], 0, 0, 0);
             continue;
         }
 
+        if (i == localMinMax[0])
+            _graph.vertical('m');
+
         /*  If the sample lies beyond the current local min/max then advance the
          *  index.  It can't be beyond the last one so it is safe to increment
          *  the index */
-        if (i > _localMinMax[index+1])
+
+        if (i > localMinMax[index+1])
         {
             index++;
             _graph.vertical('m');
         }
 
-        int localMin = _fifo[_localMinMax[index]];
-        int localMax = _fifo[_localMinMax[index+1]];
+        int localMin = _fifo[localMinMax[index]];
+        int localMax = _fifo[localMinMax[index+1]];
 
         double zerocross = (localMin+localMax) / 2;
 
@@ -286,17 +288,14 @@ void FMDecoder::findZeroCross ()
         zc.push_back (i);
     }
 
-    Bit bit = analyseFrame (zc);
-
-    if (bit != BIT_UNKNOWN)
-        decodeBit (bit);
-
+    return zc;
 }
 
 /*  Take data from a WAV file and carve it up into bits.  Due to some recorded
  *  files having DC offsets or mains hum elements, detecting zero crossings only
  *  was found to be unreliable.  Instead, maintain local min and max vars to
  *  track sine wave peaks.  */
+
 void FMDecoder::input (int sample)
 {
     _fifo.push_back (sample);
@@ -305,6 +304,30 @@ void FMDecoder::input (int sample)
     if (_fifo.size() < fifoSize)
         return;
 
-    findZeroCross ();
+    vector<int> minMax = findLocalMinMax();
+
+    /*  If we do not have a local min and max in the fifo, then dump the fifo
+     *  and return */
+    if (minMax.size() < 2)
+    {
+        if (_showRaw) cout << "DISCARD - no min/max"<<endl;
+        _fifo.clear ();
+        return;
+    }
+
+    vector<int> zc = findZeroCross (minMax);
+
+    /*  We need to see at least 2 zero crossings in the fifo before analysing */
+    if (zc.size () < 2)
+    {
+        if (_showRaw) cout << "DISCARD - no zc"<<endl;
+        _fifo.clear ();
+        return;
+    }
+
+    Bit bit = analyseFrame (zc);
+
+    if (bit != BIT_UNKNOWN)
+        decodeBit (bit);
 }
 

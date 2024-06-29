@@ -21,8 +21,8 @@
  */
 
 /*
- *  This is the frequency modulation (FM) decoder class.  It is an astract class
- *  - users must inherit and implement a decodeBit function.
+ *  This is the frequency modulation (FM) decoder class.  It is an astract
+ *  class: users must inherit and implement a decodeBit function.
  *
  *  Samples are passed in one-by-one by calling input().  Samples are placed in
  *  a FIFO for processing.  The FIFO contains 3 frames, prev, curr and next, as
@@ -30,8 +30,10 @@
  *  can be a ONE bit or a ZERO bit.
  *
  *  The findLocalMinMax method is used to find local minima and maxima.  These
- *  are used to calculate zero cross (ZC) values which are then used to extract
- *  bit timings.
+ *  are used to calculate zero crossing (ZC) values which are then used to
+ *  extract bit timings.  A ZC is when the sample value crosses the mid-point
+ *  between a local min and max.  A ZC is not necessarily at zero due to DC or
+ *  low frequency (e.g.  mains hum) elements in the signal.
  *
  *  If a bit in a frame can be identified, the decodeBit method is called.  If
  *  not, the bit is marked as BIT_UNKOWN with the assumption that decoding the
@@ -58,9 +60,10 @@ public:
     void input (int sample);
     virtual void decodeBit (int bit) = 0;
     void showRaw () { _showRaw = true; }
+    FMDecoder () { _showRaw = false; _prevBit = BIT_UNKNOWN; }
 private:
-    void findLocalMinMax ();
-    void findZeroCross ();
+    vector<int> findLocalMinMax ();
+    vector<int> findZeroCross (vector<int>& localMinMax);
 
     /*  Check if an offset is proximate to a position */
     bool proximity (int offset, int centre, int width);
@@ -68,16 +71,9 @@ private:
     /*  Analyse the contents of the FIFO to identify frames */
     Bit analyseFrame (vector<int>& zc);
 
-    /*  The samples FIFO */
-    vector<int> _fifo;
-
-    /*  A list of local minima and maxima */
-    vector<int> _localMinMax;
+    vector<int> _fifo;          /*  The samples FIFO */
     Bit _prevBit;
-
-    /*  For debug, draw a graph of the wave being examined */
-    TextGraph _graph;
-
+    TextGraph _graph;           /*  For debug, draw a graph of the wave being examined */
     bool _showRaw;
 };
 
