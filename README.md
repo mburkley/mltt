@@ -6,7 +6,9 @@ computer.  It should build on most Linux distros but I have only tested on
 Debian and Ubuntu.
 
 To build, just clone from main and make.  libraries etc have to be manually installed.
-The emulator depends on GL, glut, pulse-audio and readline libraries.
+The emulator depends on GL, glut, pulse-audio and readline libraries.  These can be installed on debian/ubuntu with:
+
+    apt install libglut-dev libpulse-dev libreadline-dev libfuse3-dev
 
 There is also an experimental web interface [here][1] using a
 nodejs backend to execute the CLI.  This supports just cassette tape file
