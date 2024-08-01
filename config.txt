@@ -114,7 +114,7 @@ diskfile 2 ../disks/EdAsmB.dsk RO
 #  Misc
 #
 # grom ../roms/AdvtureG.Bin 0x6000
-grom ../roms/AmazingG.Bin 0x6000
+# grom ../roms/AmazingG.Bin 0x6000
 # load ../roms/BARRAGEC.BIN 0x6000
 # load ../roms/BARRAGED.BIN 0x6000 1
 # load ../roms/BEYPARSC.BIN 0x6000
@@ -128,7 +128,7 @@ grom ../roms/AmazingG.Bin 0x6000
 # load ../roms/CongBngC.Bin 0x6000
 # grom ../roms/CongBngG.Bin 0x6000
 # load ../roms/DEFENDC.BIN 0x6000
-grom ../roms/Ed-AssmG.Bin 0x6000
+# grom ../roms/Ed-AssmG.Bin 0x6000
 # grom ../roms/HtWmpusG.Bin 0x6000
 # load ../roms/ParsecC.Bin 0x6000
 # grom ../roms/ParsecG.Bin 0x6000
@@ -138,9 +138,9 @@ grom ../roms/Ed-AssmG.Bin 0x6000
 #
 #  Extended Basic
 #
-# load ../roms/TIExtBC.Bin 0x6000
-# load ../roms/TIExtBD.Bin 0x6000 1
-# grom ../roms/TIExtBG.Bin 0x6000
+load ../roms/TIExtBC.Bin 0x6000
+load ../roms/TIExtBD.Bin 0x6000 1
+grom ../roms/TIExtBG.Bin 0x6000
 # load ../roms/XB25C.BIN 0x6000
 # load ../roms/XB25D.BIN 0x6000 1
 # grom ../roms/XB25G.BIN 0x6000

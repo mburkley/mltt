@@ -146,7 +146,7 @@ int main (int argc, char *argv[])
 
         /*  Allocate a buffer to receive the tokenised output which is 50% bigger
          *  than the source code input */
-        output.realloc (size * 1.5);
+        output.realloc (size * 10);
 
         if (convertBasic)
         {
@@ -181,7 +181,7 @@ int main (int argc, char *argv[])
 
         /*  Allocate a buffer to receive the tokenised output which is 50% bigger
          *  than the source code input */
-        output.realloc (size * 1.5);
+        output.realloc (size * 10);
 
         if (convertBasic)
         {

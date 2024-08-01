@@ -59,7 +59,6 @@ static int decodeUnquotedString (char **output, uint8_t *data)
 {
     int strlen = *data++;
 
-    // *output = outPrintf (*output, "'%-*.*s'", strlen, strlen, data);
     *output = outPrintf (*output, "%-*.*s", strlen, strlen, data);
 
     return strlen+1;
@@ -72,17 +71,10 @@ static int decodeLineNumber (char **output, uint8_t *data)
     return 2;
 }
 
-/*  Spacing is tricky.  Spaces are needed
- *  before unquoted string IF previous was multi-char token
- *  before char sequence IF previous was multi-char token
- *  before line numbers
- *  before multi-char token IF prev was a line num
- *  before multi-char token IF prev was an unquoted string
- *  */
 static void decodeLine (char **output, uint8_t *data, bool debug)
 {
-    bool space = false;
     int lineLen = *data++ - 1;
+    int prevToken = TOKEN_EOL;
 
     if (debug) *output += sprintf (*output, "line-len=%d\n", lineLen);
 
@@ -94,39 +86,25 @@ static void decodeLine (char **output, uint8_t *data, bool debug)
         int stlen = 1;
         if (*data < 0x80)
         {
-            if (space)
-                *(*output)++ = ' ';
-
-            if (debug)
-                *output += sprintf (*output, "[%c]", *data);
-            else
-                *output += sprintf (*output, "%c", *data);
-
-            space = false;
+            *output += sprintf (*output, "%c", *data);
         }
         else if (*data == TOKEN_QUOTED_STRING)
         {
-            if (space) *(*output)++ = ' ';
-            if (debug) *output += sprintf (*output, "[QS:");
+            if (debug) *output += sprintf (*output, "[");
             stlen += decodeQuotedString (output, data+1);
             if (debug) *output += sprintf (*output, "]");
-            space = false;
         }
         else if (*data == TOKEN_UNQUOTED_STRING)
         {
-            if (space) *(*output)++ = ' ';
-            if (debug) *output += sprintf (*output, "[UQS:'");
+            if (debug) *output += sprintf (*output, "['");
             stlen += decodeUnquotedString (output, data+1);
             if (debug) *output += sprintf (*output, "']");
-            space = true;
         }
         else if (*data == TOKEN_LINE_NUMBER)
         {
-            if (space) *(*output)++ = ' ';
-            if (debug) *output += sprintf (*output, "[LINE:'");
+            if (debug) *output += sprintf (*output, "[#");
             stlen += decodeLineNumber (output, data+1);
-            if (debug) *output += sprintf (*output, "']");
-            space = true;
+            if (debug) *output += sprintf (*output, "]");
         }
         else
         {
@@ -134,16 +112,22 @@ static void decodeLine (char **output, uint8_t *data, bool debug)
             for (i = 0; i < NUM_TOKENS; i++)
                 if (tokens[i].byte == *data)
                 {
-                    if (strlen (tokens[i].token) > 1 && space)
-                        *(*output)++ = ' ';
+                    if ((*data == TOKEN_COLON && prevToken == TOKEN_COLON) ||
+                        ((tokens[i].space && prevToken != TOKEN_EOL) &&
+                        (prevToken < 0x80 ||
+                         prevToken == TOKEN_LINE_NUMBER ||
+                         prevToken == TOKEN_UNQUOTED_STRING ||
+                         prevToken == TOKEN_QUOTED_STRING)))
+                    {
+                             *(*output)++ = ' ';
+                    }
 
-                    // *output += sprintf (*output, "{%s}", tokens[i].token);
-                    if (debug) *output += sprintf (*output, "[TOK-%02x:'", tokens[i].byte);
+                    if (debug) *output += sprintf (*output, "[%02x-", tokens[i].byte);
                     *output += sprintf (*output, "%s", tokens[i].token);
-                    if (debug) *output += sprintf (*output, "']");
+                    if (debug) *output += sprintf (*output, "]");
 
-                    space = (strlen (tokens[i].token) > 1);
-
+                    if (tokens[i].space)
+                         *(*output)++ = ' ';
                     break;
                 }
 
@@ -151,6 +135,7 @@ static void decodeLine (char **output, uint8_t *data, bool debug)
                 *output += sprintf (*output, "[??? %02X]", *data);
         }
 
+        prevToken = *data;
         data += stlen;
         lineLen -= stlen;
     }
