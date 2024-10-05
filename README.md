@@ -72,6 +72,9 @@ headers, tokenise or detokenise basic and encode / decode DIS/VAR files.
 Release Notes
 -------------
 
+version 0.94
+* Fixed disassemble command
+
 version 0.93
 * Added new methods to cassette WAV read to detect and correct more errors
 

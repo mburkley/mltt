@@ -25,7 +25,7 @@ load ../roms/994arom.bin 0x0000
 grom ../roms/994agrom.bin 0x0000
 
 # load my ROM
-# load /home/mark/tms9900-gcc/test/test.bin 0x6000
+load /home/mark/tms9900-gcc/test/test.bin 0x6000
 # load ../CROSS-LIB/build/XSTINGER1 0x6000
 
 # Enable DSK
@@ -138,9 +138,9 @@ diskfile 2 ../disks/EdAsmB.dsk RO
 #
 #  Extended Basic
 #
-load ../roms/TIExtBC.Bin 0x6000
-load ../roms/TIExtBD.Bin 0x6000 1
-grom ../roms/TIExtBG.Bin 0x6000
+# load ../roms/TIExtBC.Bin 0x6000
+# load ../roms/TIExtBD.Bin 0x6000 1
+# grom ../roms/TIExtBG.Bin 0x6000
 # load ../roms/XB25C.BIN 0x6000
 # load ../roms/XB25D.BIN 0x6000 1
 # grom ../roms/XB25G.BIN 0x6000
