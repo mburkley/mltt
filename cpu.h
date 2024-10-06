@@ -23,7 +23,8 @@
 #ifndef __CPU_H
 #define __CPU_H
 
-#include "types.h"
+#include <iostream>
+#include <cstdlib>
 
 #define AMODE_NORMAL    0
 #define AMODE_INDIR     1
@@ -108,6 +109,8 @@
 #define OP_SOC  0xE000
 #define OP_SOCB 0xF000
 
+
+
 #define FLAG_LGT 0x8000
 #define FLAG_AGT 0x4000
 #define FLAG_EQ  0x2000
@@ -117,20 +120,62 @@
 #define FLAG_XOP 0x0200
 #define FLAG_MSK 0x000F
 
-
-uint16_t cpuRead(uint16_t addr);
-void cpuShowStatus(void);
-void cpuShowStWord(void);
-uint16_t cpuDecode (uint16_t data, uint16_t *type);
-void cpuExecute (uint16_t data);
-uint16_t cpuFetch (void);
-uint16_t cpuGetPC (void);
-uint16_t cpuGetWP (void);
-uint16_t cpuGetST (void);
-uint16_t cpuGetIntMask (void);
-void cpuInterrupt (int level);
-void cpuBoot (void);
-
+class TMS9900
+{
+public:
+    // uint16_t read(uint16_t addr);
+    void showStatus(void);
+    void showStWord(void);
+    uint16_t decode (uint16_t data, uint16_t *type);
+    void execute (uint16_t data);
+    uint16_t fetch (void);
+    uint16_t getPC (void) { return _pc; }
+    uint16_t getWP (void) { return _wp; }
+    uint16_t getST (void) { return _st; }
+    uint16_t getIntMask (void) { return _st & FLAG_MSK; }
+    void interrupt (int level);
+    void boot (void);
+private:
+    uint16_t _pc;
+    uint16_t _wp;
+    uint16_t _st;
+    virtual uint16_t _memReadW (uint16_t addr) { return 0; }
+    virtual uint8_t _memReadB (uint16_t addr) { return 0; }
+    virtual void _memWriteW (uint16_t addr, uint16_t data) { }
+    virtual void _memWriteB (uint16_t addr, uint8_t data) { }
+    virtual void _debug (const char *s, ...) {}
+    virtual void _unasmPostText (const char *s, ...) {}
+    virtual uint16_t _unasmPreExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcode) { return 0; }
+    virtual void _unasmPostPrint (void) {}
+    virtual int _interruptLevel (int mask) { return 0; }
+    virtual void _halt (const char *s) { std::cerr << s; exit(1); }
+    virtual void _cruBitOutput (uint16_t base, uint16_t offset, uint8_t state) {}
+    virtual void _cruMultiBitSet (uint16_t base, uint16_t data, int nBits) {}
+    virtual uint16_t _cruMultiBitGet (uint16_t base, uint16_t offset) { return 0; }
+    virtual uint8_t _cruBitGet (uint16_t base, int8_t bitOffset) { return 0; }
+    void _blwp (uint16_t addr);
+    void _rtwp (void);
+    void _jumpAnd (uint16_t setMask, uint16_t clrMask, uint16_t offset);
+    void _jumpOr (uint16_t setMask, uint16_t clrMask, uint16_t offset);
+    void _statusCarry (bool condition);
+    void _statusOverflow (bool condition);
+    void _statusEqual (bool condition);
+    void _statusLogicalGreater (bool condition);
+    void _statusArithmeticGreater (bool condition);
+    void _statusParity (uint8_t value);
+    char *_outputStatus (void);
+    void _compareWord (uint16_t sData, uint16_t dData);
+    void _compareByte (uint16_t sData, uint16_t dData);
+    uint16_t _operandDecode (uint16_t mode, uint16_t reg, bool isByte);
+    uint16_t _operandFetch (uint16_t mode, uint16_t reg, uint16_t addr, bool isByte, bool doFetch);
+    void _executeImmediate (uint16_t opcode, uint16_t reg);
+    void _executeSingle (uint16_t opcode, uint16_t mode, uint16_t reg);
+    void _executeShift (uint16_t opcode, uint16_t reg, uint16_t count);
+    void _executeJump (uint16_t opcode, int16_t offset);
+    void _executeDual1 (uint16_t opcode, uint16_t dReg, uint16_t sMode, uint16_t sReg);
+    void _executeDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
+                                 uint16_t sMode, uint16_t sReg, bool isByte);
+};
 
 #endif
 

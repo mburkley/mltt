@@ -131,6 +131,7 @@ static void statusPrintf (const char *fmt, ...)
         }
     }
 }
+    extern TMS9900 cpu;
 
 void statusPaneDisplay (void)
 {
@@ -151,9 +152,9 @@ void statusPaneDisplay (void)
     statusPrintf ("  St:%02X\n", vdpReadStatus());
 
     statusPrintf("\nCPU:\n");
-    statusPrintf("  PC:%04X\n", cpuGetPC());
-    statusPrintf("  WP:%04X\n", cpuGetWP());
-    statusPrintf("  ST:%04X\n", cpuGetST());
+    statusPrintf("  PC:%04X\n", cpu.getPC());
+    statusPrintf("  WP:%04X\n", cpu.getWP());
+    statusPrintf("  ST:%04X\n", cpu.getST());
 
     statusPrintf("\nGROM:\n");
     statusPrintf("  PC:%04X\n", gromAddr());

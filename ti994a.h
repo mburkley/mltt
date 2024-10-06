@@ -25,7 +25,7 @@
 
 #include "cpu.h"
 
-void ti994aRun (int instPerInterrupt);
+void ti994aRun (TMS9900 &cpu, int instPerInterrupt);
 void ti994aInit (void);
 void ti994aClose (void);
 void ti994aShowScratchPad (bool showGplUsage);

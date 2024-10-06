@@ -85,7 +85,7 @@ void ti994aShowScratchPad (bool showGplUsage)
     printf ("\n");
 }
 
-void ti994aRun (int instPerInterrupt)
+void ti994aRun (TMS9900 &cpu, int instPerInterrupt)
 {
     static int count;
 
@@ -93,10 +93,10 @@ void ti994aRun (int instPerInterrupt)
     printf("enter run loop\n");
 
     while (ti994aRunFlag &&
-           !breakPointHit (cpuGetPC()) &&
+           !breakPointHit (cpu.getPC()) &&
            !conditionTrue ())
     {
-        uint16_t opcode = cpuFetch ();
+        uint16_t opcode = cpu.fetch ();
         bool shouldBlock = false;
 
         /*  Check if the instruction we are about to execute is >10FF, which is
@@ -119,7 +119,7 @@ void ti994aRun (int instPerInterrupt)
          *
          *  Messes up frogger, TODO
          */
-        // if (cpuGetIntMask() == 2 && count >= instPerInterrupt)
+        // if (cpu.getIntMask() == 2 && count >= instPerInterrupt)
         if (count >= instPerInterrupt)
         {
             shouldBlock = true;
@@ -132,7 +132,7 @@ void ti994aRun (int instPerInterrupt)
             timerPoll ();
         }
 
-        cpuExecute (opcode);
+        cpu.execute (opcode);
         count++;
 
         watchShow();

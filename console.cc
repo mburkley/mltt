@@ -66,6 +66,8 @@ static int instPerInterrupt;
 static bool statusPane;
 static int pixelSize = 4;
 
+extern TMS9900 cpu;
+
 static void sigHandler (int signo)
 {
     int i;
@@ -193,7 +195,7 @@ bool consolePeek (int argc, char *argv[])
     bool vdp = false;
 
     if (!strncmp (argv[1], "cpu", strlen(argv[1])))
-        cpuShowStatus();
+        cpu.showStatus();
     else if (!strncmp (argv[1], "pad", strlen(argv[1])))
         ti994aShowScratchPad (false);
     else if (!strncmp (argv[1], "padgpl", strlen(argv[1])))
@@ -305,7 +307,7 @@ bool consolePoke (int argc, char *argv[])
 bool consoleGo (int argc, char *argv[])
 {
     printf ("Running\n");
-    ti994aRun (instPerInterrupt);
+    ti994aRun (cpu, instPerInterrupt);
 
     return true;
 }
@@ -320,7 +322,7 @@ bool consoleReadInput (int argc, char *argv[])
 
 bool consoleBoot (int argc, char *argv[])
 {
-    cpuBoot ();
+    cpu.boot ();
 
     return true;
 }
@@ -661,8 +663,8 @@ static void input (FILE *fp)
 
     if (fp == NULL && argc == 0)
     {
-        cpuExecute (cpuFetch());
-        cpuShowStatus ();
+        cpu.execute (cpu.fetch());
+        cpu.showStatus ();
         gromShowStatus ();
         return;
     }

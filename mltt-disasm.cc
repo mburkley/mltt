@@ -38,6 +38,7 @@ int main (int argc, char *argv[])
 {
     int addr;
     uint16_t pc;
+    TMS9900 cpu;
 
     if (argc < 3 || !parseValue (argv[2], &addr))
     {
@@ -58,7 +59,7 @@ int main (int argc, char *argv[])
         uint16_t data = memReadW (pc);
         pc += 2;
         uint16_t type;
-        uint16_t opcode = cpuDecode (data, &type);
+        uint16_t opcode = cpu.decode (data, &type);
         uint16_t paramWords = unasmPreExec (pc, data, type, opcode);
 
         unasmPostPrint ();

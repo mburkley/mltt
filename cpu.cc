@@ -25,20 +25,18 @@
  */
 
 #include "types.h"
+
+#include "cpu.h"
+
+#if 0
+#include "types.h"
 #include "cpu.h"
 #include "interrupt.h"
 #include "cru.h"
 #include "unasm.h"
 #include "mem.h"
 #include "trace.h"
-
-struct
-{
-    uint16_t pc;
-    uint16_t wp;
-    uint16_t st;
-}
-tms9900;
+#endif
 
 typedef struct
 {
@@ -118,127 +116,109 @@ static OpGroup opGroup[64] =
     { 0xFC00, OPTYPE_DUAL2,   0xF000 }
 };
 
-#define REGR(r) memReadW(tms9900.wp+((r)<<1))
-#define REGW(r,d) memWriteW(tms9900.wp+((r)<<1),d)
+TMS9900 cpu;
 
-uint16_t cpuFetch (void)
+#define REGR(r) _memReadW(_wp+((r)<<1))
+#define REGW(r,d) _memWriteW(_wp+((r)<<1),d)
+
+uint16_t TMS9900::fetch (void)
 {
     uint16_t ret;
 
-    ret = memReadW(tms9900.pc);
-    tms9900.pc += 2;
+    ret = _memReadW(_pc);
+    _pc += 2;
     return ret;
 }
 
-uint16_t cpuGetPC (void)
+void TMS9900::_blwp (uint16_t addr)
 {
-    return tms9900.pc;
-}
+    uint16_t owp = _wp;
+    uint16_t opc = _pc;
 
-uint16_t cpuGetWP (void)
-{
-    return tms9900.wp;
-}
+    _wp = _memReadW (addr);
+    _pc = _memReadW (addr+2);
 
-uint16_t cpuGetST (void)
-{
-    return tms9900.st;
-}
-
-uint16_t cpuGetIntMask (void)
-{
-    return tms9900.st & FLAG_MSK;
-}
-
-static void blwp (uint16_t addr)
-{
-    uint16_t owp = tms9900.wp;
-    uint16_t opc = tms9900.pc;
-
-    tms9900.wp = memReadW (addr);
-    tms9900.pc = memReadW (addr+2);
-
-    mprintf (LVL_CPU, "blwp @%x, wp=%x, pc=%x\n", addr, tms9900.wp, tms9900.pc);
+    _debug ("blwp @%x, wp=%x, pc=%x\n", addr, _wp, _pc);
 
     REGW (13, owp);
     REGW (14, opc);
-    REGW (15, tms9900.st);
+    REGW (15, _st);
 }
 
-static void rtwp (void)
+void TMS9900::_rtwp (void)
 {
-    tms9900.pc = REGR (14);
-    tms9900.st = REGR (15);
-    tms9900.wp = REGR (13);
+    _pc = REGR (14);
+    _st = REGR (15);
+    _wp = REGR (13);
 }
 
 /*  Jump if all bits in the set mask are set and all bits in the clear mask are
  *  clear */
-static void jumpAnd (uint16_t setMask, uint16_t clrMask, uint16_t offset)
+void TMS9900::_jumpAnd (uint16_t setMask, uint16_t clrMask, uint16_t offset)
 {
-    if ((tms9900.st & setMask) == setMask &&
-        (~tms9900.st & clrMask) == clrMask)
+    if ((_st & setMask) == setMask &&
+        (~_st & clrMask) == clrMask)
     {
-        unasmPostText("st=%04X[s=%04X&&c=%04X], jump", tms9900.st, setMask,
+        _unasmPostText("st=%04X[s=%04X&&c=%04X], jump", _st, setMask,
         clrMask);
-        tms9900.pc += offset << 1;
+        _pc += offset << 1;
     }
 }
 
 /*  Jump if any bits in the set mask are set or any bits in the clear mask are
  *  clear */
-static void jumpOr (uint16_t setMask, uint16_t clrMask, uint16_t offset)
+void TMS9900::_jumpOr (uint16_t setMask, uint16_t clrMask, uint16_t offset)
 {
-    if ((tms9900.st & setMask) != 0 ||
-        (~tms9900.st & clrMask) != 0)
+    if ((_st & setMask) != 0 ||
+        (~_st & clrMask) != 0)
     {
-        unasmPostText("st=%04X[s=%04X||c=%04X], jump", tms9900.st, setMask,
+        _unasmPostText("st=%04X[s=%04X||c=%04X], jump", _st, setMask,
         clrMask);
-        tms9900.pc += offset << 1;
+        _pc += offset << 1;
     }
 }
 
-static void statusCarry (bool condition)
+void TMS9900::_statusCarry (bool condition)
 {
     if (condition)
-        tms9900.st |= FLAG_C;
+        _st |= FLAG_C;
     else
-        tms9900.st &= ~FLAG_C;
+        _st &= ~FLAG_C;
 }
 
-static void statusOverflow (bool condition)
+void TMS9900::_statusOverflow (bool condition)
 {
     if (condition)
-        tms9900.st |= FLAG_OV;
+        _st |= FLAG_OV;
     else
-        tms9900.st &= ~FLAG_OV;
+        _st &= ~FLAG_OV;
 }
 
-static void statusEqual (bool condition)
+void TMS9900::_statusEqual (bool condition)
 {
     if (condition)
-        tms9900.st |= FLAG_EQ;
+        _st |= FLAG_EQ;
     else
-        tms9900.st &= ~FLAG_EQ;
+        _st &= ~FLAG_EQ;
 }
 
-static void statusLogicalGreater (bool condition)
+void TMS9900::_statusLogicalGreater (bool condition)
 {
     if (condition)
-        tms9900.st |= FLAG_LGT;
+        _st |= FLAG_LGT;
     else
-        tms9900.st &= ~FLAG_LGT;
+        _st &= ~FLAG_LGT;
 }
 
-static void statusArithmeticGreater (bool condition)
+void TMS9900::_statusArithmeticGreater (bool condition)
 {
     if (condition)
-        tms9900.st |= FLAG_AGT;
+        _st |= FLAG_AGT;
     else
-        tms9900.st &= ~FLAG_AGT;
+        _st &= ~FLAG_AGT;
 }
 
-static void statusParity (uint8_t value)
+void TMS9900::_statusParity (uint8_t value)
 {
     bool oddParity = false;
 
@@ -249,16 +229,16 @@ static void statusParity (uint8_t value)
     // printf("OP %02x = %s\n", value, oddParity ? "ODD" : "EVEN");
 
     if (oddParity)
-        tms9900.st |= FLAG_OP;
+        _st |= FLAG_OP;
     else
-        tms9900.st &= ~FLAG_OP;
+        _st &= ~FLAG_OP;
 }
 
-static char *outputStatus (void)
+char *TMS9900::_outputStatus (void)
 {
     static char text[10];
     char *tp = text;
-    int st = tms9900.st;
+    int st = _st;
 
     *tp++ = '[';
     if (st & 0x8000) *tp++ = 'G';
@@ -273,31 +253,32 @@ static char *outputStatus (void)
 
     return text;
 }
-static void compareWord (uint16_t sData, uint16_t dData)
+
+void TMS9900::_compareWord (uint16_t sData, uint16_t dData)
 {
-    statusEqual (sData == dData);
-    statusLogicalGreater (sData > dData);
-    // unasmPostText("[AGT:%x>%x]", (int16_t)sData, (int16_t)dData);
-    statusArithmeticGreater ((int16_t) sData > (int16_t) dData);
-    unasmPostText (outputStatus());
+    _statusEqual (sData == dData);
+    _statusLogicalGreater (sData > dData);
+    // _unasmPostText("[AGT:%x>%x]", (int16_t)sData, (int16_t)dData);
+    _statusArithmeticGreater ((int16_t) sData > (int16_t) dData);
+    _unasmPostText (_outputStatus());
 }
 
-static void compareByte (uint16_t sData, uint16_t dData)
+void TMS9900::_compareByte (uint16_t sData, uint16_t dData)
 {
-    statusEqual (sData == dData);
-    statusLogicalGreater (sData > dData);
-    statusArithmeticGreater ((int8_t) sData > (int8_t) dData);
-    unasmPostText (outputStatus());
+    _statusEqual (sData == dData);
+    _statusLogicalGreater (sData > dData);
+    _statusArithmeticGreater ((int8_t) sData > (int8_t) dData);
+    _unasmPostText (_outputStatus());
 }
 
-static uint16_t operandDecode (uint16_t mode, uint16_t reg, bool isByte)
+uint16_t TMS9900::_operandDecode (uint16_t mode, uint16_t reg, bool isByte)
 {
     uint16_t addr;
 
     switch (mode)
     {
     case AMODE_NORMAL:
-        addr = tms9900.wp+(reg<<1);
+        addr = _wp+(reg<<1);
         break;
 
     case AMODE_INDIR:
@@ -305,7 +286,7 @@ static uint16_t operandDecode (uint16_t mode, uint16_t reg, bool isByte)
         break;
 
     case AMODE_SYM:
-        addr = (uint16_t) (cpuFetch() + (reg == 0 ? 0 : REGR(reg)));
+        addr = (uint16_t) (fetch() + (reg == 0 ? 0 : REGR(reg)));
         break;
 
     case AMODE_INDIRINC:
@@ -314,40 +295,40 @@ static uint16_t operandDecode (uint16_t mode, uint16_t reg, bool isByte)
         break;
 
     default:
-        halt ("Bad operand mode");
+        _halt ("Bad operand mode");
     }
 
     return addr;
 }
 
-static uint16_t operandFetch (uint16_t mode, uint16_t reg, uint16_t addr, bool isByte, bool doFetch)
+uint16_t TMS9900::_operandFetch (uint16_t mode, uint16_t reg, uint16_t addr, bool isByte, bool doFetch)
 {
     uint16_t data = 0;
 
     if (isByte)
     {
         if (mode)
-            unasmPostText("B:[%04X]", addr);
+            _unasmPostText("B:[%04X]", addr);
         else
-            unasmPostText("R%d", reg);
+            _unasmPostText("R%d", reg);
 
         if (doFetch)
         {
-            data = memReadB (addr);
-            unasmPostText("=%02X", data);
+            data = _memReadB (addr);
+            _unasmPostText("=%02X", data);
         }
     }
     else
     {
         if (mode)
-            unasmPostText("W:[%04X]", addr);
+            _unasmPostText("W:[%04X]", addr);
         else
-            unasmPostText("R%d", reg);
+            _unasmPostText("R%d", reg);
 
         if (doFetch)
         {
-            data = memReadW (addr);
-            unasmPostText("=%04X", data);
+            data = _memReadW (addr);
+            _unasmPostText("=%04X", data);
         }
     }
 
@@ -358,7 +339,7 @@ static uint16_t operandFetch (uint16_t mode, uint16_t reg, uint16_t addr, bool i
  *  I M M E D I A T E S
  */
 
-static void cpuExecuteImmediate (uint16_t opcode, uint16_t reg)
+void TMS9900::_executeImmediate (uint16_t opcode, uint16_t reg)
 {
     uint16_t immed;
     uint32_t data;
@@ -366,177 +347,177 @@ static void cpuExecuteImmediate (uint16_t opcode, uint16_t reg)
     switch (opcode)
     {
     case OP_LI:
-        immed = cpuFetch();
+        immed = fetch();
         REGW(reg,immed);
         break;
 
     case OP_AI:
         data = REGR(reg);
-        immed = cpuFetch();
+        immed = fetch();
         /*  Overflow if MSB(data)=MSB(Imm) && MSB(result) != MSB (data) */
-        statusOverflow ((data & 0x8000) == (immed & 0x8000) &&
+        _statusOverflow ((data & 0x8000) == (immed & 0x8000) &&
                         ((data+immed) & 0x8000) != (data & 0x8000));
-        unasmPostText ("R%d=%04X+%04X=%04X", reg, data, immed, data+immed);
+        _unasmPostText ("R%d=%04X+%04X=%04X", reg, data, immed, data+immed);
         data += immed;
-        statusCarry (data >= 0x10000);
+        _statusCarry (data >= 0x10000);
         data &= 0xffff;
         REGW(reg,data);
-        compareWord (data, 0);
+        _compareWord (data, 0);
         break;
 
     case OP_ANDI:
         data = REGR(reg);
-        immed = cpuFetch();
-        unasmPostText ("R%d=%04X&%04X=%04X", reg, data, immed, data&immed);
+        immed = fetch();
+        _unasmPostText ("R%d=%04X&%04X=%04X", reg, data, immed, data&immed);
         data &= immed;
         REGW(reg,data);
-        compareWord (data, 0);
+        _compareWord (data, 0);
         break;
 
     case OP_ORI:
         data = REGR(reg);
-        immed = cpuFetch();
-        unasmPostText ("R%d=%04X|%04X=%04X", reg, data, immed, data|immed);
+        immed = fetch();
+        _unasmPostText ("R%d=%04X|%04X=%04X", reg, data, immed, data|immed);
         data |= immed;
         REGW(reg,data);
-        compareWord (data, 0);
+        _compareWord (data, 0);
         break;
 
     case OP_CI:
         data = REGR(reg);
-        unasmPostText ("R%d=%04X", reg, data);
-        compareWord (data, cpuFetch());
+        _unasmPostText ("R%d=%04X", reg, data);
+        _compareWord (data, fetch());
         break;
 
     case OP_STST:
-        immed = tms9900.st;
-        unasmPostText ("R%d=%04X", reg, immed);
+        immed = _st;
+        _unasmPostText ("R%d=%04X", reg, immed);
         REGW(reg,immed);
         break;
 
     case OP_STWP:
-        immed = tms9900.wp;
-        unasmPostText ("R%d=%04X", reg, immed);
+        immed = _wp;
+        _unasmPostText ("R%d=%04X", reg, immed);
         REGW(reg,immed);
         break;
 
     case OP_LWPI:
-        immed = cpuFetch();
-        tms9900.wp = immed;
+        immed = fetch();
+        _wp = immed;
         break;
 
     case OP_LIMI:
-        tms9900.st = (tms9900.st & ~FLAG_MSK) | cpuFetch();
+        _st = (_st & ~FLAG_MSK) | fetch();
         break;
 
     case OP_RTWP:
-        rtwp ();
-        unasmPostText ("pc=%04X", tms9900.pc);
+        _rtwp ();
+        _unasmPostText ("pc=%04X", _pc);
         break;
 
     default:
-        halt ("Bad immediate opcode");
+        _halt ("Bad immediate opcode");
     }
 }
 
-static void cpuExecuteSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
+void TMS9900::_executeSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
 {
     uint16_t addr;
     uint16_t param;
 
-    addr = operandDecode (mode, reg, false);
+    addr = _operandDecode (mode, reg, false);
 
     if (mode)
-        unasmPostText("W:[%04X]", addr);
+        _unasmPostText("W:[%04X]", addr);
     else
-        unasmPostText("R%d", reg);
+        _unasmPostText("R%d", reg);
 
     switch (opcode)
     {
     case OP_BLWP:
-        unasmPostText ("=%04X", addr);
-        blwp (addr);
+        _unasmPostText ("=%04X", addr);
+        _blwp (addr);
         break;
 
     case OP_B:
-        unasmPostText ("=%04X", addr);
-        tms9900.pc = addr;
+        _unasmPostText ("=%04X", addr);
+        _pc = addr;
         break;
 
     case OP_X:
-        param = memReadW (addr);
-        mprintf (LVL_CPU, "X : recurse\n");
-        cpuExecute (param);
+        param = _memReadW (addr);
+        _debug ("X : recurse\n");
+        execute (param);
         break;
 
     case OP_CLR:
-        memWriteW (addr, 0);
+        _memWriteW (addr, 0);
         break;
 
     case OP_NEG:
-        param = memReadW (addr);
-        statusCarry (param == 0x8000);
-        statusOverflow (param & 0x8000);
+        param = _memReadW (addr);
+        _statusCarry (param == 0x8000);
+        _statusOverflow (param & 0x8000);
         param = -param;
-        unasmPostText ("=%04X", param);
-        memWriteW (addr, param);
-        compareWord (param, 0);
+        _unasmPostText ("=%04X", param);
+        _memWriteW (addr, param);
+        _compareWord (param, 0);
         break;
 
     case OP_INV:
-        param = ~memReadW (addr);
-        unasmPostText ("=%04X", param);
-        memWriteW (addr, param);
-        compareWord (param, 0);
+        param = ~_memReadW (addr);
+        _unasmPostText ("=%04X", param);
+        _memWriteW (addr, param);
+        _compareWord (param, 0);
         break;
 
     case OP_INC:
-        param = memReadW (addr);
-        statusOverflow ((param & 0x8000) == 0 &&
+        param = _memReadW (addr);
+        _statusOverflow ((param & 0x8000) == 0 &&
                         ((param + 1) & 0x8000) == 0x8000);
-        statusCarry (param == 0xFFFF);
+        _statusCarry (param == 0xFFFF);
         param += 1;
-        unasmPostText ("=%04X", param);
-        memWriteW (addr, param);
-        compareWord (param, 0);
+        _unasmPostText ("=%04X", param);
+        _memWriteW (addr, param);
+        _compareWord (param, 0);
         break;
 
     case OP_INCT:
-        param = memReadW (addr);
-        statusOverflow ((param & 0x8000) == 0 &&
+        param = _memReadW (addr);
+        _statusOverflow ((param & 0x8000) == 0 &&
                         ((param + 2) & 0x8000) == 0x8000);
-        statusCarry ((param & 0xFFFE) == 0xFFFE);
+        _statusCarry ((param & 0xFFFE) == 0xFFFE);
         param += 2;
         if(addr&1)
         {
             param&=0xFF;
-            unasmPostText ("=%02X", param);
-            memWriteB(addr,param);
-            compareByte (param, 0);
+            _unasmPostText ("=%02X", param);
+            _memWriteB(addr,param);
+            _compareByte (param, 0);
         }
         else
         {
-            unasmPostText ("=%04X", param);
-            memWriteW (addr, param);
-            compareWord (param, 0);
+            _unasmPostText ("=%04X", param);
+            _memWriteW (addr, param);
+            _compareWord (param, 0);
         }
         break;
 
     case OP_DEC:
-        param = memReadW (addr);
-        statusCarry (param != 0);
-        statusOverflow ((param & 0x8000) == 0x8000 &&
+        param = _memReadW (addr);
+        _statusCarry (param != 0);
+        _statusOverflow ((param & 0x8000) == 0x8000 &&
                         ((param - 1) & 0x8000) == 0);
         param -= 1;
-        unasmPostText ("=%04X", param);
-        memWriteW (addr, param);
-        compareWord (param, 0);
+        _unasmPostText ("=%04X", param);
+        _memWriteW (addr, param);
+        _compareWord (param, 0);
         break;
 
     case OP_DECT:
-        param = memReadW (addr);
-        statusCarry (param != 0 && param != 1);
-        statusOverflow ((param & 0x8000) == 0x8000 &&
+        param = _memReadW (addr);
+        _statusCarry (param != 0 && param != 1);
+        _statusOverflow ((param & 0x8000) == 0x8000 &&
                         ((param - 2) & 0x8000) == 0);
         param -= 2;
         /*  Not sure if this is strictly necessary, but in the ROM code there
@@ -547,56 +528,56 @@ static void cpuExecuteSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
         if(addr&1)
         {
             param&=0xFF;
-            unasmPostText ("=%02X", param);
-            memWriteB(addr,param);
-            compareByte (param, 0);
+            _unasmPostText ("=%02X", param);
+            _memWriteB(addr,param);
+            _compareByte (param, 0);
         }
         else
         {
-            unasmPostText ("=%04X", param);
-            memWriteW (addr, param);
-            compareWord (param, 0);
+            _unasmPostText ("=%04X", param);
+            _memWriteW (addr, param);
+            _compareWord (param, 0);
         }
         break;
 
     case OP_BL:
-        REGW(11, tms9900.pc);
-        tms9900.pc = addr;
+        REGW(11, _pc);
+        _pc = addr;
         break;
 
     case OP_SWPB:
-        param = memReadW (addr);
+        param = _memReadW (addr);
         param = SWAP(param);
-        unasmPostText ("=%04X", param);
-        memWriteW (addr, param);
-        compareWord (param, 0);
+        _unasmPostText ("=%04X", param);
+        _memWriteW (addr, param);
+        _compareWord (param, 0);
         break;
 
     case OP_SETO:
-        memWriteW (addr, 0xFFFF);
+        _memWriteW (addr, 0xFFFF);
         break;
 
     case OP_ABS:
-        param = memReadW (addr);
-        statusCarry (param == 0x8000);
-        statusOverflow (param & 0x8000);
+        param = _memReadW (addr);
+        _statusCarry (param == 0x8000);
+        _statusOverflow (param & 0x8000);
         /*  AGT for ABS is unusual in that it takes the sign of the source into
          *  account and doesn't just do a comparison of the result to zero */
-        statusArithmeticGreater ((int8_t) param > 0);
+        _statusArithmeticGreater ((int8_t) param > 0);
         param = ((int16_t) param < 0) ? -param : param;
-        unasmPostText ("=%04X", param);
-        memWriteW (addr, param);
-        statusEqual (param == 0);
-        statusLogicalGreater (param != 0);
-        unasmPostText (outputStatus());
+        _unasmPostText ("=%04X", param);
+        _memWriteW (addr, param);
+        _statusEqual (param == 0);
+        _statusLogicalGreater (param != 0);
+        _unasmPostText (_outputStatus());
         break;
 
     default:
-        halt ("Bad single opcode");
+        _halt ("Bad single opcode");
     }
 }
 
-static void cpuExecuteShift (uint16_t opcode, uint16_t reg, uint16_t count)
+void TMS9900::_executeShift (uint16_t opcode, uint16_t reg, uint16_t count)
 {
     uint32_t u32;
     int32_t i32;
@@ -611,142 +592,142 @@ static void cpuExecuteShift (uint16_t opcode, uint16_t reg, uint16_t count)
     {
     case OP_SRA:
         i32 = REGR (reg) << 16;
-        unasmPostText ("%04X=>", i32>>16);
+        _unasmPostText ("%04X=>", i32>>16);
         i32 >>= count;
 
         /* Set carry flag if last bit shifted is set */
-        statusCarry ((i32 & 0x8000) != 0);
+        _statusCarry ((i32 & 0x8000) != 0);
 
         u32 = (i32 >> 16) & 0xffff;
         REGW (reg, u32);
-        compareWord (u32, 0);
+        _compareWord (u32, 0);
         break;
 
     case OP_SRC:
         u32 = REGR (reg);
-        unasmPostText ("%04X=>", u32);
+        _unasmPostText ("%04X=>", u32);
         u32 |= (u32 << 16);
-        mprintf (LVL_CPU, "u32=%x\n", u32);
+        _debug ("u32=%x\n", u32);
         u32 >>= count;
-        mprintf (LVL_CPU, "u32=%x\n", u32);
+        _debug ("u32=%x\n", u32);
 
         /* Set carry flag if last bit shifted is set */
-        statusCarry ((u32 & 0x8000) != 0);
+        _statusCarry ((u32 & 0x8000) != 0);
 
         u32 &= 0xffff;
         REGW (reg, u32);
-        compareWord (u32, 0);
+        _compareWord (u32, 0);
         break;
 
     case OP_SRL:
         u32 = REGR (reg) << 16;
-        unasmPostText ("%04X=>", u32>>16);
+        _unasmPostText ("%04X=>", u32>>16);
         u32 >>= count;
 
         /* Set carry flag if last bit shifted is set */
-        statusCarry ((u32 & 0x8000) != 0);
+        _statusCarry ((u32 & 0x8000) != 0);
 
         u32 >>= 16;
         REGW (reg, u32);
-        compareWord (u32, 0);
+        _compareWord (u32, 0);
         break;
 
     case OP_SLA:
         i32 = REGR (reg);
-        unasmPostText ("%04X=>", i32);
+        _unasmPostText ("%04X=>", i32);
         u32 = i32 << count;
 
         /* Set carry flag if last bit shifted is set */
-        statusCarry ((u32 & 0x10000) != 0);
+        _statusCarry ((u32 & 0x10000) != 0);
 
         /* Set if MSB changes */
-        statusOverflow ((u32 & 0x8000) != (i32 & 0x8000));
+        _statusOverflow ((u32 & 0x8000) != (i32 & 0x8000));
 
         u32 &= 0xFFFF;
         REGW (reg, u32);
-        compareWord (u32, 0);
+        _compareWord (u32, 0);
         break;
 
     default:
-        halt ("Bad shift opcode");
+        _halt ("Bad shift opcode");
     }
 
-    unasmPostText ("%04X", u32);
+    _unasmPostText ("%04X", u32);
 }
 
 /*
  *  J U M P
  */
-static void cpuExecuteJump (uint16_t opcode, int16_t offset)
+void TMS9900::_executeJump (uint16_t opcode, int16_t offset)
 {
     switch (opcode)
     {
-    case OP_JMP: jumpAnd (0,        0,                  offset);    break;
-    case OP_JLT: jumpAnd (0,        FLAG_AGT | FLAG_EQ, offset);    break;
-    case OP_JGT: jumpAnd (FLAG_AGT, FLAG_EQ,                  offset);    break;
-    case OP_JL:  jumpAnd (0,        FLAG_LGT | FLAG_EQ, offset);    break;
-    case OP_JLE: jumpOr  (FLAG_EQ,  FLAG_LGT,           offset);    break;
-    case OP_JH:  jumpAnd (FLAG_LGT, FLAG_EQ,                  offset);    break;
-    case OP_JHE: jumpOr  (FLAG_LGT | FLAG_EQ, 0,            offset);    break;
-    case OP_JNC: jumpAnd (0,        FLAG_C,             offset);    break;
-    case OP_JOC: jumpAnd (FLAG_C,   0,                  offset);    break;
-    case OP_JNO: jumpAnd (0,        FLAG_OV,            offset);    break;
-    case OP_JNE: jumpAnd (0,        FLAG_EQ,            offset);    break;
-    case OP_JEQ: jumpAnd (FLAG_EQ,  0,                  offset);    break;
+    case OP_JMP: _jumpAnd (0,        0,                  offset);    break;
+    case OP_JLT: _jumpAnd (0,        FLAG_AGT | FLAG_EQ, offset);    break;
+    case OP_JGT: _jumpAnd (FLAG_AGT, FLAG_EQ,                  offset);    break;
+    case OP_JL:  _jumpAnd (0,        FLAG_LGT | FLAG_EQ, offset);    break;
+    case OP_JLE: _jumpOr  (FLAG_EQ,  FLAG_LGT,           offset);    break;
+    case OP_JH:  _jumpAnd (FLAG_LGT, FLAG_EQ,                  offset);    break;
+    case OP_JHE: _jumpOr  (FLAG_LGT | FLAG_EQ, 0,            offset);    break;
+    case OP_JNC: _jumpAnd (0,        FLAG_C,             offset);    break;
+    case OP_JOC: _jumpAnd (FLAG_C,   0,                  offset);    break;
+    case OP_JNO: _jumpAnd (0,        FLAG_OV,            offset);    break;
+    case OP_JNE: _jumpAnd (0,        FLAG_EQ,            offset);    break;
+    case OP_JEQ: _jumpAnd (FLAG_EQ,  0,                  offset);    break;
 
-    case OP_SBZ:        cruBitOutput (REGR(12), offset, 0);        break;
-    case OP_SBO:        cruBitOutput (REGR(12), offset, 1);        break;
+    case OP_SBZ:        _cruBitOutput (REGR(12), offset, 0);        break;
+    case OP_SBO:        _cruBitOutput (REGR(12), offset, 1);        break;
 
     case OP_TB:
-        // tms9900.st &= ~FLAG_EQ;
-        // tms9900.st |= (cruBitGet (REGR(12), offset) ? FLAG_EQ : 0);
-        statusEqual (cruBitGet (REGR(12), offset));
+        // _st &= ~FLAG_EQ;
+        // _st |= (cruBitGet (REGR(12), offset) ? FLAG_EQ : 0);
+        _statusEqual (_cruBitGet (REGR(12), offset));
         break;
 
     default:
-        halt ("Bad jump opcode");
+        _halt ("Bad jump opcode");
     }
 }
 
-static void cpuExecuteDual1 (uint16_t opcode, uint16_t dReg, uint16_t sMode, uint16_t sReg)
+void TMS9900::_executeDual1 (uint16_t opcode, uint16_t dReg, uint16_t sMode, uint16_t sReg)
 {
     uint16_t sAddr;
     uint16_t sData;
     uint16_t dData;
     uint32_t u32;
     
-    sAddr = operandDecode (sMode, sReg, false);
-    sData = operandFetch (sMode, sReg, sAddr, false, true);
+    sAddr = _operandDecode (sMode, sReg, false);
+    sData = _operandFetch (sMode, sReg, sAddr, false, true);
 
     switch (opcode)
     {
     case OP_COC:
         dData = REGR (dReg);
-        unasmPostText ("&(R%d=%04X)=%04X", dReg, dData, sData & dData);
-        compareWord (sData & dData, sData);
+        _unasmPostText ("&(R%d=%04X)=%04X", dReg, dData, sData & dData);
+        _compareWord (sData & dData, sData);
         break;
 
     case OP_CZC:
         dData = REGR (dReg);
-        unasmPostText ("&~(R%d=%04X)=%04X", dReg, dData, sData & ~dData);
-        compareWord (sData & ~dData, sData);
+        _unasmPostText ("&~(R%d=%04X)=%04X", dReg, dData, sData & ~dData);
+        _compareWord (sData & ~dData, sData);
         break;
 
     case OP_XOR:
         dData = REGR (dReg);
-        unasmPostText ("&~(R%d=%04X)=%04X", dReg, dData, sData ^ dData);
+        _unasmPostText ("&~(R%d=%04X)=%04X", dReg, dData, sData ^ dData);
         dData ^= sData;
         REGW (dReg, dData);
-        compareWord (dData, 0);
+        _compareWord (dData, 0);
         break;
 
     case OP_XOP:
-        halt ("Unsupported");
+        _halt ("Unsupported");
         break;
 
     case OP_MPY:
         dData = REGR (dReg);
-        unasmPostText ("*(R%d=%04X)=%04X", dReg, dData, sData * dData);
+        _unasmPostText ("*(R%d=%04X)=%04X", dReg, dData, sData * dData);
         u32 = dData * sData;
         REGW(dReg, u32 >> 16);
         REGW(dReg+1, u32 & 0xFFFF);
@@ -756,14 +737,14 @@ static void cpuExecuteDual1 (uint16_t opcode, uint16_t dReg, uint16_t sMode, uin
         dData = REGR (dReg);
         if (sData <= dData)
         {
-            unasmPostText ("<(%04X<%04X)->OVF", sData, dData);
-            statusOverflow (true);
+            _unasmPostText ("<(%04X<%04X)->OVF", sData, dData);
+            _statusOverflow (true);
         }
         else
         {
-            statusOverflow (false);
+            _statusOverflow (false);
             u32 = REGR(dReg) << 16 | REGR(dReg+1);
-            unasmPostText (",(%X/%X)=>%04X,%04X", u32, sData, u32 / sData, u32 % sData);
+            _unasmPostText (",(%X/%X)=>%04X,%04X", u32, sData, u32 / sData, u32 % sData);
             REGW(dReg, u32 / sData);
             REGW(dReg+1, u32 % sData);
         }
@@ -776,34 +757,34 @@ static void cpuExecuteDual1 (uint16_t opcode, uint16_t dReg, uint16_t sMode, uin
     case OP_LDCR:
         if (dReg <= 8)
         {
-            sData = memReadB (sAddr);
-            statusParity (sData);
+            sData = _memReadB (sAddr);
+            _statusParity (sData);
         }
 
-        cruMultiBitSet (REGR(12), sData, dReg);
-        mprintf(LVL_CPU, "LDCR R12=%x s=%x d=%x\n", REGR(12), sData, dReg);
+        _cruMultiBitSet (REGR(12), sData, dReg);
+        _debug ("LDCR R12=%x s=%x d=%x\n", REGR(12), sData, dReg);
         break;
 
     case OP_STCR:
         if (dReg <= 8)
         {
-            sData = cruMultiBitGet (REGR(12), dReg);
-            memWriteB(sAddr, sData);
-            statusParity (sData);
+            sData = _cruMultiBitGet (REGR(12), dReg);
+            _memWriteB(sAddr, sData);
+            _statusParity (sData);
         }
         else
-            memWriteW(sAddr, cruMultiBitGet (REGR(12), dReg));
+            _memWriteW(sAddr, _cruMultiBitGet (REGR(12), dReg));
         break;
 
     default:
-        halt ("Bad dual1 opcode");
+        _halt ("Bad dual1 opcode");
     }
 }
 
 /*
  *  D U A L   O P E R A N D
  */
-static void cpuExecuteDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
+void TMS9900::_executeDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
                              uint16_t sMode, uint16_t sReg, bool isByte)
 {
     bool doStore = true;
@@ -813,146 +794,146 @@ static void cpuExecuteDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
     uint16_t dData;
     uint32_t u32;
 
-    sAddr = operandDecode (sMode, sReg, isByte);
-    sData = operandFetch (sMode, sReg, sAddr, isByte, true);
+    sAddr = _operandDecode (sMode, sReg, isByte);
+    sData = _operandFetch (sMode, sReg, sAddr, isByte, true);
 
-    unasmPostText (",");
-    dAddr = operandDecode (dMode, dReg, isByte);
+    _unasmPostText (",");
+    dAddr = _operandDecode (dMode, dReg, isByte);
     /*  Don't fetch the contents of the destination if op is a MOV */
-    dData = operandFetch (dMode, dReg, dAddr, isByte,
+    dData = _operandFetch (dMode, dReg, dAddr, isByte,
                           (opcode != OP_MOV && opcode != OP_MOVB));
 
     switch (opcode)
     {
     case OP_SZC:
         dData &= ~sData;
-        unasmPostText (":&~:%04X", dData);
-        compareWord (dData, 0);
+        _unasmPostText (":&~:%04X", dData);
+        _compareWord (dData, 0);
         break;
 
     case OP_SZCB:
         dData &= ~sData;
-        unasmPostText (":&~:%02X", dData);
-        compareByte (dData, 0);
-        statusParity (dData);
+        _unasmPostText (":&~:%02X", dData);
+        _compareByte (dData, 0);
+        _statusParity (dData);
         break;
 
     case OP_S:
         u32 = (uint32_t) dData - sData;
-        statusOverflow ((sData & 0x8000) != (dData & 0x8000) &&
+        _statusOverflow ((sData & 0x8000) != (dData & 0x8000) &&
                         (u32 & 0x8000) != (dData & 0x8000));
         dData = u32 & 0xFFFF;
         u32 >>= 16;
-        unasmPostText (":-:%04X", dData);
+        _unasmPostText (":-:%04X", dData);
 
         /* 15-AUG-23 carry flag meaning is inverted for S, SB, DEC, DECT.  Where
          * is this documented ??????
          */
         // statusCarry (u32 != 0);
-        statusCarry (u32 == 0);
-        compareWord (dData, 0);
+        _statusCarry (u32 == 0);
+        _compareWord (dData, 0);
         break;
 
     case OP_SB:
         u32 = (uint32_t) dData - sData;
-        statusOverflow ((sData & 0x8000) != (dData & 0x8000) &&
+        _statusOverflow ((sData & 0x8000) != (dData & 0x8000) &&
                         (u32 & 0x8000) != (dData & 0x8000));
         dData = u32 & 0xFF;
         u32 >>= 8;
-        unasmPostText (":-:%02X", dData);
+        _unasmPostText (":-:%02X", dData);
 
         /* 15-AUG-23 carry flag meaning is inverted for S, SB, DEC, DECT.  Where
          * is this documented ??????
          */
         // statusCarry (u32 != 0);
-        statusCarry (u32 == 0);
-        compareByte (dData, 0);
-        statusParity (dData);
+        _statusCarry (u32 == 0);
+        _compareByte (dData, 0);
+        _statusParity (dData);
         break;
 
     case OP_C:
-        compareWord (sData, dData);
-        unasmPostText (":==:");
+        _compareWord (sData, dData);
+        _unasmPostText (":==:");
         doStore = false;
         break;
 
     case OP_CB:
-        compareByte (sData, dData);
-        statusParity (sData);
-        unasmPostText (":==:");
+        _compareByte (sData, dData);
+        _statusParity (sData);
+        _unasmPostText (":==:");
         doStore = false;
         break;
 
     case OP_MOV:
         dData = sData;
-        compareWord (dData, 0);
+        _compareWord (dData, 0);
         break;
 
     case OP_MOVB:
         dData = sData;
-        statusParity (sData);
-        compareByte (dData, 0);
+        _statusParity (sData);
+        _compareByte (dData, 0);
         break;
 
     case OP_SOC:
         dData |= sData;
-        unasmPostText (":|:%04X", dData);
-        compareWord (dData, 0);
+        _unasmPostText (":|:%04X", dData);
+        _compareWord (dData, 0);
         break;
 
     case OP_SOCB:
         dData |= sData;
-        unasmPostText (":|:%02X", dData);
-        compareByte (dData, 0);
-        statusParity (dData);
+        _unasmPostText (":|:%02X", dData);
+        _compareByte (dData, 0);
+        _statusParity (dData);
         break;
 
     case OP_A:
         u32 = (uint32_t) dData + sData;
-        statusOverflow ((sData & 0x8000) == (dData & 0x8000) &&
+        _statusOverflow ((sData & 0x8000) == (dData & 0x8000) &&
                         (u32 & 0x8000) != (dData & 0x8000));
         dData = u32 & 0xFFFF;
-        unasmPostText (":+:%04X", dData);
+        _unasmPostText (":+:%04X", dData);
         u32 >>= 16;
 
-        statusCarry (u32 != 0);
-        compareWord (dData, 0);
+        _statusCarry (u32 != 0);
+        _compareWord (dData, 0);
         break;
 
     case OP_AB:
         u32 = (uint32_t) dData + sData;
-        statusOverflow ((sData & 0x8000) == (dData & 0x8000) &&
+        _statusOverflow ((sData & 0x8000) == (dData & 0x8000) &&
                         (u32 & 0x8000) != (dData & 0x8000));
         dData = u32 & 0xFF;
-        unasmPostText (":+:%02X", dData);
+        _unasmPostText (":+:%02X", dData);
         u32 >>= 8;
 
-        statusCarry (u32 != 0);
-        compareByte (dData, 0);
-        statusParity (dData);
+        _statusCarry (u32 != 0);
+        _compareByte (dData, 0);
+        _statusParity (dData);
         break;
 
     default:
-        halt ("Bad dual2 opcode");
+        _halt ("Bad dual2 opcode");
     }
 
     if (doStore)
     {
         if (isByte)
-            memWriteB (dAddr, dData);
+            _memWriteB (dAddr, dData);
         else
-            memWriteW (dAddr, dData);
+            _memWriteW (dAddr, dData);
     }
 }
 
-uint16_t cpuDecode (uint16_t data, uint16_t *type)
+uint16_t TMS9900::decode (uint16_t data, uint16_t *type)
 {
     OpGroup *o = &opGroup[data >> 10];
     *type = o->type;
     return (data & o->opMask);
 }
 
-void cpuExecute (uint16_t data)
+void TMS9900::execute (uint16_t data)
 {
     int sReg = 0;
     int sMode = 0;
@@ -962,39 +943,39 @@ void cpuExecute (uint16_t data)
     bool isByte = false;
     uint16_t type;
 
-    uint16_t opcode = cpuDecode (data, &type);
+    uint16_t opcode = decode (data, &type);
 
-    unasmPreExec (tms9900.pc, data, type, opcode);
+    _unasmPreExec (_pc, data, type, opcode);
 
     switch (type)
     {
     case OPTYPE_IMMED:
         sReg   =  data & 0x000F;
-        cpuExecuteImmediate (opcode, sReg);
+        _executeImmediate (opcode, sReg);
         break;
 
     case OPTYPE_SINGLE:
         sMode = (data & 0x0030) >> 4;
         sReg     =  data & 0x000F;
-        cpuExecuteSingle (opcode, sMode, sReg);
+        _executeSingle (opcode, sMode, sReg);
         break;
 
     case OPTYPE_SHIFT:
         dReg = (data & 0x00F0) >> 4;
         sReg =  data & 0x000F;
-        cpuExecuteShift (opcode, sReg, dReg);
+        _executeShift (opcode, sReg, dReg);
         break;
 
     case OPTYPE_JUMP:
         offset = data & 0x00FF;
-        cpuExecuteJump (opcode, offset);
+        _executeJump (opcode, offset);
         break;
 
     case OPTYPE_DUAL1:
         dReg     = (data & 0x03C0) >> 6;
         sMode = (data & 0x0030) >> 4;
         sReg     =  data & 0x000F;
-        cpuExecuteDual1 (opcode, dReg, sMode, sReg);
+        _executeDual1 (opcode, dReg, sMode, sReg);
         break;
 
     case OPTYPE_DUAL2:
@@ -1003,22 +984,22 @@ void cpuExecute (uint16_t data)
         sMode = (data & 0x0030) >> 4;
         sReg     =  data & 0x000F;
         isByte = (data & 0x1000) >> 12;
-        cpuExecuteDual2 (opcode, dMode, dReg, sMode, sReg, isByte);
+        _executeDual2 (opcode, dMode, dReg, sMode, sReg, isByte);
         break;
 
     default:
-        halt ("Bad optype");
+        _halt ("Bad optype");
     }
 
-    unasmPostPrint();
+    _unasmPostPrint();
 
-    int mask = tms9900.st & FLAG_MSK;
-    int level = interruptLevel (mask);
+    int mask = _st & FLAG_MSK;
+    int level = _interruptLevel (mask);
 
     if (level >= 0)
     {
-        mprintf (LVL_CPU, "interrupt level=%d st=%x\n", level, tms9900.st);
-        blwp (4 * level);
+        _debug ("interrupt level=%d st=%x\n", level, _st);
+        _blwp (4 * level);
 
         /*  The ISR mask is automatically lowered to 1 less than the interrupt
          *  being serviced to ensure only higher priority interrupts can
@@ -1029,37 +1010,35 @@ void cpuExecute (uint16_t data)
         else
             mask = 0;
 
-        tms9900.st = (tms9900.st & ~FLAG_MSK) | mask;
+        _st = (_st & ~FLAG_MSK) | mask;
     }
 }
 
-void cpuShowStatus(void)
+void TMS9900::showStatus(void)
 {
     uint16_t i;
 
-    mprintf (0, "CPU\n");
-    mprintf (0, "===\n");
-    mprintf (0, "st=%04X\nwp=%04X\npc=%04X\n", tms9900.st, tms9900.wp, tms9900.pc);
+    _debug ("CPU\n");
+    _debug ("===\n");
+    _debug ("st=%04X\nwp=%04X\npc=%04X\n", _st, _wp, _pc);
 
     for (i = 0; i < 16; i++)
     {
-        mprintf (0, "R%02d: %04X ", i, REGR(i));
+        _debug ("R%02d: %04X ", i, REGR(i));
         if ((i + 1) % 4 == 0)
-            mprintf (0, "\n");
+            _debug ("\n");
     }
 }
 
-void cpuShowStWord(void)
+void TMS9900::showStWord(void)
 {
-    int st = tms9900.st;
-
-    mprintf (0, "st=%04X %s int=%d)\n",
-             st, outputStatus(), st & 15);
+    _debug ("st=%04X %s int=%d)\n",
+             _st, _outputStatus(), _st & 15);
 }
 
-void cpuBoot (void)
+void TMS9900::boot (void)
 {
-    tms9900.st = 0;
-    blwp (0x0);
+    _st = 0;
+    _blwp (0x0);
 }
 
