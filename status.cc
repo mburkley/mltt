@@ -30,8 +30,11 @@
 
 #include "vdp.h"
 #include "grom.h"
-#include "cpu.h"
 #include "status.h"
+
+#include "ti994a.h"
+/*  Needed to get the CPU PC */
+extern TI994A ti994a;
 
 /* Private copy of character data for status display */
 static uint8_t statusChars[96 * 7];
@@ -131,7 +134,6 @@ static void statusPrintf (const char *fmt, ...)
         }
     }
 }
-    extern TMS9900 cpu;
 
 void statusPaneDisplay (void)
 {
@@ -152,9 +154,10 @@ void statusPaneDisplay (void)
     statusPrintf ("  St:%02X\n", vdpReadStatus());
 
     statusPrintf("\nCPU:\n");
-    statusPrintf("  PC:%04X\n", cpu.getPC());
-    statusPrintf("  WP:%04X\n", cpu.getWP());
-    statusPrintf("  ST:%04X\n", cpu.getST());
+    // TODO CPU status disabled for now during C++ refactor
+    // statusPrintf("  PC:%04X\n", ti994a.getPC());
+    // statusPrintf("  WP:%04X\n", ti994a.getWP());
+    // statusPrintf("  ST:%04X\n", ti994a.getST());
 
     statusPrintf("\nGROM:\n");
     statusPrintf("  PC:%04X\n", gromAddr());

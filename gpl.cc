@@ -36,6 +36,10 @@
 #include "trace.h"
 #include "gpl.h"
 
+#include "ti994a.h"
+/*  Needed to get the CPU PC */
+extern TI994A ti994a;
+
 typedef struct
 {
     int value;
@@ -496,32 +500,30 @@ static void decodeFirstByte (uint16_t addr, uint8_t data)
     }
 }
 
-extern TMS9900 cpu;
-
-void gplDisassemble (uint16_t addr, uint8_t data)
+void gplDisassemble (uint16_t cpuPC, uint16_t addr, uint8_t data)
 {
     /*  Ignore a byte fetch if CPU address is 0x7A as this is just checking to
      *  see if a GROM is present 
      */
     mprintf (LVL_GPLDBG, "process byte from cpu=%04X gr=%04X data=%02X\n",
-            cpu.getPC(), addr, data);
+            cpuPC, addr, data);
 
-    if (cpu.getPC() == 0x5E) // Looking for 0xAA signature, not an instruction
+    if (cpuPC == 0x5E) // Looking for 0xAA signature, not an instruction
         return;
 
-    if (cpu.getPC() == 0x680) // Fetcing bytes fro MOVE, not an instruction
+    if (cpuPC == 0x680) // Fetcing bytes fro MOVE, not an instruction
         return;
 
-    if (cpu.getPC() == 0x041E) // TODO unknown fetch
+    if (cpuPC == 0x041E) // TODO unknown fetch
         return;
 
-    if (cpu.getPC() == 0x0A26) // Sound data
+    if (cpuPC == 0x0A26) // Sound data
         return;
 
-    if (cpu.getPC() == 0x0A34) // Sound data
+    if (cpuPC == 0x0A34) // Sound data
         return;
 
-    if (cpu.getPC() == 0x0A3E) // Sound data ?
+    if (cpuPC == 0x0A3E) // Sound data ?
         return;
 
     if (gplState.fmtMode && data == 0xFB)
@@ -548,7 +550,7 @@ void gplDisassemble (uint16_t addr, uint8_t data)
 
     /*  If we have a full instruction, interpret it */
     if (gplState.bytesNeeded == gplState.bytesStored)
-        interpret(cpu.getPC());
+        interpret(cpuPC);
 }
 
 void gplShowScratchPad (uint16_t addr)

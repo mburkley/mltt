@@ -66,7 +66,8 @@ static int instPerInterrupt;
 static bool statusPane;
 static int pixelSize = 4;
 
-extern TMS9900 cpu;
+// extern TMS9900 cpu;
+static TI994A ti994a;
 
 static void sigHandler (int signo)
 {
@@ -87,8 +88,7 @@ static void sigHandler (int signo)
     /*  If CTRL-C then stop running and return to console */
     case SIGINT:
         printf("Set run flag to zero\n");
-        extern bool ti994aRunFlag;
-        ti994aRunFlag = false;
+        ti994a.clearRunFlag ();
         break;
 
     case SIGSEGV:
@@ -195,11 +195,11 @@ bool consolePeek (int argc, char *argv[])
     bool vdp = false;
 
     if (!strncmp (argv[1], "cpu", strlen(argv[1])))
-        cpu.showStatus();
+        ti994a.showStatus();
     else if (!strncmp (argv[1], "pad", strlen(argv[1])))
-        ti994aShowScratchPad (false);
+        ti994a.showScratchPad (false);
     else if (!strncmp (argv[1], "padgpl", strlen(argv[1])))
-        ti994aShowScratchPad (true);
+        ti994a.showScratchPad (true);
     else if (!strncmp (argv[1], "mem", strlen(argv[1])))
         memory = true;
     else if (!strncmp (argv[1], "grom", strlen(argv[1])))
@@ -307,7 +307,7 @@ bool consolePoke (int argc, char *argv[])
 bool consoleGo (int argc, char *argv[])
 {
     printf ("Running\n");
-    ti994aRun (cpu, instPerInterrupt);
+    ti994a.run (instPerInterrupt);
 
     return true;
 }
@@ -322,7 +322,7 @@ bool consoleReadInput (int argc, char *argv[])
 
 bool consoleBoot (int argc, char *argv[])
 {
-    cpu.boot ();
+    ti994a.boot ();
 
     return true;
 }
@@ -663,8 +663,8 @@ static void input (FILE *fp)
 
     if (fp == NULL && argc == 0)
     {
-        cpu.execute (cpu.fetch());
-        cpu.showStatus ();
+        ti994a.execute (ti994a.fetch());
+        ti994a.showStatus ();
         gromShowStatus ();
         return;
     }
@@ -742,7 +742,7 @@ int main (int argc, char *argv[])
         exit (1);
     }
 
-    ti994aInit ();
+    ti994a.init ();
 
     while (!ti994aQuitFlag)
     {
@@ -767,7 +767,7 @@ int main (int argc, char *argv[])
         }
     }
 
-    ti994aClose ();
+    ti994a.close ();
 
     return 0;
 }

@@ -55,14 +55,14 @@
 #include "fdd.h"
 #include "ti994a.h"
 
-bool ti994aRunFlag;
-Cassette cassette;
+/*  Declare one global instance of the ti99 */
+TI994A ti994a;
 
 /*  Show the contents of the scratchpad memory either in abbreviated or detailed
  *  form.  If the param is false, just a hex dump is shown.  If true, each value
  *  is presented on a separate line with a description
  */
-void ti994aShowScratchPad (bool showGplUsage)
+void TI994A::showScratchPad (bool showGplUsage)
 {
     printf ("Scratchpad\n");
     printf ("==========");
@@ -85,18 +85,19 @@ void ti994aShowScratchPad (bool showGplUsage)
     printf ("\n");
 }
 
-void ti994aRun (TMS9900 &cpu, int instPerInterrupt)
+void TI994A::run (int instPerInterrupt)
 {
     static int count;
 
-    ti994aRunFlag = true;
+    _runFlag = true;
     printf("enter run loop\n");
 
-    while (ti994aRunFlag &&
-           !breakPointHit (cpu.getPC()) &&
+    while (_runFlag &&
+           !breakPointHit (getPC()) &&
            !conditionTrue ())
     {
-        uint16_t opcode = cpu.fetch ();
+        printf ("fetch\n");
+        uint16_t opcode = fetch ();
         bool shouldBlock = false;
 
         /*  Check if the instruction we are about to execute is >10FF, which is
@@ -132,24 +133,25 @@ void ti994aRun (TMS9900 &cpu, int instPerInterrupt)
             timerPoll ();
         }
 
-        cpu.execute (opcode);
+        printf ("exec\n");
+        execute (opcode);
         count++;
 
         watchShow();
     }
 
-    ti994aRunFlag = false;
+    _runFlag = false;
 }
 
-bool ti994aInterrupt (int index, uint8_t state)
+bool TI994A::_interrupt (int index, uint8_t state)
 {
     if (index == IRQ_TIMER)
-        cassette.timerExpired (tms9901TimerToNsec ());
+        _cassette.timerExpired (tms9901TimerToNsec ());
 
     return tms9901Interrupt (index, state);
 }
 
-void ti994aInit (void)
+void TI994A::init (void)
 {
     tms9901Init ();
     timerInit ();
@@ -169,7 +171,7 @@ void ti994aInit (void)
     for (i = 1; i <= 15; i++)
     {
         cruBitInput (0, i, 1);  // Initial state inactive (active low)
-        cruInputCallbackSet (i, ti994aInterrupt);
+        cruInputCallbackSet (i, _interrupt);
         cruOutputCallbackSet (i, tms9901BitSet);
         cruReadCallbackSet (i, tms9901BitGet);
     }
@@ -180,14 +182,14 @@ void ti994aInit (void)
     for (i = 18; i <= 21; i++)
         cruOutputCallbackSet (i, kbdColumnUpdate);
 
-    cruOutputCallbackSet (22, cassette.motor);
-    cruOutputCallbackSet (23, cassette.motor);
-    cruOutputCallbackSet (24, cassette.audioGate);
-    cruOutputCallbackSet (25, cassette.tapeOutput);
-    cruReadCallbackSet (27, cassette.tapeInput);
+    cruOutputCallbackSet (22, _cassette.motor);
+    cruOutputCallbackSet (23, _cassette.motor);
+    cruOutputCallbackSet (24, _cassette.audioGate);
+    cruOutputCallbackSet (25, _cassette.tapeOutput);
+    cruReadCallbackSet (27, _cassette.tapeInput);
 }
 
-void ti994aClose (void)
+void TI994A::close (void)
 {
     timerClose ();
 }

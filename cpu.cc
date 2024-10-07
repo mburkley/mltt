@@ -116,7 +116,8 @@ static OpGroup opGroup[64] =
     { 0xFC00, OPTYPE_DUAL2,   0xF000 }
 };
 
-TMS9900 cpu;
+//  Declare one global instance of the CPU
+// TMS9900 cpu;
 
 #define REGR(r) _memReadW(_wp+((r)<<1))
 #define REGW(r,d) _memWriteW(_wp+((r)<<1),d)
@@ -722,7 +723,7 @@ void TMS9900::_executeDual1 (uint16_t opcode, uint16_t dReg, uint16_t sMode, uin
         break;
 
     case OP_XOP:
-        _halt ("Unsupported");
+        _xop (dReg, sData);
         break;
 
     case OP_MPY:

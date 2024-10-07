@@ -26,6 +26,8 @@
 #include <iostream>
 #include <cstdlib>
 
+/*  Define addressing modes, optypes and opcodes.  These are used by the disassembler as well */
+
 #define AMODE_NORMAL    0
 #define AMODE_INDIR     1
 #define AMODE_SYM       2
@@ -109,8 +111,6 @@
 #define OP_SOC  0xE000
 #define OP_SOCB 0xF000
 
-
-
 #define FLAG_LGT 0x8000
 #define FLAG_AGT 0x4000
 #define FLAG_EQ  0x2000
@@ -120,15 +120,20 @@
 #define FLAG_XOP 0x0200
 #define FLAG_MSK 0x000F
 
+/*  Define a class for the CPU.  This is a standalone class with no dependencies.  It is 
+ *  an abstract virtual class.  An instantiated class must derive from this and provide
+ *  at a minimum methods for reading and writing memory.  There are optional void overridable
+ *  methods for debug, disassembly, CRU and XOP. */
+
 class TMS9900
 {
 public:
     // uint16_t read(uint16_t addr);
     void showStatus(void);
     void showStWord(void);
+    uint16_t fetch (void);
     uint16_t decode (uint16_t data, uint16_t *type);
     void execute (uint16_t data);
-    uint16_t fetch (void);
     uint16_t getPC (void) { return _pc; }
     uint16_t getWP (void) { return _wp; }
     uint16_t getST (void) { return _st; }
@@ -139,20 +144,35 @@ private:
     uint16_t _pc;
     uint16_t _wp;
     uint16_t _st;
-    virtual uint16_t _memReadW (uint16_t addr) { return 0; }
-    virtual uint8_t _memReadB (uint16_t addr) { return 0; }
-    virtual void _memWriteW (uint16_t addr, uint16_t data) { }
-    virtual void _memWriteB (uint16_t addr, uint8_t data) { }
+
+    /*  Mandatory memory access overrides */
+    virtual uint16_t _memReadW (uint16_t addr) = 0; // { return 0; }
+    virtual uint8_t _memReadB (uint16_t addr) = 0; // { return 0; }
+    virtual void _memWriteW (uint16_t addr, uint16_t data) = 0; // { }
+    virtual void _memWriteB (uint16_t addr, uint8_t data) = 0; // { }
+
+    /*  Optional debug */
     virtual void _debug (const char *s, ...) {}
+
+    /*  Optional disassembly hooks */
     virtual void _unasmPostText (const char *s, ...) {}
     virtual uint16_t _unasmPreExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcode) { return 0; }
     virtual void _unasmPostPrint (void) {}
+
+    /*  Optional interrupt handlers */
     virtual int _interruptLevel (int mask) { return 0; }
     virtual void _halt (const char *s) { std::cerr << s; exit(1); }
+
+    /*  Optional CRU handlers */
     virtual void _cruBitOutput (uint16_t base, uint16_t offset, uint8_t state) {}
     virtual void _cruMultiBitSet (uint16_t base, uint16_t data, int nBits) {}
     virtual uint16_t _cruMultiBitGet (uint16_t base, uint16_t offset) { return 0; }
     virtual uint8_t _cruBitGet (uint16_t base, int8_t bitOffset) { return 0; }
+
+    /*  Optional XOP handlers */
+    virtual void _xop (uint8_t vector, uint16_t data) {}
+
+    /*  private methods implemented in cc */
     void _blwp (uint16_t addr);
     void _rtwp (void);
     void _jumpAnd (uint16_t setMask, uint16_t clrMask, uint16_t offset);
