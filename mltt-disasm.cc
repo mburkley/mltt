@@ -28,17 +28,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "trace.h"
+#include "mltt-disasm.h"
+// #include "trace.h"
 #include "parse.h"
-#include "unasm.h"
-#include "mem.h"
-#include "cpu.h"
+// #include "unasm.h"
+// #include "mem.h"
+// #include "cpu.h"
 
 int main (int argc, char *argv[])
 {
     int addr;
     uint16_t pc;
-    TMS9900 cpu;
+    // TMS9900 cpu;
+    Disasm disasm;
 
     if (argc < 3 || !parseValue (argv[2], &addr))
     {
@@ -49,20 +51,20 @@ int main (int argc, char *argv[])
     int len = memLoad (argv[1], addr, 0);
 
     if (argc > 3)
-        unasmReadText (argv[3]);
+        disasm.unasmReadText (argv[3]);
 
     pc = addr;
-    outputLevel = LVL_UNASM;
+    // outputLevel = LVL_UNASM;
 
     while (pc < addr+len)
     {
         uint16_t data = memReadW (pc);
         pc += 2;
         uint16_t type;
-        uint16_t opcode = cpu.decode (data, &type);
-        uint16_t paramWords = unasmPreExec (pc, data, type, opcode);
+        uint16_t opcode = disasm.decode (data, &type);
+        uint16_t paramWords = disasm.unasmPreExec (pc, data, type, opcode);
 
-        unasmPostPrint ();
+        disasm.unasmPostPrint ();
         // printf ("\n");
 
         while (paramWords)

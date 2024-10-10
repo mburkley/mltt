@@ -992,7 +992,7 @@ void TMS9900::execute (uint16_t data)
         _halt ("Bad optype");
     }
 
-    _unasmPostPrint();
+    // _unasmPostPrint();
 
     int mask = _st & FLAG_MSK;
     int level = _interruptLevel (mask);

@@ -25,7 +25,6 @@
  *
  *  Pre and post operation execution for disassembly
  *  at run time.
- *
  */
 
 #include <stdio.h>
@@ -45,11 +44,24 @@ static const char *unasmText[0x10000];
 static const char *currText;
 
 extern int outputLevel;
-static bool covered[0x8000];
-static bool outputUncovered = false;
-static bool skipCurrent = false;
 
-static const char *parseComment (char type, int *len)
+Unasm::Unasm()
+{
+    memset (_covered, 0, 0x8000);
+    _outputUncovered = false;
+    _skipCurrent = false;
+}
+
+std::string Unasm::_align (const char *msg, int width)
+{
+    char s[width+1];
+
+    // sprintf ("");
+    sprintf (s, "%-*.*s", width, width, msg);
+    return std::string (s);
+}
+
+const char *Unasm::_parseComment (char type, int *len)
 {
     const char *next;
     const char *ret;
@@ -58,7 +70,7 @@ static const char *parseComment (char type, int *len)
         return NULL;
 
     if (*currText != '@')
-        halt ("invalid comment");
+        _halt ("invalid comment");
 
     if (*(currText+1) != type)
         return NULL;
@@ -76,9 +88,9 @@ static const char *parseComment (char type, int *len)
     return ret;
 }
 
-static char * printOper (uint16_t mode, uint16_t reg, uint16_t *pc)
+std::string Unasm::_printOper (uint16_t mode, uint16_t reg, uint16_t *pc)
 {
-    static char result[20];
+    char result[20];
     uint16_t arg;
 
     switch (mode)
@@ -111,15 +123,13 @@ static char * printOper (uint16_t mode, uint16_t reg, uint16_t *pc)
         break;
     }
 
-    return result;
+    return std::string(result);
 }
 
-static void unasmTwoOp (uint16_t opCode, uint16_t *pc, uint16_t sMode, uint16_t sReg,
+void Unasm::_twoOp (uint16_t opCode, uint16_t *pc, uint16_t sMode, uint16_t sReg,
                         uint16_t dMode, uint16_t dReg)
 {
     const char *name = "****";
-    char op[20];
-    char out[31];
 
     switch (opCode)
     {
@@ -150,21 +160,20 @@ static void unasmTwoOp (uint16_t opCode, uint16_t *pc, uint16_t sMode, uint16_t 
 
     }
 
-    strcpy (op, printOper (sMode, sReg, pc));
+    char out[31];
 
     sprintf (out, "%-4s  %s,%s",
              name,
-             op,
-             printOper (dMode, dReg, pc));
+             _printOper (sMode, sReg, pc).c_str(),
+             _printOper (dMode, dReg, pc).c_str());
 
-    mprintf (LVL_UNASM, "%-30.30s", out);
+    // mprintf (LVL_UNASM, "%-30.30s", out);
+    _output += _align (out, 30);
 }
 
-static void unasmOneOp (uint16_t opCode, uint16_t *pc, uint16_t sMode, uint16_t
-sReg)
+void Unasm::_oneOp (uint16_t opCode, uint16_t *pc, uint16_t sMode, uint16_t sReg)
 {
     const char *name = "****";
-    char out[31];
 
     switch (opCode)
     {
@@ -184,14 +193,16 @@ sReg)
     case OP_ABS:  name = "ABS"; break;
     }
 
+    char out[31];
     sprintf (out, "%-4s  %s",
              name,
-             printOper (sMode, sReg, pc));
+             _printOper (sMode, sReg, pc).c_str());
 
-    mprintf (LVL_UNASM, "%-30.30s", out);
+    // mprintf (LVL_UNASM, "%-30.30s", out);
+    _output += _align (out, 30);
 }
 
-static void unasmImmed (uint16_t opCode, uint16_t *pc, uint16_t sReg)
+void Unasm::_immed (uint16_t opCode, uint16_t *pc, uint16_t sReg)
 {
     char out[31];
     const char *name = "****";
@@ -245,10 +256,11 @@ static void unasmImmed (uint16_t opCode, uint16_t *pc, uint16_t sReg)
         sprintf (out, "%-4s",
                  name);
 
-    mprintf (LVL_UNASM, "%-30.30s", out);
+    // mprintf (LVL_UNASM, "%-30.30s", out);
+    _output += _align (out, 30);
 }
 
-static void unasmJump (uint16_t opCode, uint16_t pc, int8_t offset)
+void Unasm::_jump (uint16_t opCode, uint16_t pc, int8_t offset)
 {
     char out[31];
     const char *name = "****";
@@ -287,11 +299,12 @@ static void unasmJump (uint16_t opCode, uint16_t pc, int8_t offset)
                 offset);
     }
 
-    mprintf (LVL_UNASM, "%-30.30s", out);
+    // mprintf (LVL_UNASM, "%-30.30s", out);
+    _output += _align (out, 30);
 }
 
 /*  Pre execution disassembly.  Returns number of words consumed */
-uint16_t unasmPreExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcode)
+uint16_t Unasm::preExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcode)
 {
     const char *comment;
     int len;
@@ -304,56 +317,62 @@ uint16_t unasmPreExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcod
     if (outputLevel < 2)
         return 0;
 
-    if (covered[pc>>1])
+    if (_covered[pc>>1])
     {
-        skipCurrent = true;
+        _skipCurrent = true;
         return 0;
     }
 
-    if (outputUncovered)
+    if (_outputUncovered)
     {
-        covered[pc>>1] = true;
-        skipCurrent = false;
+        _covered[pc>>1] = true;
+        _skipCurrent = false;
     }
 
     currText = unasmText[pc-2];
 
-    while ((comment = parseComment ('-', &len)) != NULL)
+    while ((comment = _parseComment ('-', &len)) != NULL)
     {
-        mprintf (LVL_UNASM, ";%.*s\n", len, comment);
+        _output += ";";
+        // mprintf (LVL_UNASM, ";%.*s\n", len, comment);
+        _output += _align (comment, len);
+        _output += "\n";
     }
 
-    mprintf (LVL_UNASM, "%04X:%04X ", pc-2, data);
+    // mprintf (LVL_UNASM, "%04X:%04X ", pc-2, data);
+    char addr[11];
+    sprintf (addr, "%04X:%04X ", pc-2, data);
+    _output += addr;
 
     switch (type)
     {
     case OPTYPE_IMMED:
         sReg   =  data & 0x000F;
-        unasmImmed (opcode, &pc, sReg);
+        _immed (opcode, &pc, sReg);
         break;
 
     case OPTYPE_SINGLE:
         sMode = (data & 0x0030) >> 4;
         sReg     =  data & 0x000F;
-        unasmOneOp (opcode, &pc, sMode, sReg);
+        _oneOp (opcode, &pc, sMode, sReg);
         break;
 
     case OPTYPE_SHIFT:
         dReg = (data & 0x00F0) >> 4;
         sReg =  data & 0x000F;
-        unasmTwoOp (opcode, &pc, 0, sReg, 0, dReg);
+        _twoOp (opcode, &pc, 0, sReg, 0, dReg);
         break;
 
     case OPTYPE_JUMP:
         sReg = data & 0x00FF;
-        unasmJump (opcode, pc, sReg);
+        _jump (opcode, pc, sReg);
         break;
 
     case OPTYPE_DUAL1:
         dReg     = (data & 0x03C0) >> 6;
         sMode = (data & 0x0030) >> 4;
         sReg     =  data & 0x000F;
-        unasmTwoOp (opcode, &pc, sMode, sReg, 0, dReg);
+        _twoOp (opcode, &pc, sMode, sReg, 0, dReg);
         break;
 
     case OPTYPE_DUAL2:
@@ -361,55 +380,65 @@ uint16_t unasmPreExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcod
         dReg     = (data & 0x03C0) >> 6;
         sMode = (data & 0x0030) >> 4;
         sReg     =  data & 0x000F;
-        unasmTwoOp (opcode, &pc, sMode, sReg, dMode, dReg);
+        _twoOp (opcode, &pc, sMode, sReg, dMode, dReg);
         break;
     }
 
     return pc - pcStart;
 }
 
-static char unasmTextBuffer[100];
-static char *unasmTextPtr = unasmTextBuffer;
+// static char unasmTextBuffer[100];
+// static char *unasmTextPtr = unasmTextBuffer;
 
-void unasmVPostText (const char *fmt, va_list ap)
+void Unasm::vPostExec (const char *fmt, va_list ap)
 {
-    if (skipCurrent)
+    if (_skipCurrent)
         return;
 
-    int len = vsprintf (unasmTextPtr, fmt, ap);
-    unasmTextPtr += len;
+    char out[200];
+    vsprintf (out, fmt, ap);
+    _output += out;
+    // int len = vsprintf (unasmTextPtr, fmt, ap);
+    // unasmTextPtr += len;
 }
 
-void unasmPostText (const char *fmt, ...)
+void Unasm::postExec (const char *fmt, ...)
 {
     va_list ap;
 
     va_start (ap, fmt);
-    unasmVPostText (fmt, ap);
+    vPostExec (fmt, ap);
     va_end (ap);
 }
 
-void unasmPostPrint (void)
+void Unasm::addComment (void)
 {
     const char *comment;
     int anyComment = 0;
     int len;
 
-    if (skipCurrent)
+    if (_skipCurrent)
         return;
 
-    mprintf (LVL_UNASM, "%-40.40s", unasmTextBuffer);
-    unasmTextPtr = unasmTextBuffer;
-    unasmTextBuffer[0] = 0;
+    // char out2[41];
+    // sprintf (out2, "%-40.40s", unasmTextBuffer);
+    // _output += out2;
+    // mprintf (LVL_UNASM, "%-40.40s", unasmTextBuffer);
+    // unasmTextPtr = unasmTextBuffer;
+    // unasmTextBuffer[0] = 0;
 
-    while ((comment = parseComment ('+', &len)) != NULL)
+    while ((comment = _parseComment ('+', &len)) != NULL)
     {
         anyComment = 1;
-        mprintf (LVL_UNASM, ";%.*s\n", len, comment);
+        // sprintf (out2, ";%.*s\n", len, comment);
+        // _output += out2;
+        // mprintf (LVL_UNASM, ";%.*s\n", len, comment);
+        _output += _align (comment, len);
     }
 
     if (!anyComment)
-        mprintf (LVL_UNASM, "\n");
+        // mprintf (LVL_UNASM, "\n");
+        _output += "\n";
 }
 
 /*  Reads comments in from a file and displays them after an instruciton that
@@ -420,7 +449,7 @@ void unasmPostPrint (void)
  *  the moment, unasm.txt contains comments for console ROM, disk DSR and
  *  extended basic (a mix of C and D).
  */
-void unasmReadText (const char *textFile)
+void Unasm::readText (const char *textFile)
 {
     FILE *fp;
     char s[2048];
@@ -453,9 +482,8 @@ void unasmReadText (const char *textFile)
     fclose (fp);
 }
 
-void unasmOutputUncovered (bool state)
+void Unasm::outputUncovered (bool state)
 {
-    outputUncovered = state;
+    _outputUncovered = state;
 }
-
 

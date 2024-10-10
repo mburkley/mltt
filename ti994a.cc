@@ -135,6 +135,8 @@ void TI994A::run (int instPerInterrupt)
 
         printf ("exec\n");
         execute (opcode);
+        mprintf (LVL_UNASM, unasm.getOutput().c_str());
+        unasm.clearOutput();
         count++;
 
         watchShow();

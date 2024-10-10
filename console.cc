@@ -333,7 +333,7 @@ bool consoleUnassemble (int argc, char *argv[])
     {
         if (!strncmp (argv[1], "covered", strlen(argv[1])))
         {
-            unasmOutputUncovered (true);
+            ti994a.unasmOutputUncovered (true);
             mprintf (0, "Uncovered code only will be unassembled\n");
         }
         else
@@ -346,7 +346,7 @@ bool consoleUnassemble (int argc, char *argv[])
 bool consoleComments (int argc, char *argv[])
 {
     printf ("Reading code comments from '%s'\n", argv[1]);
-    unasmReadText (argv[1]);
+    ti994a.unasmReadText (argv[1]);
 
     return true;
 }

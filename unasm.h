@@ -23,14 +23,39 @@
 #ifndef __UNASM_H
 #define __UNASM_H
 
+#include <string>
+#include <iostream>
+#include <cstdlib>
+
 #include "types.h"
 
-void unasmReadText (const char *textFile);
-uint16_t unasmPreExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcode);
-void unasmVPostText (const char *fmt, va_list ap);
-void unasmPostText (const char *fmt, ...);
-void unasmPostPrint (void);
-void unasmOutputUncovered (bool state);
+class Unasm
+{
+public:
+    Unasm();
+    void readText (const char *textFile);
+    uint16_t preExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcode);
+    void vPostExec (const char *fmt, va_list ap);
+    void postExec (const char *fmt, ...);
+    void addComment (void);
+    std::string getOutput() { return _output; }
+    void clearOutput () { _output = ""; }
+    void outputUncovered (bool state);
+private:
+    std::string _output;
+    bool _covered[0x8000];
+    bool _outputUncovered;
+    bool _skipCurrent;
+    std::string _align (const char *s, int len);
+    virtual void _halt (const char *msg) { std::cerr << msg; exit (1); }
+    const char *_parseComment (char type, int *len);
+    std::string _printOper (uint16_t mode, uint16_t reg, uint16_t *pc);
+    void _twoOp (uint16_t opCode, uint16_t *pc, uint16_t sMode, uint16_t sReg,
+                        uint16_t dMode, uint16_t dReg);
+    void _oneOp (uint16_t opCode, uint16_t *pc, uint16_t sMode, uint16_t sReg);
+    void _immed (uint16_t opCode, uint16_t *pc, uint16_t sReg);
+    void _jump (uint16_t opCode, uint16_t pc, int8_t offset);
+};
 
 #endif
 

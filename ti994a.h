@@ -35,30 +35,35 @@ class TI994A:public TMS9900
 {
 public:
     //TMS9900 cpu;
+    Unasm unasm;
     void run (int instPerInterrupt);
     void init (void);
     void close (void);
     void showScratchPad (bool showGplUsage);
     // void timerInterrupt (void);
     void clearRunFlag () { _runFlag = false; }
+    // void unasmOutputUncovered (bool flag) { _unasm.outputUncovered (flag); }
+    // void unasmReadText (const char *textFile) { _unasm.readText (textFile); }
 private:
+    static Cassette _cassette;
     bool _runFlag;
     uint16_t _memReadW (uint16_t addr) { return memReadW (addr); }
     uint8_t _memReadB (uint16_t addr) { return memReadB (addr); }
     void _memWriteW (uint16_t addr, uint16_t data) { memWriteW (addr, data); }
     void _memWriteB (uint16_t addr, uint8_t data) { memWriteB (addr, data); }
 
-    void _unasmPostText (const char *fmt, ...)
+    void _unasmPostExec (const char *fmt, ...)
     {
         va_list ap;
 
         va_start (ap, fmt);
-        unasmVPostText (fmt, ap);
+        unasm.vPostExec (fmt, ap);
         va_end (ap);
     }
+
     uint16_t _unasmPreExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcode)
-    { return unasmPreExec (pc, data, type, opcode ); }
-    void _unasmPostPrint (void) { unasmPostPrint(); }
+    { return unasm.preExec (pc, data, type, opcode ); }
+    // void _unasmPostPrint (void) { unasm.postPrint(); }
 
     void _cruBitOutput (uint16_t base, uint16_t offset, uint8_t state) { cruBitOutput (base, offset, state); }
     void _cruMultiBitSet (uint16_t base, uint16_t data, int nBits) { cruMultiBitSet (base, data, nBits); }
@@ -67,7 +72,6 @@ private:
 
     /*  Methods using legacy C callbacks must be declared static */
     static bool _interrupt (int index, uint8_t state);
-    static Cassette _cassette;
 };
 
 #endif
