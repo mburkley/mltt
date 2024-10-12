@@ -37,12 +37,13 @@ public:
     uint16_t preExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcode);
     void vPostExec (const char *fmt, va_list ap);
     void postExec (const char *fmt, ...);
-    void addComment (void);
+    void endLine (void);
     std::string getOutput() { return _output; }
     void clearOutput () { _output = ""; }
     void outputUncovered (bool state);
 private:
     std::string _output;
+    std::string _execOutput;
     bool _covered[0x8000];
     bool _outputUncovered;
     bool _skipCurrent;

@@ -379,7 +379,7 @@ void Unasm::vPostExec (const char *fmt, va_list ap)
 
     char out[200];
     vsprintf (out, fmt, ap);
-    _output += out;
+    _execOutput += out;
 }
 
 void Unasm::postExec (const char *fmt, ...)
@@ -391,7 +391,7 @@ void Unasm::postExec (const char *fmt, ...)
     va_end (ap);
 }
 
-void Unasm::addComment (void)
+void Unasm::endLine (void)
 {
     const char *comment;
     int len;
@@ -400,17 +400,21 @@ void Unasm::addComment (void)
     if (_skipCurrent)
         return;
 
+    _output += _align (_execOutput.c_str(), 40);
+    _execOutput = "";
+
     while ((comment = _parseComment ('+', &len)) != NULL)
     {
         anyComment = true;
         _output += _align (comment, len);
+        _output += "\n";
     }
 
     if (!anyComment)
         _output += "\n";
 }
 
-/*  Reads comments in from a file and displays them after an instruciton that
+/*  Reads comments in from a file and displays them after an instruction that
  *  has been executed.
  *
  *  NOTE : At present, the file has no way to select ROM banks for even

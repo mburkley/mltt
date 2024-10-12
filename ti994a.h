@@ -64,7 +64,7 @@ private:
 
     uint16_t _unasmPreExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcode)
     { return unasm.preExec (pc, data, type, opcode ); }
-    // void _unasmPostPrint (void) { unasm.postPrint(); }
+    void _unasmEndLine (void) { unasm.endLine(); }
 
     void _cruBitOutput (uint16_t base, uint16_t offset, uint8_t state) { cruBitOutput (base, offset, state); }
     void _cruMultiBitSet (uint16_t base, uint16_t data, int nBits) { cruMultiBitSet (base, data, nBits); }

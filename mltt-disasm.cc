@@ -59,7 +59,7 @@ int main (int argc, char *argv[])
         uint16_t opcode = disasm.decode (data, &type);
         uint16_t paramWords = disasm.unasm.preExec (pc, data, type, opcode);
 
-        disasm.unasm.addComment();
+        disasm.unasm.endLine();
         std::cout << disasm.unasm.getOutput (); // << std::endl;
         disasm.unasm.clearOutput();
 
