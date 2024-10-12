@@ -43,8 +43,6 @@
 static const char *unasmText[0x10000];
 static const char *currText;
 
-extern int outputLevel;
-
 Unasm::Unasm()
 {
     memset (_covered, 0, 0x8000);
@@ -314,9 +312,6 @@ uint16_t Unasm::preExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opc
     int dMode = 0;
     uint16_t pcStart = pc;
 
-    // if (outputLevel < 2)
-    //     return 0;
-
     if (_covered[pc>>1])
     {
         _skipCurrent = true;
@@ -386,9 +381,6 @@ uint16_t Unasm::preExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opc
 
     return pc - pcStart;
 }
-
-// static char unasmTextBuffer[100];
-// static char *unasmTextPtr = unasmTextBuffer;
 
 void Unasm::vPostExec (const char *fmt, va_list ap)
 {
