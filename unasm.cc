@@ -40,9 +40,6 @@
 #include "ti994a.h"
 #include "unasm.h"
 
-static const char *unasmText[0x10000];
-static const char *currText;
-
 Unasm::Unasm()
 {
     memset (_covered, 0, 0x8000);
@@ -54,7 +51,6 @@ std::string Unasm::_align (const char *msg, int width)
 {
     char s[width+1];
 
-    // sprintf ("");
     sprintf (s, "%-*.*s", width, width, msg);
     return std::string (s);
 }
@@ -64,25 +60,25 @@ const char *Unasm::_parseComment (char type, int *len)
     const char *next;
     const char *ret;
 
-    if (currText == NULL)
+    if (_currComment == NULL)
         return NULL;
 
-    if (*currText != '@')
+    if (*_currComment != '@')
         _halt ("invalid comment");
 
-    if (*(currText+1) != type)
+    if (*(_currComment+1) != type)
         return NULL;
 
-    next = strchr ((char*)currText+2, '@');
+    next = strchr ((char*)_currComment+2, '@');
 
     if (next)
-        *len = next - currText - 2;
+        *len = next - _currComment - 2;
     else
-        *len = strlen (currText) - 2;
+        *len = strlen (_currComment) - 2;
 
-    ret = currText + 2;
+    ret = _currComment + 2;
 
-    currText = next;
+    _currComment = next;
     return ret;
 }
 
@@ -165,7 +161,6 @@ void Unasm::_twoOp (uint16_t opCode, uint16_t *pc, uint16_t sMode, uint16_t sReg
              _printOper (sMode, sReg, pc).c_str(),
              _printOper (dMode, dReg, pc).c_str());
 
-    // mprintf (LVL_UNASM, "%-30.30s", out);
     _output += _align (out, 30);
 }
 
@@ -196,7 +191,6 @@ void Unasm::_oneOp (uint16_t opCode, uint16_t *pc, uint16_t sMode, uint16_t sReg
              name,
              _printOper (sMode, sReg, pc).c_str());
 
-    // mprintf (LVL_UNASM, "%-30.30s", out);
     _output += _align (out, 30);
 }
 
@@ -254,7 +248,6 @@ void Unasm::_immed (uint16_t opCode, uint16_t *pc, uint16_t sReg)
         sprintf (out, "%-4s",
                  name);
 
-    // mprintf (LVL_UNASM, "%-30.30s", out);
     _output += _align (out, 30);
 }
 
@@ -297,7 +290,6 @@ void Unasm::_jump (uint16_t opCode, uint16_t pc, int8_t offset)
                 offset);
     }
 
-    // mprintf (LVL_UNASM, "%-30.30s", out);
     _output += _align (out, 30);
 }
 
@@ -324,17 +316,15 @@ uint16_t Unasm::preExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opc
         _skipCurrent = false;
     }
 
-    currText = unasmText[pc-2];
+    _currComment = _codeComments[pc-2];
 
     while ((comment = _parseComment ('-', &len)) != NULL)
     {
         _output += ";";
-        // mprintf (LVL_UNASM, ";%.*s\n", len, comment);
         _output += _align (comment, len);
         _output += "\n";
     }
 
-    // mprintf (LVL_UNASM, "%04X:%04X ", pc-2, data);
     char addr[11];
     sprintf (addr, "%04X:%04X ", pc-2, data);
     _output += addr;
@@ -390,8 +380,6 @@ void Unasm::vPostExec (const char *fmt, va_list ap)
     char out[200];
     vsprintf (out, fmt, ap);
     _output += out;
-    // int len = vsprintf (unasmTextPtr, fmt, ap);
-    // unasmTextPtr += len;
 }
 
 void Unasm::postExec (const char *fmt, ...)
@@ -406,30 +394,19 @@ void Unasm::postExec (const char *fmt, ...)
 void Unasm::addComment (void)
 {
     const char *comment;
-    int anyComment = 0;
     int len;
+    bool anyComment = false;
 
     if (_skipCurrent)
         return;
 
-    // char out2[41];
-    // sprintf (out2, "%-40.40s", unasmTextBuffer);
-    // _output += out2;
-    // mprintf (LVL_UNASM, "%-40.40s", unasmTextBuffer);
-    // unasmTextPtr = unasmTextBuffer;
-    // unasmTextBuffer[0] = 0;
-
     while ((comment = _parseComment ('+', &len)) != NULL)
     {
-        anyComment = 1;
-        // sprintf (out2, ";%.*s\n", len, comment);
-        // _output += out2;
-        // mprintf (LVL_UNASM, ";%.*s\n", len, comment);
+        anyComment = true;
         _output += _align (comment, len);
     }
 
     if (!anyComment)
-        // mprintf (LVL_UNASM, "\n");
         _output += "\n";
 }
 
@@ -441,7 +418,7 @@ void Unasm::addComment (void)
  *  the moment, unasm.txt contains comments for console ROM, disk DSR and
  *  extended basic (a mix of C and D).
  */
-void Unasm::readText (const char *textFile)
+void Unasm::readCodeComments (const char *textFile)
 {
     FILE *fp;
     char s[2048];
@@ -458,7 +435,7 @@ void Unasm::readText (const char *textFile)
             continue;
 
         uint16_t ix = strtoul (s, NULL, 16);
-        if (unasmText[ix])
+        if (_codeComments[ix])
         {
             printf ("Already have text for %x\n", ix);
         }
@@ -467,7 +444,7 @@ void Unasm::readText (const char *textFile)
             if (s[strlen(s)-1]=='\n')
                 s[strlen(s)-1] = 0;
 
-            unasmText[ix] = strdup (&s[5]);
+            _codeComments[ix] = strdup (&s[5]);
         }
     }
 

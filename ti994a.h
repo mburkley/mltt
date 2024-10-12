@@ -30,6 +30,7 @@
 #include "mem.h"
 #include "unasm.h"
 #include "cru.h"
+#include "interrupt.h"
 
 class TI994A:public TMS9900
 {
@@ -69,6 +70,8 @@ private:
     void _cruMultiBitSet (uint16_t base, uint16_t data, int nBits) { cruMultiBitSet (base, data, nBits); }
     uint16_t _cruMultiBitGet (uint16_t base, uint16_t offset) { return cruMultiBitGet (base, offset); }
     uint8_t _cruBitGet (uint16_t base, int8_t bitOffset) { return cruBitGet (base, bitOffset); }
+
+    int _interruptLevel (int mask) { return interruptLevel (mask); }
 
     /*  Methods using legacy C callbacks must be declared static */
     static bool _interrupt (int index, uint8_t state);

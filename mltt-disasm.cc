@@ -29,17 +29,12 @@
 #include <stdlib.h>
 
 #include "mltt-disasm.h"
-// #include "trace.h"
 #include "parse.h"
-// #include "unasm.h"
-// #include "mem.h"
-// #include "cpu.h"
 
 int main (int argc, char *argv[])
 {
     int addr;
     uint16_t pc;
-    // TMS9900 cpu;
     Disasm disasm;
 
     if (argc < 3 || !parseValue (argv[2], &addr))
@@ -51,10 +46,9 @@ int main (int argc, char *argv[])
     int len = memLoad (argv[1], addr, 0);
 
     if (argc > 3)
-        disasm.unasm.readText (argv[3]);
+        disasm.unasm.readCodeComments (argv[3]);
 
     pc = addr;
-    // outputLevel = LVL_UNASM;
 
     printf ("loop %x to %x\n", pc, addr+len);
     while (pc < addr+len)
@@ -65,7 +59,8 @@ int main (int argc, char *argv[])
         uint16_t opcode = disasm.decode (data, &type);
         uint16_t paramWords = disasm.unasm.preExec (pc, data, type, opcode);
 
-        std::cout << disasm.unasm.getOutput () << std::endl;
+        disasm.unasm.addComment();
+        std::cout << disasm.unasm.getOutput (); // << std::endl;
         disasm.unasm.clearOutput();
 
         while (paramWords)

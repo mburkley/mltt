@@ -33,7 +33,7 @@ class Unasm
 {
 public:
     Unasm();
-    void readText (const char *textFile);
+    void readCodeComments (const char *textFile);
     uint16_t preExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcode);
     void vPostExec (const char *fmt, va_list ap);
     void postExec (const char *fmt, ...);
@@ -46,6 +46,9 @@ private:
     bool _covered[0x8000];
     bool _outputUncovered;
     bool _skipCurrent;
+    const char *_codeComments[0x10000];
+    const char *_currComment;
+
     std::string _align (const char *s, int len);
     virtual void _halt (const char *msg) { std::cerr << msg; exit (1); }
     const char *_parseComment (char type, int *len);

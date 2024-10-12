@@ -55,9 +55,6 @@
 #include "fdd.h"
 #include "ti994a.h"
 
-/*  Declare one global instance of the ti99 */
-TI994A ti994a;
-
 /*  Show the contents of the scratchpad memory either in abbreviated or detailed
  *  form.  If the param is false, just a hex dump is shown.  If true, each value
  *  is presented on a separate line with a description
@@ -96,7 +93,6 @@ void TI994A::run (int instPerInterrupt)
            !breakPointHit (getPC()) &&
            !conditionTrue ())
     {
-        printf ("fetch\n");
         uint16_t opcode = fetch ();
         bool shouldBlock = false;
 
@@ -133,7 +129,6 @@ void TI994A::run (int instPerInterrupt)
             timerPoll ();
         }
 
-        printf ("exec\n");
         execute (opcode);
         mprintf (LVL_UNASM, unasm.getOutput().c_str());
         unasm.clearOutput();

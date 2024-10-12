@@ -346,7 +346,7 @@ bool consoleUnassemble (int argc, char *argv[])
 bool consoleComments (int argc, char *argv[])
 {
     printf ("Reading code comments from '%s'\n", argv[1]);
-    ti994a.unasm.readText (argv[1]);
+    ti994a.unasm.readCodeComments (argv[1]);
 
     return true;
 }
@@ -661,6 +661,7 @@ static void input (FILE *fp)
 
     argc = parseLine (line, argv);
 
+    // Single step?
     if (fp == NULL && argc == 0)
     {
         ti994a.execute (ti994a.fetch());

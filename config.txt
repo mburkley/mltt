@@ -163,7 +163,7 @@ keyboard
 # 0400=gpl debug         - show debug of GPL disassembly
 # 0800=cassette          - show cassette debug
 # 1000=disk              - show disk debug
-level 0x0010
+level 0x0050
 
 # Initialise the CPU
 boot
