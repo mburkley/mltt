@@ -160,7 +160,7 @@ void TMS9900::_jumpAnd (uint16_t setMask, uint16_t clrMask, uint16_t offset)
     if ((_st & setMask) == setMask &&
         (~_st & clrMask) == clrMask)
     {
-        _unasmPostText("st=%04X[s=%04X&&c=%04X], jump", _st, setMask,
+        _unasmPostExec("st=%04X[s=%04X&&c=%04X], jump", _st, setMask,
         clrMask);
         _pc += offset << 1;
     }
@@ -173,7 +173,7 @@ void TMS9900::_jumpOr (uint16_t setMask, uint16_t clrMask, uint16_t offset)
     if ((_st & setMask) != 0 ||
         (~_st & clrMask) != 0)
     {
-        _unasmPostText("st=%04X[s=%04X||c=%04X], jump", _st, setMask,
+        _unasmPostExec("st=%04X[s=%04X||c=%04X], jump", _st, setMask,
         clrMask);
         _pc += offset << 1;
     }
@@ -259,9 +259,9 @@ void TMS9900::_compareWord (uint16_t sData, uint16_t dData)
 {
     _statusEqual (sData == dData);
     _statusLogicalGreater (sData > dData);
-    // _unasmPostText("[AGT:%x>%x]", (int16_t)sData, (int16_t)dData);
+    // _unasmPostExec("[AGT:%x>%x]", (int16_t)sData, (int16_t)dData);
     _statusArithmeticGreater ((int16_t) sData > (int16_t) dData);
-    _unasmPostText (_outputStatus());
+    _unasmPostExec (_outputStatus());
 }
 
 void TMS9900::_compareByte (uint16_t sData, uint16_t dData)
@@ -269,7 +269,7 @@ void TMS9900::_compareByte (uint16_t sData, uint16_t dData)
     _statusEqual (sData == dData);
     _statusLogicalGreater (sData > dData);
     _statusArithmeticGreater ((int8_t) sData > (int8_t) dData);
-    _unasmPostText (_outputStatus());
+    _unasmPostExec (_outputStatus());
 }
 
 uint16_t TMS9900::_operandDecode (uint16_t mode, uint16_t reg, bool isByte)
@@ -309,27 +309,27 @@ uint16_t TMS9900::_operandFetch (uint16_t mode, uint16_t reg, uint16_t addr, boo
     if (isByte)
     {
         if (mode)
-            _unasmPostText("B:[%04X]", addr);
+            _unasmPostExec("B:[%04X]", addr);
         else
-            _unasmPostText("R%d", reg);
+            _unasmPostExec("R%d", reg);
 
         if (doFetch)
         {
             data = _memReadB (addr);
-            _unasmPostText("=%02X", data);
+            _unasmPostExec("=%02X", data);
         }
     }
     else
     {
         if (mode)
-            _unasmPostText("W:[%04X]", addr);
+            _unasmPostExec("W:[%04X]", addr);
         else
-            _unasmPostText("R%d", reg);
+            _unasmPostExec("R%d", reg);
 
         if (doFetch)
         {
             data = _memReadW (addr);
-            _unasmPostText("=%04X", data);
+            _unasmPostExec("=%04X", data);
         }
     }
 
@@ -358,7 +358,7 @@ void TMS9900::_executeImmediate (uint16_t opcode, uint16_t reg)
         /*  Overflow if MSB(data)=MSB(Imm) && MSB(result) != MSB (data) */
         _statusOverflow ((data & 0x8000) == (immed & 0x8000) &&
                         ((data+immed) & 0x8000) != (data & 0x8000));
-        _unasmPostText ("R%d=%04X+%04X=%04X", reg, data, immed, data+immed);
+        _unasmPostExec ("R%d=%04X+%04X=%04X", reg, data, immed, data+immed);
         data += immed;
         _statusCarry (data >= 0x10000);
         data &= 0xffff;
@@ -369,7 +369,7 @@ void TMS9900::_executeImmediate (uint16_t opcode, uint16_t reg)
     case OP_ANDI:
         data = REGR(reg);
         immed = fetch();
-        _unasmPostText ("R%d=%04X&%04X=%04X", reg, data, immed, data&immed);
+        _unasmPostExec ("R%d=%04X&%04X=%04X", reg, data, immed, data&immed);
         data &= immed;
         REGW(reg,data);
         _compareWord (data, 0);
@@ -378,7 +378,7 @@ void TMS9900::_executeImmediate (uint16_t opcode, uint16_t reg)
     case OP_ORI:
         data = REGR(reg);
         immed = fetch();
-        _unasmPostText ("R%d=%04X|%04X=%04X", reg, data, immed, data|immed);
+        _unasmPostExec ("R%d=%04X|%04X=%04X", reg, data, immed, data|immed);
         data |= immed;
         REGW(reg,data);
         _compareWord (data, 0);
@@ -386,19 +386,19 @@ void TMS9900::_executeImmediate (uint16_t opcode, uint16_t reg)
 
     case OP_CI:
         data = REGR(reg);
-        _unasmPostText ("R%d=%04X", reg, data);
+        _unasmPostExec ("R%d=%04X", reg, data);
         _compareWord (data, fetch());
         break;
 
     case OP_STST:
         immed = _st;
-        _unasmPostText ("R%d=%04X", reg, immed);
+        _unasmPostExec ("R%d=%04X", reg, immed);
         REGW(reg,immed);
         break;
 
     case OP_STWP:
         immed = _wp;
-        _unasmPostText ("R%d=%04X", reg, immed);
+        _unasmPostExec ("R%d=%04X", reg, immed);
         REGW(reg,immed);
         break;
 
@@ -413,7 +413,7 @@ void TMS9900::_executeImmediate (uint16_t opcode, uint16_t reg)
 
     case OP_RTWP:
         _rtwp ();
-        _unasmPostText ("pc=%04X", _pc);
+        _unasmPostExec ("pc=%04X", _pc);
         break;
 
     default:
@@ -429,19 +429,19 @@ void TMS9900::_executeSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
     addr = _operandDecode (mode, reg, false);
 
     if (mode)
-        _unasmPostText("W:[%04X]", addr);
+        _unasmPostExec("W:[%04X]", addr);
     else
-        _unasmPostText("R%d", reg);
+        _unasmPostExec("R%d", reg);
 
     switch (opcode)
     {
     case OP_BLWP:
-        _unasmPostText ("=%04X", addr);
+        _unasmPostExec ("=%04X", addr);
         _blwp (addr);
         break;
 
     case OP_B:
-        _unasmPostText ("=%04X", addr);
+        _unasmPostExec ("=%04X", addr);
         _pc = addr;
         break;
 
@@ -460,14 +460,14 @@ void TMS9900::_executeSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
         _statusCarry (param == 0x8000);
         _statusOverflow (param & 0x8000);
         param = -param;
-        _unasmPostText ("=%04X", param);
+        _unasmPostExec ("=%04X", param);
         _memWriteW (addr, param);
         _compareWord (param, 0);
         break;
 
     case OP_INV:
         param = ~_memReadW (addr);
-        _unasmPostText ("=%04X", param);
+        _unasmPostExec ("=%04X", param);
         _memWriteW (addr, param);
         _compareWord (param, 0);
         break;
@@ -478,7 +478,7 @@ void TMS9900::_executeSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
                         ((param + 1) & 0x8000) == 0x8000);
         _statusCarry (param == 0xFFFF);
         param += 1;
-        _unasmPostText ("=%04X", param);
+        _unasmPostExec ("=%04X", param);
         _memWriteW (addr, param);
         _compareWord (param, 0);
         break;
@@ -492,13 +492,13 @@ void TMS9900::_executeSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
         if(addr&1)
         {
             param&=0xFF;
-            _unasmPostText ("=%02X", param);
+            _unasmPostExec ("=%02X", param);
             _memWriteB(addr,param);
             _compareByte (param, 0);
         }
         else
         {
-            _unasmPostText ("=%04X", param);
+            _unasmPostExec ("=%04X", param);
             _memWriteW (addr, param);
             _compareWord (param, 0);
         }
@@ -510,7 +510,7 @@ void TMS9900::_executeSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
         _statusOverflow ((param & 0x8000) == 0x8000 &&
                         ((param - 1) & 0x8000) == 0);
         param -= 1;
-        _unasmPostText ("=%04X", param);
+        _unasmPostExec ("=%04X", param);
         _memWriteW (addr, param);
         _compareWord (param, 0);
         break;
@@ -529,13 +529,13 @@ void TMS9900::_executeSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
         if(addr&1)
         {
             param&=0xFF;
-            _unasmPostText ("=%02X", param);
+            _unasmPostExec ("=%02X", param);
             _memWriteB(addr,param);
             _compareByte (param, 0);
         }
         else
         {
-            _unasmPostText ("=%04X", param);
+            _unasmPostExec ("=%04X", param);
             _memWriteW (addr, param);
             _compareWord (param, 0);
         }
@@ -549,7 +549,7 @@ void TMS9900::_executeSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
     case OP_SWPB:
         param = _memReadW (addr);
         param = SWAP(param);
-        _unasmPostText ("=%04X", param);
+        _unasmPostExec ("=%04X", param);
         _memWriteW (addr, param);
         _compareWord (param, 0);
         break;
@@ -566,11 +566,11 @@ void TMS9900::_executeSingle (uint16_t opcode, uint16_t mode, uint16_t reg)
          *  account and doesn't just do a comparison of the result to zero */
         _statusArithmeticGreater ((int8_t) param > 0);
         param = ((int16_t) param < 0) ? -param : param;
-        _unasmPostText ("=%04X", param);
+        _unasmPostExec ("=%04X", param);
         _memWriteW (addr, param);
         _statusEqual (param == 0);
         _statusLogicalGreater (param != 0);
-        _unasmPostText (_outputStatus());
+        _unasmPostExec (_outputStatus());
         break;
 
     default:
@@ -593,7 +593,7 @@ void TMS9900::_executeShift (uint16_t opcode, uint16_t reg, uint16_t count)
     {
     case OP_SRA:
         i32 = REGR (reg) << 16;
-        _unasmPostText ("%04X=>", i32>>16);
+        _unasmPostExec ("%04X=>", i32>>16);
         i32 >>= count;
 
         /* Set carry flag if last bit shifted is set */
@@ -606,7 +606,7 @@ void TMS9900::_executeShift (uint16_t opcode, uint16_t reg, uint16_t count)
 
     case OP_SRC:
         u32 = REGR (reg);
-        _unasmPostText ("%04X=>", u32);
+        _unasmPostExec ("%04X=>", u32);
         u32 |= (u32 << 16);
         _debug ("u32=%x\n", u32);
         u32 >>= count;
@@ -622,7 +622,7 @@ void TMS9900::_executeShift (uint16_t opcode, uint16_t reg, uint16_t count)
 
     case OP_SRL:
         u32 = REGR (reg) << 16;
-        _unasmPostText ("%04X=>", u32>>16);
+        _unasmPostExec ("%04X=>", u32>>16);
         u32 >>= count;
 
         /* Set carry flag if last bit shifted is set */
@@ -635,7 +635,7 @@ void TMS9900::_executeShift (uint16_t opcode, uint16_t reg, uint16_t count)
 
     case OP_SLA:
         i32 = REGR (reg);
-        _unasmPostText ("%04X=>", i32);
+        _unasmPostExec ("%04X=>", i32);
         u32 = i32 << count;
 
         /* Set carry flag if last bit shifted is set */
@@ -653,7 +653,7 @@ void TMS9900::_executeShift (uint16_t opcode, uint16_t reg, uint16_t count)
         _halt ("Bad shift opcode");
     }
 
-    _unasmPostText ("%04X", u32);
+    _unasmPostExec ("%04X", u32);
 }
 
 /*
@@ -704,19 +704,19 @@ void TMS9900::_executeDual1 (uint16_t opcode, uint16_t dReg, uint16_t sMode, uin
     {
     case OP_COC:
         dData = REGR (dReg);
-        _unasmPostText ("&(R%d=%04X)=%04X", dReg, dData, sData & dData);
+        _unasmPostExec ("&(R%d=%04X)=%04X", dReg, dData, sData & dData);
         _compareWord (sData & dData, sData);
         break;
 
     case OP_CZC:
         dData = REGR (dReg);
-        _unasmPostText ("&~(R%d=%04X)=%04X", dReg, dData, sData & ~dData);
+        _unasmPostExec ("&~(R%d=%04X)=%04X", dReg, dData, sData & ~dData);
         _compareWord (sData & ~dData, sData);
         break;
 
     case OP_XOR:
         dData = REGR (dReg);
-        _unasmPostText ("&~(R%d=%04X)=%04X", dReg, dData, sData ^ dData);
+        _unasmPostExec ("&~(R%d=%04X)=%04X", dReg, dData, sData ^ dData);
         dData ^= sData;
         REGW (dReg, dData);
         _compareWord (dData, 0);
@@ -728,7 +728,7 @@ void TMS9900::_executeDual1 (uint16_t opcode, uint16_t dReg, uint16_t sMode, uin
 
     case OP_MPY:
         dData = REGR (dReg);
-        _unasmPostText ("*(R%d=%04X)=%04X", dReg, dData, sData * dData);
+        _unasmPostExec ("*(R%d=%04X)=%04X", dReg, dData, sData * dData);
         u32 = dData * sData;
         REGW(dReg, u32 >> 16);
         REGW(dReg+1, u32 & 0xFFFF);
@@ -738,14 +738,14 @@ void TMS9900::_executeDual1 (uint16_t opcode, uint16_t dReg, uint16_t sMode, uin
         dData = REGR (dReg);
         if (sData <= dData)
         {
-            _unasmPostText ("<(%04X<%04X)->OVF", sData, dData);
+            _unasmPostExec ("<(%04X<%04X)->OVF", sData, dData);
             _statusOverflow (true);
         }
         else
         {
             _statusOverflow (false);
             u32 = REGR(dReg) << 16 | REGR(dReg+1);
-            _unasmPostText (",(%X/%X)=>%04X,%04X", u32, sData, u32 / sData, u32 % sData);
+            _unasmPostExec (",(%X/%X)=>%04X,%04X", u32, sData, u32 / sData, u32 % sData);
             REGW(dReg, u32 / sData);
             REGW(dReg+1, u32 % sData);
         }
@@ -798,7 +798,7 @@ void TMS9900::_executeDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
     sAddr = _operandDecode (sMode, sReg, isByte);
     sData = _operandFetch (sMode, sReg, sAddr, isByte, true);
 
-    _unasmPostText (",");
+    _unasmPostExec (",");
     dAddr = _operandDecode (dMode, dReg, isByte);
     /*  Don't fetch the contents of the destination if op is a MOV */
     dData = _operandFetch (dMode, dReg, dAddr, isByte,
@@ -808,13 +808,13 @@ void TMS9900::_executeDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
     {
     case OP_SZC:
         dData &= ~sData;
-        _unasmPostText (":&~:%04X", dData);
+        _unasmPostExec (":&~:%04X", dData);
         _compareWord (dData, 0);
         break;
 
     case OP_SZCB:
         dData &= ~sData;
-        _unasmPostText (":&~:%02X", dData);
+        _unasmPostExec (":&~:%02X", dData);
         _compareByte (dData, 0);
         _statusParity (dData);
         break;
@@ -825,7 +825,7 @@ void TMS9900::_executeDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
                         (u32 & 0x8000) != (dData & 0x8000));
         dData = u32 & 0xFFFF;
         u32 >>= 16;
-        _unasmPostText (":-:%04X", dData);
+        _unasmPostExec (":-:%04X", dData);
 
         /* 15-AUG-23 carry flag meaning is inverted for S, SB, DEC, DECT.  Where
          * is this documented ??????
@@ -841,7 +841,7 @@ void TMS9900::_executeDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
                         (u32 & 0x8000) != (dData & 0x8000));
         dData = u32 & 0xFF;
         u32 >>= 8;
-        _unasmPostText (":-:%02X", dData);
+        _unasmPostExec (":-:%02X", dData);
 
         /* 15-AUG-23 carry flag meaning is inverted for S, SB, DEC, DECT.  Where
          * is this documented ??????
@@ -854,14 +854,14 @@ void TMS9900::_executeDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
 
     case OP_C:
         _compareWord (sData, dData);
-        _unasmPostText (":==:");
+        _unasmPostExec (":==:");
         doStore = false;
         break;
 
     case OP_CB:
         _compareByte (sData, dData);
         _statusParity (sData);
-        _unasmPostText (":==:");
+        _unasmPostExec (":==:");
         doStore = false;
         break;
 
@@ -878,13 +878,13 @@ void TMS9900::_executeDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
 
     case OP_SOC:
         dData |= sData;
-        _unasmPostText (":|:%04X", dData);
+        _unasmPostExec (":|:%04X", dData);
         _compareWord (dData, 0);
         break;
 
     case OP_SOCB:
         dData |= sData;
-        _unasmPostText (":|:%02X", dData);
+        _unasmPostExec (":|:%02X", dData);
         _compareByte (dData, 0);
         _statusParity (dData);
         break;
@@ -894,7 +894,7 @@ void TMS9900::_executeDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
         _statusOverflow ((sData & 0x8000) == (dData & 0x8000) &&
                         (u32 & 0x8000) != (dData & 0x8000));
         dData = u32 & 0xFFFF;
-        _unasmPostText (":+:%04X", dData);
+        _unasmPostExec (":+:%04X", dData);
         u32 >>= 16;
 
         _statusCarry (u32 != 0);
@@ -906,7 +906,7 @@ void TMS9900::_executeDual2 (uint16_t opcode, uint16_t dMode, uint16_t dReg,
         _statusOverflow ((sData & 0x8000) == (dData & 0x8000) &&
                         (u32 & 0x8000) != (dData & 0x8000));
         dData = u32 & 0xFF;
-        _unasmPostText (":+:%02X", dData);
+        _unasmPostExec (":+:%02X", dData);
         u32 >>= 8;
 
         _statusCarry (u32 != 0);

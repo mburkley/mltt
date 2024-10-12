@@ -22,9 +22,9 @@
 
 /*
  *  disasm.c  - standalone TMS9900 disassembler.
- *
  */
 
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -51,21 +51,22 @@ int main (int argc, char *argv[])
     int len = memLoad (argv[1], addr, 0);
 
     if (argc > 3)
-        disasm.unasmReadText (argv[3]);
+        disasm.unasm.readText (argv[3]);
 
     pc = addr;
     // outputLevel = LVL_UNASM;
 
+    printf ("loop %x to %x\n", pc, addr+len);
     while (pc < addr+len)
     {
         uint16_t data = memReadW (pc);
         pc += 2;
         uint16_t type;
         uint16_t opcode = disasm.decode (data, &type);
-        uint16_t paramWords = disasm.unasmPreExec (pc, data, type, opcode);
+        uint16_t paramWords = disasm.unasm.preExec (pc, data, type, opcode);
 
-        disasm.unasmPostPrint ();
-        // printf ("\n");
+        std::cout << disasm.unasm.getOutput () << std::endl;
+        disasm.unasm.clearOutput();
 
         while (paramWords)
         {
@@ -78,5 +79,4 @@ int main (int argc, char *argv[])
 
     return 0;
 }
-
 

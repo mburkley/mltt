@@ -314,8 +314,8 @@ uint16_t Unasm::preExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opc
     int dMode = 0;
     uint16_t pcStart = pc;
 
-    if (outputLevel < 2)
-        return 0;
+    // if (outputLevel < 2)
+    //     return 0;
 
     if (_covered[pc>>1])
     {

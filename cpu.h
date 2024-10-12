@@ -155,7 +155,7 @@ private:
     virtual void _debug (const char *s, ...) {}
 
     /*  Optional disassembly hooks */
-    virtual void _unasmPostText (const char *s, ...) {}
+    virtual void _unasmPostExec (const char *s, ...) {}
     virtual uint16_t _unasmPreExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcode) { return 0; }
     virtual void _unasmPostPrint (void) {}
 
