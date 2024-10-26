@@ -35,9 +35,7 @@
 #include "types.h"
 #include "cpu.h"
 #include "mem.h"
-#include "trace.h"
 #include "parse.h"
-#include "ti994a.h"
 #include "unasm.h"
 
 Unasm::Unasm()
@@ -55,6 +53,7 @@ std::string Unasm::_align (const char *msg, int width)
     return std::string (s);
 }
 
+// TODO move commenting out of unasm - not needed for temu
 const char *Unasm::_parseComment (char type, int *len)
 {
     const char *next;

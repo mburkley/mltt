@@ -1043,3 +1043,8 @@ void TMS9900::boot (void)
     _blwp (0x0);
 }
 
+void TMS9900::branch (uint16_t addr)
+{
+    _pc = addr;
+}
+

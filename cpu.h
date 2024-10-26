@@ -140,6 +140,7 @@ public:
     uint16_t getIntMask (void) { return _st & FLAG_MSK; }
     void interrupt (int level);
     void boot (void);
+    void branch (uint16_t addr);
 private:
     uint16_t _pc;
     uint16_t _wp;
