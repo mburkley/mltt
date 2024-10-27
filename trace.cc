@@ -25,7 +25,7 @@
 #include <stdarg.h>
 
 #include "trace.h"
-#include "vdp.h"
+// #include "vdp.h"
 
 int outputLevel;
 
@@ -35,7 +35,7 @@ int mprintf (int level, const char *s, ...)
 
     va_start (ap, s);
 
-    if (level & outputLevel)
+    if (!level || level & outputLevel)
         vprintf (s, ap);
 
     va_end (ap);

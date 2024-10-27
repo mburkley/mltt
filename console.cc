@@ -66,6 +66,9 @@ static int instPerInterrupt;
 static bool statusPane;
 static int pixelSize = 4;
 
+// extern TMS9900 cpu;
+static TI994A ti994a;
+
 static void sigHandler (int signo)
 {
     int i;
@@ -85,8 +88,7 @@ static void sigHandler (int signo)
     /*  If CTRL-C then stop running and return to console */
     case SIGINT:
         printf("Set run flag to zero\n");
-        extern bool ti994aRunFlag;
-        ti994aRunFlag = false;
+        ti994a.clearRunFlag ();
         break;
 
     case SIGSEGV:
@@ -193,11 +195,11 @@ bool consolePeek (int argc, char *argv[])
     bool vdp = false;
 
     if (!strncmp (argv[1], "cpu", strlen(argv[1])))
-        cpuShowStatus();
+        ti994a.showStatus();
     else if (!strncmp (argv[1], "pad", strlen(argv[1])))
-        ti994aShowScratchPad (false);
+        ti994a.showScratchPad (false);
     else if (!strncmp (argv[1], "padgpl", strlen(argv[1])))
-        ti994aShowScratchPad (true);
+        ti994a.showScratchPad (true);
     else if (!strncmp (argv[1], "mem", strlen(argv[1])))
         memory = true;
     else if (!strncmp (argv[1], "grom", strlen(argv[1])))
@@ -305,7 +307,7 @@ bool consolePoke (int argc, char *argv[])
 bool consoleGo (int argc, char *argv[])
 {
     printf ("Running\n");
-    ti994aRun (instPerInterrupt);
+    ti994a.run (instPerInterrupt);
 
     return true;
 }
@@ -320,7 +322,7 @@ bool consoleReadInput (int argc, char *argv[])
 
 bool consoleBoot (int argc, char *argv[])
 {
-    cpuBoot ();
+    ti994a.boot ();
 
     return true;
 }
@@ -331,7 +333,7 @@ bool consoleUnassemble (int argc, char *argv[])
     {
         if (!strncmp (argv[1], "covered", strlen(argv[1])))
         {
-            unasmOutputUncovered (true);
+            ti994a.unasm.outputUncovered (true);
             mprintf (0, "Uncovered code only will be unassembled\n");
         }
         else
@@ -344,7 +346,7 @@ bool consoleUnassemble (int argc, char *argv[])
 bool consoleComments (int argc, char *argv[])
 {
     printf ("Reading code comments from '%s'\n", argv[1]);
-    unasmReadText (argv[1]);
+    ti994a.unasm.readCodeComments (argv[1]);
 
     return true;
 }
@@ -659,10 +661,11 @@ static void input (FILE *fp)
 
     argc = parseLine (line, argv);
 
+    // Single step?
     if (fp == NULL && argc == 0)
     {
-        cpuExecute (cpuFetch());
-        cpuShowStatus ();
+        ti994a.execute (ti994a.fetch());
+        ti994a.showStatus ();
         gromShowStatus ();
         return;
     }
@@ -740,7 +743,7 @@ int main (int argc, char *argv[])
         exit (1);
     }
 
-    ti994aInit ();
+    ti994a.init ();
 
     while (!ti994aQuitFlag)
     {
@@ -765,7 +768,7 @@ int main (int argc, char *argv[])
         }
     }
 
-    ti994aClose ();
+    ti994a.close ();
 
     return 0;
 }

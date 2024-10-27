@@ -22,22 +22,20 @@
 
 /*
  *  disasm.c  - standalone TMS9900 disassembler.
- *
  */
 
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "trace.h"
+#include "mltt-disasm.h"
 #include "parse.h"
-#include "unasm.h"
-#include "mem.h"
-#include "cpu.h"
 
 int main (int argc, char *argv[])
 {
     int addr;
     uint16_t pc;
+    Disasm disasm;
 
     if (argc < 3 || !parseValue (argv[2], &addr))
     {
@@ -48,21 +46,22 @@ int main (int argc, char *argv[])
     int len = memLoad (argv[1], addr, 0);
 
     if (argc > 3)
-        unasmReadText (argv[3]);
+        disasm.unasm.readCodeComments (argv[3]);
 
     pc = addr;
-    outputLevel = LVL_UNASM;
 
+    printf ("loop %x to %x\n", pc, addr+len);
     while (pc < addr+len)
     {
         uint16_t data = memReadW (pc);
         pc += 2;
         uint16_t type;
-        uint16_t opcode = cpuDecode (data, &type);
-        uint16_t paramWords = unasmPreExec (pc, data, type, opcode);
+        uint16_t opcode = disasm.decode (data, &type);
+        uint16_t paramWords = disasm.unasm.preExec (pc, data, type, opcode);
 
-        unasmPostPrint ();
-        // printf ("\n");
+        disasm.unasm.endLine();
+        std::cout << disasm.unasm.getOutput (); // << std::endl;
+        disasm.unasm.clearOutput();
 
         while (paramWords)
         {
@@ -75,5 +74,4 @@ int main (int argc, char *argv[])
 
     return 0;
 }
-
 

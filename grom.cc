@@ -62,7 +62,8 @@ uint16_t gromRead (uint8_t *ptr, uint16_t addr, int size)
                  (unsigned) gRom.addr,
                  (unsigned) result);
 
-        gplDisassemble (gRom.addr, result);
+        //  TODO disabled for now.  GPL disassembly requires the CPU PC which is not available here
+        // gplDisassemble (gRom.addr, result);
         gRom.addr++;
 
         return result;

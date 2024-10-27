@@ -8,7 +8,8 @@
 # load ../roms/froggerc.bin 0x6000
 # grom ../roms/froggerg.bin 0x6000
 # diskfile 3 test.dsk RW
-diskfile 3 edasm.dsk RW
+# diskfile 3 edasm.dsk RW
+load ../roms/T.E.R.O..bin 0x6000
 # TMP AREA
 
 # Uncomment this to capture ctrl-c (SIGINT) and return to consol debugger
@@ -43,10 +44,10 @@ disk ../roms/disk.bin
 # diskfile 1 ../disks/blankdsdd.dsk
 # diskfile 1 ../disks/mark.dsk
 # diskfile 2 ../disks/Miscellaneous.tidisk
-diskfile 1 ../disks/EdAsmA.dsk RO
+# diskfile 1 ../disks/EdAsmA.dsk RO
 # diskfile 1 ./disk.dsk RW
 # diskfile 2 ./test.dsk RW
-diskfile 2 ../disks/EdAsmB.dsk RO
+# diskfile 2 ../disks/EdAsmB.dsk RO
 # diskdir 3 DISKDIR RW
 # diskdir 3 diskzap RW
 # diskfile 3 tmp.dsk RW
@@ -138,9 +139,9 @@ diskfile 2 ../disks/EdAsmB.dsk RO
 #
 #  Extended Basic
 #
-load ../roms/TIExtBC.Bin 0x6000
-load ../roms/TIExtBD.Bin 0x6000 1
-grom ../roms/TIExtBG.Bin 0x6000
+# load ../roms/TIExtBC.Bin 0x6000
+# load ../roms/TIExtBD.Bin 0x6000 1
+# grom ../roms/TIExtBG.Bin 0x6000
 # load ../roms/XB25C.BIN 0x6000
 # load ../roms/XB25D.BIN 0x6000 1
 # grom ../roms/XB25G.BIN 0x6000
@@ -163,7 +164,7 @@ keyboard
 # 0400=gpl debug         - show debug of GPL disassembly
 # 0800=cassette          - show cassette debug
 # 1000=disk              - show disk debug
-level 0x0080
+# level 0x0050
 
 # Initialise the CPU
 boot

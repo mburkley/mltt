@@ -299,6 +299,7 @@ int memLoad (char *file, uint16_t addr, int bank)
 
     printf("%s %s %x %x %d\n", __func__, file, addr, len, bank);
 
+    int count = 0;
     int max = 0;
     uint8_t *data;
 
@@ -338,7 +339,8 @@ int memLoad (char *file, uint16_t addr, int bank)
             halt ("ROM file read failure");
         }
 
-        len -= target;
+        count += got;
+        len -= got;
 
         if (addr == 0x6000)
         {
@@ -351,7 +353,7 @@ int memLoad (char *file, uint16_t addr, int bank)
     }
 
     fclose (fp);
-    return len;
+    return count;
 }
 
 /*  Mmap a file into the region 0x7000 to 0x7FFF to emulate minimemory */
