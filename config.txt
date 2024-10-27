@@ -9,6 +9,7 @@
 # grom ../roms/froggerg.bin 0x6000
 # diskfile 3 test.dsk RW
 # diskfile 3 edasm.dsk RW
+load ../roms/T.E.R.O..bin 0x6000
 # TMP AREA
 
 # Uncomment this to capture ctrl-c (SIGINT) and return to consol debugger
@@ -25,7 +26,7 @@ load ../roms/994arom.bin 0x0000
 grom ../roms/994agrom.bin 0x0000
 
 # load my ROM
-load /home/mark/tms9900-gcc/test/test.bin 0x6000
+# load /home/mark/tms9900-gcc/test/test.bin 0x6000
 # load ../CROSS-LIB/build/XSTINGER1 0x6000
 
 # Enable DSK
@@ -163,7 +164,7 @@ keyboard
 # 0400=gpl debug         - show debug of GPL disassembly
 # 0800=cassette          - show cassette debug
 # 1000=disk              - show disk debug
-level 0x0050
+# level 0x0050
 
 # Initialise the CPU
 boot

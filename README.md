@@ -74,6 +74,7 @@ Release Notes
 
 version 0.94
 * Fixed disassemble command
+* CPU is now an abstract virtual class with no dependencies
 
 version 0.93
 * Added new methods to cassette WAV read to detect and correct more errors
