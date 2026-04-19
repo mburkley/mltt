@@ -1,0 +1,66 @@
+/*
+ * Copyright (c) 2004-2024 Mark Burkley.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+#ifndef __DISASM_H
+#define __DISASM_H
+
+#include <stdarg.h>
+
+#include "cpu.h"
+#include "mem.h"
+#include "unasm.h"
+
+class Disasm:public TMS9900
+{
+public:
+    Unasm unasm;
+    void run (int instPerInterrupt);
+    void init (void);
+    void close (void);
+    void showScratchPad (bool showGplUsage);
+    // void timerInterrupt (void);
+    void clearRunFlag () { _runFlag = false; }
+    // void unasmOutputUncovered (bool flag) { _unasm.outputUncovered (flag); }
+    // void unasmReadText (const char *textFile) { _unasm.readText (textFile); }
+private:
+    bool _runFlag;
+    uint16_t _memReadW (uint16_t addr) { return memReadW (addr); }
+    uint8_t _memReadB (uint16_t addr) { return memReadB (addr); }
+    void _memWriteW (uint16_t addr, uint16_t data) { memWriteW (addr, data); }
+    void _memWriteB (uint16_t addr, uint8_t data) { memWriteB (addr, data); }
+
+    void _unasmPostExec (const char *fmt, ...)
+    {
+        va_list ap;
+
+        va_start (ap, fmt);
+        unasm.vPostExec (fmt, ap);
+        va_end (ap);
+    }
+
+    uint16_t _unasmPreExec (uint16_t pc, uint16_t data, uint16_t type, uint16_t opcode)
+    { return unasm.preExec (pc, data, type, opcode ); }
+    // void _unasmPostPrint (void) { unasm.postPrint(); }
+};
+
+#endif
+
